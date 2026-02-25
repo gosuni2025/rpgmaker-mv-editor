@@ -76,6 +76,8 @@ export interface EditorState {
   uiSkinCursorToneB: number;     // 색조 B (-255~255)
   uiSkinsReloadToken: number;  // 증가하면 스킨 목록 강제 리로드
   uiSkinUndoStack: UiSkinUndoEntry[];
+  uiOverrideUndoStack: Record<string, UIWindowOverride>[];
+  uiOverrideRedoStack: Record<string, UIWindowOverride>[];
   uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
   uiShowSkinLabels: boolean;    // 프레임 캔버스 영역 라벨 표시 여부
   uiShowCheckerboard: boolean;  // 프레임 캔버스 투명 체크보드 표시 여부
@@ -229,7 +231,7 @@ export interface EditorState {
   resetUiEditorOverride: (className: string) => void;
   loadUiEditorOverrides: (overrides: Record<string, UIWindowOverride>) => void;
   setUiEditorDirty: (dirty: boolean) => void;
-  setUiEditSubMode: (mode: 'window' | 'frame') => void;
+  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor') => void;
   setUiSelectedSkin: (skin: string) => void;
   setUiSelectedSkinFile: (file: string) => void;
   setUiSkinCornerSize: (size: number) => void;
@@ -247,6 +249,9 @@ export interface EditorState {
   triggerSkinsReload: () => void;
   pushUiSkinUndo: () => void;
   undoUiSkin: () => void;
+  pushUiOverrideUndo: () => void;
+  undoUiOverride: () => void;
+  redoUiOverride: () => void;
   setUiEditorSelectedElementType: (type: string | null) => void;
   setUiElementOverride: (className: string, elementType: string, prop: string, value: unknown) => void;
   setUiShowSkinLabels: (show: boolean) => void;

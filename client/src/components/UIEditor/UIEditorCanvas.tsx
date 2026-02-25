@@ -70,6 +70,9 @@ export default function UIEditorCanvas() {
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
   const loadUiEditorOverrides = useEditorStore((s) => s.loadUiEditorOverrides);
   const setUiEditorSelectedElementType = useEditorStore((s) => s.setUiEditorSelectedElementType);
+  const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
+  const undoUiOverride = useEditorStore((s) => s.undoUiOverride);
+  const redoUiOverride = useEditorStore((s) => s.redoUiOverride);
 
   // Layout 계산 (ResizeObserver)
   useEffect(() => {
@@ -218,6 +221,7 @@ export default function UIEditorCanvas() {
   const handleWindowMouseDown = useCallback((e: React.MouseEvent, win: UIWindowInfo) => {
     e.stopPropagation();
     e.preventDefault();
+    pushUiOverrideUndo();
     setUiEditorSelectedWindowId(win.id);
     setDragState({
       windowId: win.id,
@@ -227,13 +231,14 @@ export default function UIEditorCanvas() {
       startClientY: e.clientY,
       startWin: { x: win.x, y: win.y, width: win.width, height: win.height },
     });
-  }, [setUiEditorSelectedWindowId]);
+  }, [setUiEditorSelectedWindowId, pushUiOverrideUndo]);
 
   const handleResizeMouseDown = useCallback((
     e: React.MouseEvent, win: UIWindowInfo, dir: HandleDir
   ) => {
     e.stopPropagation();
     e.preventDefault();
+    pushUiOverrideUndo();
     setDragState({
       windowId: win.id,
       className: win.className,
@@ -242,7 +247,19 @@ export default function UIEditorCanvas() {
       startClientY: e.clientY,
       startWin: { x: win.x, y: win.y, width: win.width, height: win.height },
     });
-  }, []);
+  }, [pushUiOverrideUndo]);
+
+  // Cmd+Z / Cmd+Shift+Z undo/redo
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) redoUiOverride();
+      else undoUiOverride();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [undoUiOverride, redoUiOverride]);
 
   const handleRefresh = useCallback(() => {
     setUiEditorIframeReady(false);

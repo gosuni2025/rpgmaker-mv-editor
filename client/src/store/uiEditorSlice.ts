@@ -1,6 +1,22 @@
 import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from './types';
 import { TOOLBAR_STORAGE_KEY } from './types';
 
+/** undo/redo 후 iframe에 전체 override 상태를 재적용 (씬 새로고침으로 처리) */
+function _syncOverridesToIframe(overrides: Record<string, UIWindowOverride>) {
+  const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+  if (!iframe?.contentWindow) return;
+  // clearRuntimeOverride로 전체 초기화 후 applyOverride로 재적용
+  iframe.contentWindow.postMessage({ type: 'clearAllRuntimeOverrides' }, '*');
+  Object.values(overrides).forEach((ov) => {
+    Object.entries(ov).forEach(([prop, value]) => {
+      if (prop === 'className') return;
+      iframe.contentWindow!.postMessage(
+        { type: 'applyOverride', className: ov.className, prop, value }, '*'
+      );
+    });
+  });
+}
+
 function saveToolbarKeys(keys: Partial<Record<string, unknown>>) {
   try {
     const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
@@ -18,13 +34,14 @@ function calcCenterFill(frameX: number, frameY: number, frameW: number, frameH: 
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' | 'uiEditorOriginalWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiEditorSelectedElementType' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
   'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'setUiSkinCursorRenderMode' | 'setUiSkinCursorBlendMode' | 'setUiSkinCursorOpacity' | 'setUiSkinCursorBlink' | 'setUiSkinCursorPadding' | 'setUiSkinCursorTone' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
-  'setUiEditorSelectedElementType' | 'setUiElementOverride'
+  'setUiEditorSelectedElementType' | 'setUiElementOverride' |
+  'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride'
 >> = (set) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -62,6 +79,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiSkinCursorToneB: 0,
   uiSkinsReloadToken: 0,
   uiSkinUndoStack: [],
+  uiOverrideUndoStack: [],
+  uiOverrideRedoStack: [],
   uiShowSkinLabels: false,
   uiShowCheckerboard: false,
   uiShowRegionOverlay: false,
@@ -179,6 +198,38 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       uiEditorDirty: true,
     };
   }),
+  pushUiOverrideUndo: () => set((state) => ({
+    uiOverrideUndoStack: [...state.uiOverrideUndoStack, state.uiEditorOverrides].slice(-50),
+    uiOverrideRedoStack: [],
+  })),
+  undoUiOverride: () => {
+    set((state) => {
+      const stack = state.uiOverrideUndoStack;
+      if (stack.length === 0) return {};
+      const prev = stack[stack.length - 1];
+      _syncOverridesToIframe(prev);
+      return {
+        uiOverrideUndoStack: stack.slice(0, -1),
+        uiOverrideRedoStack: [...state.uiOverrideRedoStack, state.uiEditorOverrides].slice(-50),
+        uiEditorOverrides: prev,
+        uiEditorDirty: true,
+      };
+    });
+  },
+  redoUiOverride: () => {
+    set((state) => {
+      const stack = state.uiOverrideRedoStack;
+      if (stack.length === 0) return {};
+      const next = stack[stack.length - 1];
+      _syncOverridesToIframe(next);
+      return {
+        uiOverrideRedoStack: stack.slice(0, -1),
+        uiOverrideUndoStack: [...state.uiOverrideUndoStack, state.uiEditorOverrides].slice(-50),
+        uiEditorOverrides: next,
+        uiEditorDirty: true,
+      };
+    });
+  },
   setUiShowSkinLabels: (show) => { saveToolbarKeys({ uiShowSkinLabels: show }); set({ uiShowSkinLabels: show }); },
   setUiShowCheckerboard: (show) => { saveToolbarKeys({ uiShowCheckerboard: show }); set({ uiShowCheckerboard: show }); },
   setUiShowRegionOverlay: (show) => { saveToolbarKeys({ uiShowRegionOverlay: show }); set({ uiShowRegionOverlay: show }); },

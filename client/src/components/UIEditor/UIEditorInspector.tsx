@@ -216,6 +216,7 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
   override: UIWindowOverride | null;
   setMeta: (prop: keyof Omit<UIWindowOverride, 'className' | 'elements'>, value: unknown) => void;
 }) {
+  const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
   const effects = override?.[fieldKey] ?? [];
   const [addOpen, setAddOpen] = useState(false);
   const effectLabels = fieldKey === 'exits' ? EXIT_EFFECT_LABELS : EFFECT_LABELS;
@@ -306,15 +307,18 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="지속 (ms)" value={eff.duration} min={50} max={3000}
+                onDragStart={() => pushUiOverrideUndo()}
                 onChange={(v) => updateEffect(idx, { duration: Math.round(v) })} />
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="딜레이 (ms)" value={eff.delay ?? 0} min={0} max={3000}
+                onDragStart={() => pushUiOverrideUndo()}
                 onChange={(v) => updateEffect(idx, { delay: Math.round(v) })} />
             </div>
             {(eff.type === 'zoom' || eff.type === 'bounce') && (
               <div className="ui-inspector-row">
                 <DragLabel label="시작 크기" value={Math.round((eff.fromScale ?? 0) * 100)} min={0} max={200}
+                  onDragStart={() => pushUiOverrideUndo()}
                   onChange={(v) => updateEffect(idx, { fromScale: v / 100 })} />
                 <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>%</span>
               </div>
@@ -322,6 +326,7 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
             {(eff.type === 'rotate' || eff.type === 'rotateX' || eff.type === 'rotateY') && (
               <div className="ui-inspector-row">
                 <DragLabel label="각도" value={eff.fromAngle ?? (eff.type === 'rotate' ? 180 : 90)} min={-720} max={720}
+                  onDragStart={() => pushUiOverrideUndo()}
                   onChange={(v) => updateEffect(idx, { fromAngle: Math.round(v) })} />
                 <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
               </div>
@@ -341,6 +346,8 @@ function WindowInspector({ selectedWindow, override }: {
 }) {
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
+  const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
+  const pu = useCallback(() => pushUiOverrideUndo(), [pushUiOverrideUndo]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
@@ -490,15 +497,15 @@ function WindowInspector({ selectedWindow, override }: {
             <div className="ui-inspector-section-title" style={{ marginTop: 6 }}>색조 (R / G / B)</div>
             <div className="ui-inspector-row">
               <DragLabel label="R" value={colorTone[0]} min={-255} max={255}
-                onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])} />
+                onDragStart={pu} onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])} />
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="G" value={colorTone[1]} min={-255} max={255}
-                onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])} />
+                onDragStart={pu} onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])} />
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="B" value={colorTone[2]} min={-255} max={255}
-                onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])} />
+                onDragStart={pu} onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])} />
             </div>
           </div>
         )}
@@ -575,30 +582,30 @@ function WindowInspector({ selectedWindow, override }: {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">위치 / 크기</div>
           <div className="ui-inspector-row">
-            <DragLabel label="X" value={x} onChange={(v) => set('x', Math.round(v))} />
+            <DragLabel label="X" value={x} onDragStart={pu} onChange={(v) => set('x', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="Y" value={y} onChange={(v) => set('y', Math.round(v))} />
+            <DragLabel label="Y" value={y} onDragStart={pu} onChange={(v) => set('y', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="너비" value={width} min={32} onChange={(v) => set('width', Math.round(v))} />
+            <DragLabel label="너비" value={width} min={32} onDragStart={pu} onChange={(v) => set('width', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="높이" value={height} min={32} onChange={(v) => set('height', Math.round(v))} />
+            <DragLabel label="높이" value={height} min={32} onDragStart={pu} onChange={(v) => set('height', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
             <DragLabel label="회전 X" value={override?.rotationX ?? 0} min={-180} max={180}
-              onChange={(v) => set('rotationX', Math.round(v * 10) / 10)} />
+              onDragStart={pu} onChange={(v) => set('rotationX', Math.round(v * 10) / 10)} />
             <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
           </div>
           <div className="ui-inspector-row">
             <DragLabel label="회전 Y" value={override?.rotationY ?? 0} min={-180} max={180}
-              onChange={(v) => set('rotationY', Math.round(v * 10) / 10)} />
+              onDragStart={pu} onChange={(v) => set('rotationY', Math.round(v * 10) / 10)} />
             <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
           </div>
           <div className="ui-inspector-row">
             <DragLabel label="회전 Z" value={override?.rotationZ ?? 0} min={-180} max={180}
-              onChange={(v) => set('rotationZ', Math.round(v * 10) / 10)} />
+              onDragStart={pu} onChange={(v) => set('rotationZ', Math.round(v * 10) / 10)} />
             <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
           </div>
           <div className="ui-inspector-row" style={{ gap: 4 }}>
@@ -649,20 +656,20 @@ function WindowInspector({ selectedWindow, override }: {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">투명도</div>
           <div className="ui-inspector-row">
-            <DragLabel label="창 투명도" value={opacity} min={0} max={255} onChange={(v) => set('opacity', Math.round(v))} />
+            <DragLabel label="창 투명도" value={opacity} min={0} max={255} onDragStart={pu} onChange={(v) => set('opacity', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="배경 투명도" value={backOpacity} min={0} max={255} onChange={(v) => set('backOpacity', Math.round(v))} />
+            <DragLabel label="배경 투명도" value={backOpacity} min={0} max={255} onDragStart={pu} onChange={(v) => set('backOpacity', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="패딩" value={padding} min={0} max={64} onChange={(v) => set('padding', Math.round(v))} />
+            <DragLabel label="패딩" value={padding} min={0} max={64} onDragStart={pu} onChange={(v) => set('padding', Math.round(v))} />
           </div>
         </div>
 
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">폰트</div>
           <div className="ui-inspector-row">
-            <DragLabel label="크기" value={fontSize} min={8} max={72} onChange={(v) => set('fontSize', Math.round(v))} />
+            <DragLabel label="크기" value={fontSize} min={8} max={72} onDragStart={pu} onChange={(v) => set('fontSize', Math.round(v))} />
           </div>
         </div>
 
@@ -671,15 +678,15 @@ function WindowInspector({ selectedWindow, override }: {
             <div className="ui-inspector-section-title">색조 (R / G / B)</div>
             <div className="ui-inspector-row">
               <DragLabel label="R" value={colorTone[0]} min={-255} max={255}
-                onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])} />
+                onDragStart={pu} onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])} />
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="G" value={colorTone[1]} min={-255} max={255}
-                onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])} />
+                onDragStart={pu} onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])} />
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="B" value={colorTone[2]} min={-255} max={255}
-                onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])} />
+                onDragStart={pu} onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])} />
             </div>
           </div>
         )}

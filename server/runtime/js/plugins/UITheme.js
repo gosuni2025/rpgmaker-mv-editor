@@ -450,6 +450,11 @@
     delete _ov[className];
   };
 
+  /** 모든 _ov 항목 삭제 (undo/redo 재적용 전 초기화용) */
+  window._uiThemeClearAllOv = function() {
+    Object.keys(_ov).forEach(function(k) { delete _ov[k]; });
+  };
+
   /** 클래스 내 요소 오버라이드 취득 */
   function getElem(className, elemType) {
     var classOv = _ov[className];

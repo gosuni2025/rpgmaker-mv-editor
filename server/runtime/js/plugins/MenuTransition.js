@@ -6,12 +6,10 @@
  * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 배경이 부드럽게 블러+페이드됩니다.
  *
  * 렌더링 방식:
- *   - SceneManager.changeScene에서 이전 씬(Map/Battle)이 terminate되기 직전
- *     마지막 프레임을 captureRT에 스냅샷으로 저장
+ *   - SceneManager.push 직후 다음 renderScene에서 맵을 정상 렌더한 뒤
+ *     main framebuffer를 copyFramebufferToTexture로 captureRT에 복사
  *   - 이후 메뉴 씬에서는 저장된 스냅샷을 배경으로, 현재 씬(메뉴 UI)을
  *     autoClear=false 로 그 위에 렌더링
- *
- * 메뉴 기간 중 맵은 어차피 업데이트 정지 상태이므로 스냅샷으로 충분함.
  *
  * === 효과 종류 (effect) ===
  *   blur+overlay   : 가우시안 블러 + 어두운 오버레이 (기본값)
@@ -148,7 +146,7 @@
     // 최종 합성: 배경 + 오버레이
     var _COMPOSITE_FS = [
         'uniform sampler2D tDiffuse;',
-        'uniform float overlayAlpha;',  // 0-1
+        'uniform float overlayAlpha;',
         'uniform vec3 overlayColor;',
         'varying vec2 vUv;',
         'void main() {',
@@ -158,18 +156,18 @@
         '}'
     ].join('\n');
 
-    // ── 상태 ────────────────────────────────────────────────────────────────
-
-    var _hookInstalled   = false;
-    var _origRSRender    = null;
+    // ── 상태 ─────────────────────────────────────────────────────────────────
 
     var _MT_phase        = 0;   // 0=비활성, 1=열기, 2=열림, 3=닫기
-    var _MT_startTime    = 0;
     var _MT_t            = 0;
+    var _MT_startTime    = 0;
+    var _MT_durationMs   = 0;
     var _MT_closeCb      = null;
+    var _MT_animRafId    = null;
 
-    var _MT_bgSprite     = null;    // Scene_MenuBase._backgroundSprite
-    var _MT_snapshotReady = false;  // captureRT에 스냅샷 있음
+    var _MT_bgSprite      = null;
+    var _MT_captureNext   = false;  // true이면 다음 렌더 시 main framebuffer 복사
+    var _MT_snapshotReady = false;  // captureRT에 유효한 스냅샷 있음
     var _MT_blurDone      = false;  // outputRT에 블러 결과 있음
 
     // Three.js 리소스
@@ -289,147 +287,98 @@
         _MT_fsq.render(renderer);
     }
 
-    // ── 이전 씬 스냅샷 캡처 ──────────────────────────────────────────────────
-    // changeScene에서 terminate 직전 호출. 이때 scene은 아직 Three.js 오브젝트 유효.
+    // ── RendererStrategy.render 훅 (플러그인 로드 시 즉시 설치) ──────────────
 
-    function MT_takeSnapshot(scene) {
-        var rendererObj = Graphics._renderer;
-        if (!rendererObj || !rendererObj.renderer) {
-            console.warn('[MenuTransition] MT_takeSnapshot: 렌더러 없음');
-            return;
-        }
-        var renderer = rendererObj.renderer;
-        var w = rendererObj._width || Graphics.width;
-        var h = rendererObj._height || Graphics.height;
-        MT_initResources(renderer, w, h);
+    var _origRSRender = RendererStrategy.render;
 
-        // 디버그: Three.js scene 상태 확인
-        var threeScene = rendererObj.scene;
-        console.log('[MT] rendererObj.scene children:', threeScene ? threeScene.children.length : 'N/A');
-        console.log('[MT] scene._stageObj:', threeScene && threeScene._stageObj ? threeScene._stageObj.constructor.name : 'null');
-        console.log('[MT] scene._threeObj:', scene._threeObj ? 'exists' : 'null');
-        if (scene._threeObj) {
-            console.log('[MT] scene._threeObj.parent === rendererObj.scene?', scene._threeObj.parent === threeScene);
-            console.log('[MT] scene._threeObj.children.length:', scene._threeObj.children ? scene._threeObj.children.length : 'N/A');
-        }
+    RendererStrategy.render = function (rendererObj, stage) {
 
-        // 이전 씬을 captureRT에 직접 렌더
-        renderer.setRenderTarget(_MT_captureRT);
-        renderer.clear();
-        // hook 설치 전일 수도 있으므로 원본 render 함수 사용
-        var renderFn = _origRSRender || RendererStrategy.render;
-        renderFn.call(RendererStrategy, rendererObj, scene);
-        renderer.setRenderTarget(null);
+        // ── 캡처 플래그: 이번 프레임 맵을 정상 렌더 후 main framebuffer 복사 ──
+        if (_MT_captureNext) {
+            _MT_captureNext = false;
 
-        _MT_snapshotReady = true;
-        _MT_blurDone = false;  // 새 스냅샷이므로 블러 재계산 필요
-        console.log('[MenuTransition] 스냅샷 완료:', scene.constructor.name, w + 'x' + h);
+            // 맵을 main framebuffer에 정상 렌더
+            _origRSRender.call(this, rendererObj, stage);
 
-        // ── 스냅샷을 PNG로 서버에 저장 (디버그용) ────────────────────────
-        try {
-            var pixels = new Uint8Array(w * h * 4);
-            renderer.readRenderTargetPixels(_MT_captureRT, 0, 0, w, h, pixels);
-            var cv = document.createElement('canvas');
-            cv.width = w; cv.height = h;
-            var cx = cv.getContext('2d');
-            var id = cx.createImageData(w, h);
-            // WebGL은 Y-아래→위 순서이므로 뒤집기
-            for (var iy = 0; iy < h; iy++) {
-                var srcY = h - 1 - iy;
-                for (var ix = 0; ix < w; ix++) {
-                    var si = (srcY * w + ix) * 4;
-                    var di = (iy * w + ix) * 4;
-                    id.data[di]     = pixels[si];
-                    id.data[di + 1] = pixels[si + 1];
-                    id.data[di + 2] = pixels[si + 2];
-                    id.data[di + 3] = 255;  // alpha 강제 불투명 (게임 렌더는 alpha=0)
+            // main framebuffer → captureRT (copyFramebufferToTexture)
+            var renderer = rendererObj && rendererObj.renderer;
+            if (renderer) {
+                var w = rendererObj._width || Graphics.width;
+                var h = rendererObj._height || Graphics.height;
+                MT_initResources(renderer, w, h);
+                renderer.setRenderTarget(null);
+                try {
+                    // Three.js 새 API: copyFramebufferToTexture(texture, position?, level?)
+                    renderer.copyFramebufferToTexture(_MT_captureRT.texture);
+                    _MT_snapshotReady = true;
+                    _MT_blurDone = false;
+                } catch (e) {
+                    console.warn('[MenuTransition] copyFramebufferToTexture 실패:', e);
+                    _MT_snapshotReady = false;
                 }
             }
-            cx.putImageData(id, 0, 0);
-            var pngData = cv.toDataURL('image/png');
-            fetch('http://localhost:3001/api/debug/save-snapshot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: pngData })
-            }).then(function (r) { return r.json(); })
-              .then(function (j) { console.log('[MenuTransition] PNG 저장:', j.path); })
-              .catch(function (e) { console.warn('[MenuTransition] PNG 저장 실패:', e); });
-        } catch (e) {
-            console.warn('[MenuTransition] PNG 내보내기 실패:', e);
+            return;
         }
-    }
 
-    // ── SceneManager.push 오버라이드 (스냅샷 타이밍) ───────────────────────
-    // push 직전: 아직 stop()도 페이드 아웃도 시작 전 → 맵이 최신 상태
+        // ── 메뉴 전환 효과 비활성 시 → 그냥 렌더 ───────────────────────────
+        if (_MT_phase === 0 || _MT_t <= 0 || !_MT_snapshotReady) {
+            _origRSRender.call(this, rendererObj, stage);
+            return;
+        }
+
+        var renderer = rendererObj && rendererObj.renderer;
+        if (!renderer) {
+            _origRSRender.call(this, rendererObj, stage);
+            return;
+        }
+
+        var w = rendererObj._width;
+        var h = rendererObj._height;
+        MT_initResources(renderer, w, h);
+
+        // ── Step 1: captureRT → outputRT (블러는 최초 1회만) ────────────────
+        if (!_MT_blurDone) {
+            _MT_blurDone = true;
+            var useBlur = Cfg.blur > 0 && Cfg.effect !== 'overlayOnly';
+            if (useBlur) {
+                MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
+            } else {
+                _MT_copyMat.uniforms.tDiffuse.value = _MT_captureRT.texture;
+                _MT_fsq.material = _MT_copyMat;
+                renderer.setRenderTarget(_MT_outputRT);
+                renderer.clear();
+                _MT_fsq.render(renderer);
+            }
+        }
+
+        // ── Step 2: 처리된 배경 + 오버레이 → 화면 ──────────────────────────
+        var t  = _MT_t;
+        var oa = (Cfg.effect === 'blurOnly') ? 0 : (Cfg.overlayAlpha / 255 * t);
+        _MT_compMat.uniforms.tDiffuse.value     = _MT_outputRT.texture;
+        _MT_compMat.uniforms.overlayAlpha.value = oa;
+        _MT_fsq.material = _MT_compMat;
+        renderer.setRenderTarget(null);
+        renderer.clear();
+        _MT_fsq.render(renderer);
+
+        // ── Step 3: 현재 씬(메뉴 UI) — autoClear=false 로 배경 위에 ─────────
+        renderer.autoClear = false;
+        _origRSRender.call(this, rendererObj, stage);
+        renderer.autoClear = true;
+    };
+
+    // ── SceneManager.push 오버라이드 (캡처 플래그 설정) ──────────────────────
+    // push 직후 renderScene에서 맵이 정상 렌더된 뒤 캡처
 
     var _origSMPush = SceneManager.push;
     SceneManager.push = function (sceneClass) {
-        // 메뉴 씬으로 전환 시, 현재 씬(맵/배틀)을 스냅샷 찍기
         if (this._scene && !(this._scene instanceof Scene_MenuBase) && !_MT_snapshotReady) {
-            MT_takeSnapshot(this._scene);
+            _MT_captureNext = true;
         }
         _origSMPush.call(this, sceneClass);
     };
 
-    // ── RendererStrategy.render 후킹 ─────────────────────────────────────────
-
-    function MT_installHook() {
-        if (_hookInstalled) return;
-        _hookInstalled = true;
-
-        _origRSRender = RendererStrategy.render;
-        RendererStrategy.render = function (rendererObj, stage) {
-            if (_MT_phase === 0 || _MT_t <= 0 || !_MT_snapshotReady) {
-                _origRSRender.call(this, rendererObj, stage);
-                return;
-            }
-
-            var renderer = rendererObj && rendererObj.renderer;
-            if (!renderer) {
-                _origRSRender.call(this, rendererObj, stage);
-                return;
-            }
-
-            var w = rendererObj._width;
-            var h = rendererObj._height;
-            MT_initResources(renderer, w, h);
-
-            // ── Step 1: captureRT → outputRT (블러는 최초 1회만) ────────────
-            if (!_MT_blurDone) {
-                _MT_blurDone = true;
-                var useBlur = Cfg.blur > 0 && Cfg.effect !== 'overlayOnly';
-                if (useBlur) {
-                    MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
-                } else {
-                    _MT_copyMat.uniforms.tDiffuse.value = _MT_captureRT.texture;
-                    _MT_fsq.material = _MT_copyMat;
-                    renderer.setRenderTarget(_MT_outputRT);
-                    renderer.clear();
-                    _MT_fsq.render(renderer);
-                }
-            }
-
-            // ── Step 2: 처리된 배경 + 오버레이 → 화면 ──────────────────────
-            var t  = _MT_t;
-            var oa = (Cfg.effect === 'blurOnly') ? 0 : (Cfg.overlayAlpha / 255 * t);
-            _MT_compMat.uniforms.tDiffuse.value     = _MT_outputRT.texture;
-            _MT_compMat.uniforms.overlayAlpha.value = oa;
-            _MT_fsq.material = _MT_compMat;
-            renderer.setRenderTarget(null);
-            renderer.clear();
-            _MT_fsq.render(renderer);
-
-            // ── Step 3: 현재 씬(메뉴 UI) — autoClear=false 로 배경 위에 ─────
-            renderer.autoClear = false;
-            _origRSRender.call(this, rendererObj, stage);
-            renderer.autoClear = true;
-        };
-    }
-
     // ── 애니메이션 타이머 ───────────────────────────────────────────────────
-
-    var _MT_animRafId  = null;
-    var _MT_durationMs = 0;
 
     function MT_tick() {
         _MT_animRafId = null;
@@ -490,11 +439,10 @@
             _MT_bgSprite.visible = false;
         }
 
-        MT_installHook();
         MT_startOpen(Cfg.duration * (1000 / 60));
     };
 
-    // startFadeIn: MT가 열기 애니메이션을 담당 → 검은 화면 페이드인 즉시 완료
+    // startFadeIn: MT가 열기 애니메이션을 담당 → 페이드인 즉시 완료
     var _SMB_startFadeIn = Scene_MenuBase.prototype.startFadeIn;
     Scene_MenuBase.prototype.startFadeIn = function (duration, white) {
         if (_MT_phase === 1 || _MT_phase === 2) {

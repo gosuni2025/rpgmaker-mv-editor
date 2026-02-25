@@ -472,6 +472,9 @@ function buildPreviewHTML(useWebp: boolean): string {
           case 'clearRuntimeOverride':
             if (window._uiThemeClearOv) window._uiThemeClearOv(data.className);
             break;
+          case 'clearAllRuntimeOverrides':
+            if (window._uiThemeClearAllOv) window._uiThemeClearAllOv();
+            break;
           case 'refreshScene':
             loadScene(_targetScene);
             break;
