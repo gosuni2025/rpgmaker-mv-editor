@@ -50,6 +50,8 @@ export function ElementInspector({ selectedWindow, elem }: {
     setProp(prop, value);
   }, [setProp]);
 
+  const isVisible = elemOv.visible !== false;
+
   return (
     <>
       <div className="ui-editor-inspector-header" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -58,10 +60,19 @@ export function ElementInspector({ selectedWindow, elem }: {
           onClick={() => setUiEditorSelectedElementType(null)}
           title="창 인스펙터로 돌아가기"
         >←</button>
-        <span>{elem.label}</span>
+        <span style={{ opacity: isVisible ? 1 : 0.5 }}>{elem.label}</span>
         <span style={{ fontSize: 10, color: '#777', marginLeft: 2 }}>
           ({selectedWindow.className.replace(/^Window_/, '')})
         </span>
+        <button
+          className="ui-canvas-toolbar-btn"
+          style={{ marginLeft: 'auto', fontSize: 14, padding: '2px 6px', opacity: isVisible ? 1 : 0.45,
+            color: isVisible ? '#adf' : '#888', border: `1px solid ${isVisible ? '#4af' : '#555'}` }}
+          title={isVisible ? '요소 숨기기' : '요소 표시'}
+          onClick={() => setProp('visible', isVisible ? false : undefined)}
+        >
+          {isVisible ? '👁' : '🚫'}
+        </button>
       </div>
       <div className="ui-editor-inspector-body">
         {/* 위치/크기: supportsPosition이 false인 제네릭 요소는 숨김 */}

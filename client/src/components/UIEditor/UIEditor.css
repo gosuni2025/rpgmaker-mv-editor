@@ -236,6 +236,18 @@
   border: 1.5px solid rgba(80, 200, 120, 1);
   background: rgba(80, 200, 120, 0.2);
 }
+.ui-overlay-element.hidden {
+  border-color: rgba(160, 80, 80, 0.5);
+  background: rgba(160, 80, 80, 0.06);
+  opacity: 0.7;
+}
+.ui-overlay-element.hidden:hover {
+  border-color: rgba(200, 100, 100, 0.9);
+  background: rgba(160, 80, 80, 0.15);
+}
+.ui-overlay-element.hidden .ui-overlay-element-label {
+  color: rgba(220, 120, 120, 0.9);
+}
 .ui-overlay-element-label {
   font-size: 9px;
   color: rgba(80, 220, 120, 0.95);

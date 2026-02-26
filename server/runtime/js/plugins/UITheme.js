@@ -664,6 +664,7 @@
     var orig = cls.prototype[methodName];
     if (!orig) return;
     cls.prototype[methodName] = function () {
+      if (elemCfg.visible === false) return; // 숨김
       var args = Array.prototype.slice.call(arguments);
       if (elemCfg.x !== undefined && argX !== null) args[argX] = elemCfg.x;
       if (elemCfg.y !== undefined && argY !== null) args[argY] = elemCfg.y;
@@ -1165,7 +1166,7 @@
     var self = this;
     Object.keys(classOv.elements).forEach(function (elemType) {
       var elemCfg = classOv.elements[elemType];
-      if (!elemCfg || !elemCfg.fontFace) return;
+      if (!elemCfg || (!elemCfg.fontFace && elemCfg.visible !== false)) return;
       var methodName = ELEM_TYPE_TO_METHOD[elemType] || elemType;
       if (typeof self[methodName] !== 'function') return;
       if (self.hasOwnProperty(methodName)) return; // 이미 인스턴스 래퍼 있음
@@ -1173,6 +1174,7 @@
       var orig = self[methodName];
       self[methodName] = (function (fn, cfg) {
         return function () {
+          if (cfg.visible === false) return; // 숨김
           var prevFace = this.contents && this.contents.fontFace;
           if (cfg.fontFace && this.contents) this.contents.fontFace = cfg.fontFace;
           var r = fn.apply(this, arguments);

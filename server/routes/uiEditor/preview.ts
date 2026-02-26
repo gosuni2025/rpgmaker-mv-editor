@@ -272,7 +272,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           if (win.hasOwnProperty(m)) delete win[m];
         });
 
-        // === ELEM_SPECS: 위치 + fontFace 오버라이드 ===
+        // === ELEM_SPECS: visible + 위치 + fontFace 오버라이드 ===
         ELEM_SPECS.forEach(function(spec) {
           var cfg = ovs[spec.type];
           if (!cfg) return;
@@ -280,6 +280,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           if (!origBase) return;
           win[spec.method] = (function(orig, cfg, spec) {
             return function() {
+              if (cfg.visible === false) return; // 숨김
               var args = Array.prototype.slice.call(arguments);
               if (cfg.x !== undefined && spec.argX !== null) args[spec.argX] = cfg.x;
               if (cfg.y !== undefined && spec.argY !== null) args[spec.argY] = cfg.y;
@@ -294,13 +295,13 @@ function buildPreviewHTML(useWebp: boolean): string {
           })(origBase, cfg, spec);
         });
 
-        // === 제네릭 요소: fontFace만 오버라이드 ===
+        // === 제네릭 요소: visible + fontFace 오버라이드 ===
         var specMethodNames = {};
         ELEM_SPECS.forEach(function(s) { specMethodNames[s.method] = true; });
 
         Object.keys(ovs).forEach(function(elemType) {
           var cfg = ovs[elemType];
-          if (!cfg || !cfg.fontFace) return;
+          if (!cfg || (cfg.visible !== false && !cfg.fontFace)) return;
           var methodName = methodMap[elemType];
           if (!methodName || specMethodNames[methodName]) return; // ELEM_SPECS가 처리
           if (win.hasOwnProperty(methodName)) return;
@@ -308,6 +309,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           if (typeof orig !== 'function') return;
           win[methodName] = (function(orig, cfg) {
             return function() {
+              if (cfg.visible === false) return; // 숨김
               var prevFace = this.contents && this.contents.fontFace;
               if (cfg.fontFace && this.contents) this.contents.fontFace = cfg.fontFace;
               var result = orig.apply(this, arguments);

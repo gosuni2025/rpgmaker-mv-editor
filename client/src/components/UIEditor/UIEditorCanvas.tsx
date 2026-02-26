@@ -362,23 +362,26 @@ export default function UIEditorCanvas() {
                     const ew = elemOv.width ?? elem.width;
                     const eh = elemOv.height ?? elem.height;
                     const isElemSelected = uiEditorSelectedElementType === elem.type;
+                    const isElemHidden = elemOv.visible === false;
                     return (
                       <div
                         key={elem.type}
-                        className={`ui-overlay-element${isElemSelected ? ' selected' : ''}`}
+                        className={`ui-overlay-element${isElemSelected ? ' selected' : ''}${isElemHidden ? ' hidden' : ''}`}
                         style={{
                           left: padding + ex,
                           top: padding + ey,
                           width: ew,
                           height: eh,
                         }}
-                        title={elem.label}
+                        title={isElemHidden ? `${elem.label} (숨김)` : elem.label}
                         onMouseDown={(e) => {
                           e.stopPropagation();
                           setUiEditorSelectedElementType(isElemSelected ? null : elem.type);
                         }}
                       >
-                        <div className="ui-overlay-element-label">{elem.label}</div>
+                        <div className="ui-overlay-element-label">
+                          {isElemHidden ? '🚫 ' : ''}{elem.label}
+                        </div>
                       </div>
                     );
                   })}
