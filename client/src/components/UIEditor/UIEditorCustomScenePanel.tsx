@@ -746,9 +746,20 @@ function ListWidgetInspector({ sceneId, widget, update }: {
 
 // ── V2: WidgetInspector (타입별 속성 편집) ───────────────
 
+const SCENE_W = 816, SCENE_H = 624;
+
 function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetDef }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
+  const moveWidgetWithChildren = useEditorStore((s) => s.moveWidgetWithChildren);
   const update = (updates: Partial<WidgetDef>) => updateWidget(sceneId, widget.id, updates);
+
+  const w = widget.width;
+  const h = widget.height ?? 0;
+  const alignButtons = [
+    { label: '가로 중앙', action: () => moveWidgetWithChildren(sceneId, widget.id, Math.round((SCENE_W - w) / 2), widget.y) },
+    { label: '세로 중앙', action: () => moveWidgetWithChildren(sceneId, widget.id, widget.x, Math.round((SCENE_H - h) / 2)) },
+    { label: '정중앙',    action: () => moveWidgetWithChildren(sceneId, widget.id, Math.round((SCENE_W - w) / 2), Math.round((SCENE_H - h) / 2)) },
+  ];
 
   return (
     <div>
@@ -779,6 +790,11 @@ function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetD
               const v = e.target.value.trim();
               update({ height: v === '' ? undefined : (parseInt(v) || 0) } as any);
             }} />
+        </div>
+        <div style={{ ...rowStyle, flexWrap: 'wrap', gap: 4 }}>
+          {alignButtons.map(({ label, action }) => (
+            <button key={label} style={smallBtnStyle} onClick={action}>{label}</button>
+          ))}
         </div>
         <div style={rowStyle}>
           <label style={{ fontSize: 11, color: '#aaa' }}>

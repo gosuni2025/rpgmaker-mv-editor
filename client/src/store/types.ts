@@ -286,6 +286,7 @@ export interface EditorState {
   addWidget: (sceneId: string, parentId: string, def: WidgetDef) => void;
   removeWidget: (sceneId: string, widgetId: string) => void;
   updateWidget: (sceneId: string, widgetId: string, updates: Partial<WidgetDef>) => void;
+  moveWidgetWithChildren: (sceneId: string, widgetId: string, x: number, y: number) => void;
   updateNavigation: (sceneId: string, nav: Partial<NavigationConfig>) => void;
   updateSceneRoot: (sceneId: string, root: WidgetDef) => void;
 

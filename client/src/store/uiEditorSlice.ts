@@ -1,5 +1,5 @@
 import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from './types';
-import type { CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, WidgetDef_Panel, NavigationConfig, CustomSceneDefV2 } from './uiEditorTypes';
+import type { CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, WidgetDef_Panel, WidgetDef_Button, NavigationConfig, CustomSceneDefV2 } from './uiEditorTypes';
 import { TOOLBAR_STORAGE_KEY } from './types';
 import apiClient from '../api/client';
 
@@ -50,7 +50,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'customSceneSelectedWidget' |
   'loadCustomScenes' | 'saveCustomScenes' | 'addCustomScene' | 'removeCustomScene' | 'updateCustomScene' |
   'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects' |
-  'setCustomSceneSelectedWidget' | 'addWidget' | 'removeWidget' | 'updateWidget' | 'updateNavigation' | 'updateSceneRoot'
+  'setCustomSceneSelectedWidget' | 'addWidget' | 'removeWidget' | 'updateWidget' | 'moveWidgetWithChildren' | 'updateNavigation' | 'updateSceneRoot'
 >> = (set, get) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -464,8 +464,13 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
 
       function updateInTree(widget: WidgetDef): WidgetDef {
         if (widget.id === widgetId) return { ...widget, ...updates } as WidgetDef;
-        if (widget.type !== 'panel') return widget;
-        return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(updateInTree) } as WidgetDef;
+        if (widget.type === 'panel') {
+          return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(updateInTree) } as WidgetDef;
+        }
+        if (widget.type === 'button' && (widget as WidgetDef_Button).children?.length) {
+          return { ...widget, children: ((widget as WidgetDef_Button).children || []).map(updateInTree) } as WidgetDef;
+        }
+        return widget;
       }
 
       return {
@@ -473,6 +478,46 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
           scenes: {
             ...state.customScenes.scenes,
             [sceneId]: { ...scene, root: updateInTree(scene.root) } as any,
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  moveWidgetWithChildren: (sceneId: string, widgetId: string, x: number, y: number) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene || !scene.root) return {};
+
+      // panel의 자식들은 절대 좌표 → delta만큼 함께 이동
+      // button의 자식들은 상대 좌표 → 이동 불필요
+      function applyDelta(widget: WidgetDef, dx: number, dy: number): WidgetDef {
+        const moved = { ...widget, x: widget.x + dx, y: widget.y + dy } as WidgetDef;
+        if (moved.type === 'panel') {
+          return { ...moved, children: ((moved as WidgetDef_Panel).children || []).map(c => applyDelta(c, dx, dy)) } as WidgetDef;
+        }
+        return moved;
+      }
+
+      function moveInTree(widget: WidgetDef): WidgetDef {
+        if (widget.id === widgetId) {
+          return applyDelta(widget, x - widget.x, y - widget.y);
+        }
+        if (widget.type === 'panel') {
+          return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(moveInTree) } as WidgetDef;
+        }
+        if (widget.type === 'button' && (widget as WidgetDef_Button).children?.length) {
+          return { ...widget, children: ((widget as WidgetDef_Button).children || []).map(moveInTree) } as WidgetDef;
+        }
+        return widget;
+      }
+
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root: moveInTree(scene.root) } as any,
           },
         },
         customSceneDirty: true,
