@@ -139,6 +139,12 @@
  * @max 32
  * @default 13
  *
+ * @param mapNameFont
+ * @text 맵 이름 폰트
+ * @desc 폰트 이름. 비워두면 게임 기본 폰트(GameFont)를 사용합니다. 예: sans-serif, Arial, 'Noto Serif KR'
+ * @type string
+ * @default
+ *
  * @param mapNameColor
  * @text 맵 이름 색상
  * @type color
@@ -333,6 +339,7 @@
     borderWidth:          parseInt(p['borderWidth']) || 2,
     showMapName:          p['showMapName'] !== 'false',
     mapNameFontSize:      parseInt(p['mapNameFontSize']) || 13,
+    mapNameFont:          p['mapNameFont'] || '',
     mapNameColor:         p['mapNameColor'] || '#ffffff',
     mapNamePosition:      p['mapNamePosition'] || 'bottom',
     resetNameOnTransfer:  p['resetNameOnTransfer'] !== 'false',
@@ -1165,6 +1172,7 @@
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fillRect(N_PAD, 2, CFG.size, h - 4);
         bm.fontSize  = CFG.mapNameFontSize;
+        bm.fontFace  = CFG.mapNameFont || $gameSystem.mainFontFace();
         bm.textColor = CFG.mapNameColor;
         bm.drawText(name, N_PAD, 0, CFG.size, h, 'center');
       }
