@@ -1171,3 +1171,16 @@
   color: #ddd;
   text-align: center;
 }
+
+.ui-font-tag-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0;
+}
+
+.ui-font-tag {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 0;
+}

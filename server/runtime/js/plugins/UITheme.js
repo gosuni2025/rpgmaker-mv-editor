@@ -517,6 +517,13 @@
     return _origStandardFontFace.call(this);
   };
 
+  // Bitmap 기본 fontFace 오버라이드 — new Bitmap()으로 직접 그리는 플러그인(NPCNameDisplay 등)에도 적용
+  var _origBitmapInit = Bitmap.prototype.initialize;
+  Bitmap.prototype.initialize = function (width, height) {
+    _origBitmapInit.call(this, width, height);
+    if (_fonts.defaultFontFace) this.fontFace = _fonts.defaultFontFace;
+  };
+
   Window_Base.prototype.loadWindowskin = function () {
     var skinId = _skins.defaultSkin || G('windowskin', 'Window');
     var entry = findSkinEntryById(skinId) || findSkinEntry(skinId);

@@ -47,6 +47,22 @@ export default function UIEditorToolbar() {
 
   const [showHelp, setShowHelp] = useState(false);
 
+  const handleFontSave = async () => {
+    if (!projectPath) return;
+    const s = useEditorStore.getState();
+    try {
+      await fetch('/api/ui-editor/fonts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultFontFace: s.uiFontDefaultFace }),
+      });
+      s.setUiEditorDirty(false);
+      s.showToast('폰트 설정 저장 완료');
+    } catch {
+      s.showToast('저장 실패', true);
+    }
+  };
+
   const handleSave = async () => {
     if (!projectPath) return;
     try {
@@ -191,16 +207,14 @@ export default function UIEditorToolbar() {
         <div className="draw-toolbar-spacer" />
 
         {/* 저장 / 플레이테스트 — 오른쪽 */}
-        {uiEditSubMode !== 'font' && (
-          <button
-            className={`draw-toolbar-save-btn${uiEditorDirty ? ' dirty' : ''}`}
-            onClick={handleSave}
-            disabled={!projectPath}
-            title="UI 테마 저장 (Ctrl+S)"
-          >
-            저장{uiEditorDirty ? ' *' : ''}
-          </button>
-        )}
+        <button
+          className={`draw-toolbar-save-btn${uiEditorDirty ? ' dirty' : ''}`}
+          onClick={uiEditSubMode === 'font' ? handleFontSave : handleSave}
+          disabled={!projectPath}
+          title="저장 (Ctrl+S)"
+        >
+          저장{uiEditorDirty ? ' *' : ''}
+        </button>
 
         <button
           className="draw-toolbar-play-btn"
