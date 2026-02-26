@@ -1172,7 +1172,7 @@
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fillRect(N_PAD, 2, CFG.size, h - 4);
         bm.fontSize  = CFG.mapNameFontSize;
-        bm.fontFace  = CFG.mapNameFont || $gameSystem.mainFontFace();
+        bm.fontFace  = CFG.mapNameFont || 'GameFont';
         bm.textColor = CFG.mapNameColor;
         bm.drawText(name, N_PAD, 0, CFG.size, h, 'center');
       }
