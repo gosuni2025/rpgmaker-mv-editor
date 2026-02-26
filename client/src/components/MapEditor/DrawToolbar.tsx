@@ -30,8 +30,8 @@ export default function DrawToolbar() {
     selectedTool, drawShape, editMode, currentLayer, zoomLevel,
     setSelectedTool, setDrawShape, setEditMode, zoomIn, zoomOut, saveCurrentMap,
     demoMode, mode3d, shadowLight, disableFow, setMode3d, setShadowLight, setDisableFow,
-    showToast, setShowDatabaseDialog, setShowPluginManagerDialog, setShowSoundTestDialog,
-    setShowEventSearchDialog, setShowResourceManagerDialog,
+    showToast, setShowDatabaseDialog, setShowPluginManagerDialog,
+    setShowEventSearchDialog,
     showGrid, setShowGrid, showRegion, setShowRegion,
     showPassability, setShowPassability,
     objectSubMode, setObjectSubMode,
@@ -46,9 +46,7 @@ export default function DrawToolbar() {
     showToast: s.showToast,
     setShowDatabaseDialog: s.setShowDatabaseDialog,
     setShowPluginManagerDialog: s.setShowPluginManagerDialog,
-    setShowSoundTestDialog: s.setShowSoundTestDialog,
     setShowEventSearchDialog: s.setShowEventSearchDialog,
-    setShowResourceManagerDialog: s.setShowResourceManagerDialog,
     showGrid: s.showGrid, setShowGrid: s.setShowGrid,
     showRegion: s.showRegion, setShowRegion: s.setShowRegion,
     showPassability: s.showPassability, setShowPassability: s.setShowPassability,
@@ -235,9 +233,7 @@ export default function DrawToolbar() {
       <div className="draw-toolbar-group">
         <button className="draw-toolbar-btn" onClick={() => setShowDatabaseDialog(true)}>{t('menu.database').replace('...', '')}</button>
         <button className="draw-toolbar-btn" onClick={() => setShowPluginManagerDialog(true)}>{t('menu.pluginManager').replace('...', '')}</button>
-        <button className="draw-toolbar-btn" onClick={() => setShowSoundTestDialog(true)}>{t('menu.soundTest').replace('...', '')}</button>
         <button className="draw-toolbar-btn" onClick={() => setShowEventSearchDialog(true)}>{t('menu.eventSearch').replace('...', '')}</button>
-        <button className="draw-toolbar-btn" onClick={() => setShowResourceManagerDialog(true)}>{t('menu.resourceManager').replace('...', '')}</button>
       </div>
 
       <div className="draw-toolbar-spacer" />
