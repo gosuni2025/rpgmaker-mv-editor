@@ -55,6 +55,7 @@ RPG Maker MV 프로젝트를 웹 브라우저에서 편집할 수 있는 데스�
 - [3D 모드](docs/03-3d-mode.md) — 카메라 조작, 렌더링, 스카이박스
 - [UI 에디터](docs/04-ui-editor.md) — 스킨 시스템, 커스텀 씬
 - [플러그인 목록](docs/05-plugins.md) — 14개 번들 플러그인 문서
+- [이벤트 에디터](docs/06-event-editor.md) — 커맨드 편집, 스크립트, 이동 루트, 조건 분기
 
 ## AI 연동 (MCP)
 
