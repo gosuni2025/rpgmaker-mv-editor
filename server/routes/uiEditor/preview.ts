@@ -183,7 +183,11 @@ function buildPreviewHTML(useWebp: boolean): string {
               if (cfg.y !== undefined && spec.argY !== null) args[spec.argY] = cfg.y;
               if (cfg.width !== undefined && spec.argW !== null) args[spec.argW] = cfg.width;
               if (cfg.height !== undefined && spec.argH !== null) args[spec.argH] = cfg.height;
-              return orig.apply(this, args);
+              var prevFace = this.contents && this.contents.fontFace;
+              if (cfg.fontFace && this.contents) this.contents.fontFace = cfg.fontFace;
+              var result = orig.apply(this, args);
+              if (cfg.fontFace && this.contents) this.contents.fontFace = prevFace;
+              return result;
             };
           })(origBase, cfg, spec);
         });
@@ -325,7 +329,13 @@ function buildPreviewHTML(useWebp: boolean): string {
               if (win.refresh) win.refresh();
               break;
             case 'fontFace':
-              if (win.contents) win.contents.fontFace = value;
+              // 인스턴스 메서드 오버라이드로 createContents 이후에도 지속
+              if (value) {
+                win.standardFontFace = function() { return value; };
+              } else {
+                delete win.standardFontFace;
+              }
+              if (win.contents) win.contents.fontFace = value || (win.standardFontFace ? win.standardFontFace() : 'GameFont');
               if (win.refresh) win.refresh();
               break;
             case 'colorTone':

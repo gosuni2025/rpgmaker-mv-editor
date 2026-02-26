@@ -3,11 +3,23 @@ import useEditorStore from '../../store/useEditorStore';
 import type { UIWindowInfo, UIElementInfo } from '../../store/types';
 import DragLabel from '../common/DragLabel';
 
+const ALL_FONTS = [
+  { family: '', label: '(미설정)' },
+  { family: 'GameFont', label: 'GameFont' },
+  { family: 'sans-serif', label: 'sans-serif' },
+  { family: 'serif', label: 'serif' },
+  { family: 'monospace', label: 'monospace' },
+  { family: 'Dotum, AppleGothic, sans-serif', label: 'Dotum' },
+  { family: 'Arial, sans-serif', label: 'Arial' },
+  { family: 'Georgia, serif', label: 'Georgia' },
+];
+
 export function ElementInspector({ selectedWindow, elem }: {
   selectedWindow: UIWindowInfo;
   elem: UIElementInfo;
 }) {
   const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
+  const uiFontList = useEditorStore((s) => s.uiFontList);
   const setUiElementOverride = useEditorStore((s) => s.setUiElementOverride);
   const setUiEditorSelectedElementType = useEditorStore((s) => s.setUiEditorSelectedElementType);
 
@@ -17,7 +29,12 @@ export function ElementInspector({ selectedWindow, elem }: {
   const ew = elemOv.width ?? elem.width;
   const eh = elemOv.height ?? elem.height;
 
-  const set = useCallback((prop: 'x' | 'y' | 'width' | 'height', value: number) => {
+  const allFonts = [
+    ...ALL_FONTS,
+    ...uiFontList.map((f) => ({ family: f.family, label: `${f.family} (${f.file})` })),
+  ];
+
+  const setProp = useCallback((prop: string, value: unknown) => {
     setUiElementOverride(selectedWindow.className, elem.type, prop, value);
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
     iframe?.contentWindow?.postMessage({
@@ -28,6 +45,10 @@ export function ElementInspector({ selectedWindow, elem }: {
       value,
     }, '*');
   }, [selectedWindow, elem.type, setUiElementOverride]);
+
+  const set = useCallback((prop: 'x' | 'y' | 'width' | 'height', value: number) => {
+    setProp(prop, value);
+  }, [setProp]);
 
   return (
     <>
@@ -68,6 +89,26 @@ export function ElementInspector({ selectedWindow, elem }: {
         {elem.isPerActor && (
           <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
             perActor 레이아웃: X/너비만 편집 가능 (Y는 행 순서에 따라 자동)
+          </div>
+        )}
+
+        {/* 폰트 */}
+        {elem.type !== 'actorFace' && elem.type !== 'actorIcons' && (
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">폰트</div>
+            <div className="ui-font-tag-grid" style={{ padding: '4px 12px 6px' }}>
+              {allFonts.map((f) => (
+                <label key={f.family} className={`ui-radio-label${(elemOv.fontFace ?? '') === f.family ? ' active' : ''}`}>
+                  <input
+                    type="radio"
+                    name={`elem-font-${selectedWindow.id}-${elem.type}`}
+                    checked={(elemOv.fontFace ?? '') === f.family}
+                    onChange={() => setProp('fontFace', f.family || undefined)}
+                  />
+                  {f.label}
+                </label>
+              ))}
+            </div>
           </div>
         )}
       </div>

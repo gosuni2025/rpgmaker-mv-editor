@@ -13,6 +13,7 @@ export interface UIElementOverride {
   y?: number;
   width?: number;
   height?: number;
+  fontFace?: string;
   visible?: boolean;
 }
 

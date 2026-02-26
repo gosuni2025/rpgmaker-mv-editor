@@ -8,11 +8,23 @@ import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import { AnimEffectSection, PivotAnchorSelector } from './UIEditorAnimEffectSection';
 import './UIEditor.css';
 
+const ALL_FONTS = [
+  { family: '', label: '(미설정)' },
+  { family: 'GameFont', label: 'GameFont' },
+  { family: 'sans-serif', label: 'sans-serif' },
+  { family: 'serif', label: 'serif' },
+  { family: 'monospace', label: 'monospace' },
+  { family: 'Dotum, AppleGothic, sans-serif', label: 'Dotum' },
+  { family: 'Arial, sans-serif', label: 'Arial' },
+  { family: 'Georgia, serif', label: 'Georgia' },
+];
+
 export function WindowInspector({ selectedWindow, override }: {
   selectedWindow: UIWindowInfo;
   override: UIWindowOverride | null;
 }) {
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
+  const uiFontList = useEditorStore((s) => s.uiFontList);
   const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
   const pu = useCallback(() => pushUiOverrideUndo(), [pushUiOverrideUndo]);
 
@@ -83,6 +95,12 @@ export function WindowInspector({ selectedWindow, override }: {
   const padding = getProp('padding', selectedWindow, override);
   const fontSize = getProp('fontSize', selectedWindow, override);
   const colorTone = getProp('colorTone', selectedWindow, override);
+
+  const allFonts = [
+    ...ALL_FONTS,
+    ...uiFontList.map((f) => ({ family: f.family, label: `${f.family} (${f.file})` })),
+  ];
+  const currentFontFace = override?.fontFace ?? '';
 
   return (
     <>
@@ -293,6 +311,19 @@ export function WindowInspector({ selectedWindow, override }: {
           <div className="ui-inspector-section-title">폰트</div>
           <div className="ui-inspector-row">
             <DragLabel label="크기" value={fontSize} min={8} max={72} onDragStart={pu} onChange={(v) => set('fontSize', Math.round(v))} />
+          </div>
+          <div className="ui-font-tag-grid" style={{ padding: '4px 12px 6px' }}>
+            {allFonts.map((f) => (
+              <label key={f.family} className={`ui-radio-label${currentFontFace === f.family ? ' active' : ''}`}>
+                <input
+                  type="radio"
+                  name={`win-font-${selectedWindow.id}`}
+                  checked={currentFontFace === f.family}
+                  onChange={() => set('fontFace', f.family || undefined)}
+                />
+                {f.label}
+              </label>
+            ))}
           </div>
         </div>
 

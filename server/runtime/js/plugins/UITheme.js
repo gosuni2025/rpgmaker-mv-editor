@@ -499,14 +499,11 @@
     if (!rc.ray.intersectPlane(pl, hit)) return null;
 
     // world → 창 로컬
+    // worldToLocal의 inverse(T(x,y,z)*Ry*T(-px,-py,0)*S)에는 T(px,py,0)이 포함되므로
+    // 결과는 이미 PIXI 로컬 좌표 (0~width, 0~height). 추가 보정 불필요.
     threeObj.worldToLocal(hit);
 
-    // pivot 보정: ThreeContainer.syncTransform에서 T(-px,-py,0)가 적용되어 있으므로
-    // worldToLocal 결과에 pivot을 더해야 PIXI 로컬 좌표가 됨
-    var pivotX = win._pivotX || 0;
-    var pivotY = win._pivotY || 0;
-
-    return { x: hit.x + pivotX, y: hit.y + pivotY };
+    return { x: hit.x, y: hit.y };
   }
 
   /**
@@ -517,7 +514,10 @@
   function _applyPerspHitTest(win) {
     win.isTouchedInsideFrame = function() {
       var local = _uiPerspScreenToLocal(this, TouchInput.x, TouchInput.y);
-      if (!local) return false;
+      if (!local) {
+        // 역변환 불가(카메라 미초기화 등) 시 기본 2D 판정으로 폴백
+        return Window_Selectable.prototype.isTouchedInsideFrame.call(this);
+      }
       this._uiPerspTouchLocal = local;
       return local.x >= 0 && local.y >= 0 && local.x < this.width && local.y < this.height;
     };
@@ -569,7 +569,11 @@
       if (elemCfg.y !== undefined && argY !== null) args[argY] = elemCfg.y;
       if (elemCfg.width !== undefined && argW !== null) args[argW] = elemCfg.width;
       if (elemCfg.height !== undefined && argH !== null) args[argH] = elemCfg.height;
-      return orig.apply(this, args);
+      var prevFace = this.contents && this.contents.fontFace;
+      if (elemCfg.fontFace && this.contents) this.contents.fontFace = elemCfg.fontFace;
+      var result = orig.apply(this, args);
+      if (elemCfg.fontFace && this.contents) this.contents.fontFace = prevFace;
+      return result;
     };
   }
 
