@@ -126,6 +126,39 @@
  * @max 8
  * @default 2
  *
+ * @param showMapName
+ * @text 맵 이름 표시
+ * @desc 미니맵에 현재 맵 이름을 표시합니다.
+ * @type boolean
+ * @default true
+ *
+ * @param mapNameFontSize
+ * @text 맵 이름 폰트 크기
+ * @type number
+ * @min 8
+ * @max 32
+ * @default 13
+ *
+ * @param mapNameColor
+ * @text 맵 이름 색상
+ * @type color
+ * @default #ffffff
+ *
+ * @param mapNamePosition
+ * @text 맵 이름 위치
+ * @type select
+ * @option 아래 (버튼 아래)
+ * @value bottom
+ * @option 위 (미니맵 위)
+ * @value top
+ * @default bottom
+ *
+ * @param resetNameOnTransfer
+ * @text 맵 이동 시 커스텀 이름 초기화
+ * @desc 맵 이동 시 setMapName으로 지정한 커스텀 이름을 자동 초기화할지 여부.
+ * @type boolean
+ * @default true
+ *
  * @command show
  * @text 미니맵 표시
  * @desc 미니맵을 화면에 표시합니다.
@@ -242,6 +275,19 @@
  * @text 마커 전체 삭제
  * @desc 모든 커스텀 마커를 삭제합니다.
  *
+ * @command setMapName
+ * @text 맵 이름 변경
+ * @desc 미니맵에 표시할 이름을 커스텀으로 설정합니다. resetMapName으로 원래 이름으로 되돌릴 수 있습니다.
+ *
+ * @arg name
+ * @text 이름
+ * @type string
+ * @default 커스텀 이름
+ *
+ * @command resetMapName
+ * @text 맵 이름 초기화
+ * @desc 미니맵 이름을 실제 맵 이름으로 되돌립니다.
+ *
  * @help
  * 미니맵을 화면 우측 상단에 표시합니다.
  * 미니맵 하단의 -/+ 버튼으로 확대/축소할 수 있습니다.
@@ -283,8 +329,13 @@
     eventMarkerColor: p['eventMarkerColor'] || '#ffcc00',
     showEvents:       p['showEvents'] !== 'false',
     iconFixedSize:    p['iconFixedSize'] !== 'false',
-    borderColor:      p['borderColor'] || '#aabbcc',
-    borderWidth:      parseInt(p['borderWidth']) || 2,
+    borderColor:          p['borderColor'] || '#aabbcc',
+    borderWidth:          parseInt(p['borderWidth']) || 2,
+    showMapName:          p['showMapName'] !== 'false',
+    mapNameFontSize:      parseInt(p['mapNameFontSize']) || 13,
+    mapNameColor:         p['mapNameColor'] || '#ffffff',
+    mapNamePosition:      p['mapNamePosition'] || 'bottom',
+    resetNameOnTransfer:  p['resetNameOnTransfer'] !== 'false',
     regionColors:     {},
     terrainColors:    {},
   };
@@ -303,9 +354,10 @@
   const _Game_System_initialize = Game_System.prototype.initialize;
   Game_System.prototype.initialize = function () {
     _Game_System_initialize.call(this);
-    this._minimapFow     = {};
-    this._minimapVisible = CFG.showOnStart;
-    this._minimapMarkers = []; // [{id, x, y, color, shape}]
+    this._minimapFow        = {};
+    this._minimapVisible    = CFG.showOnStart;
+    this._minimapMarkers    = []; // [{id, x, y, color, shape}]
+    this._minimapCustomName = null; // 커스텀 맵 이름 (null이면 실제 맵 이름 사용)
   };
 
   // ============================================================
@@ -323,6 +375,10 @@
     _Game_Player_performTransfer.call(this);
     MinimapManager._pendingExplore = true;
     MinimapManager._lastEventPos   = {};
+    if (CFG.resetNameOnTransfer && $gameSystem) {
+      $gameSystem._minimapCustomName = null;
+    }
+    MinimapManager._lastMapId = -1; // 맵 이름 강제 갱신
   };
 
   // ============================================================
@@ -346,6 +402,8 @@
       case 'addmarker':     MinimapManager.addMarker(args[1], args[2], args[3], args[4], args[5]); break;
       case 'removemarker':  MinimapManager.removeMarker(args[1]);                         break;
       case 'clearmarkers':  MinimapManager.clearMarkers();                                break;
+      case 'setmapname':    MinimapManager.setMapName(args.slice(1).join(' '));            break;
+      case 'resetmapname':  MinimapManager.resetMapName();                                break;
     }
   };
 
@@ -407,6 +465,8 @@
     _visible:        true,
     _pendingExplore: false,
     _lastEventPos:   {},  // { eventId: 'x,y' }
+    _nameSprite:     null,
+    _lastMapId:      -1,
 
     UPDATE_INTERVAL: 3,
 
@@ -887,6 +947,22 @@
       this._btnPlus.y = this._btnY();
       scene.addChildAt(this._btnPlus, baseIdx + 2);
 
+      // 맵 이름 스프라이트
+      if (CFG.showMapName) {
+        const nameH  = CFG.mapNameFontSize + 10;
+        const nameBm = new Bitmap(CFG.size + N_PAD * 2, nameH);
+        this._nameSprite   = new Sprite(nameBm);
+        this._nameSprite.x = this._sprite.x;
+        if (CFG.mapNamePosition === 'top') {
+          this._nameSprite.y = Math.max(0, this._sprite.y + N_PAD - nameH);
+        } else {
+          this._nameSprite.y = this._btnY() + BTN_SIZE + 4;
+        }
+        scene.addChildAt(this._nameSprite, baseIdx + 3);
+        this._lastMapId = -1;
+        this._renderNameSprite();
+      }
+
       // _visible은 건드리지 않음 — setVisible()이 이후에 올바른 값으로 설정함
       this._dirty   = true;
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
@@ -897,14 +973,16 @@
     // ----------------------------------------------------------
     destroySprite() {
       if (this._scene) {
-        if (this._sprite)   this._scene.removeChild(this._sprite);
-        if (this._btnMinus) this._scene.removeChild(this._btnMinus);
-        if (this._btnPlus)  this._scene.removeChild(this._btnPlus);
+        if (this._sprite)     this._scene.removeChild(this._sprite);
+        if (this._btnMinus)   this._scene.removeChild(this._btnMinus);
+        if (this._btnPlus)    this._scene.removeChild(this._btnPlus);
+        if (this._nameSprite) this._scene.removeChild(this._nameSprite);
       }
-      this._sprite   = null;
-      this._btnMinus = null;
-      this._btnPlus  = null;
-      this._scene    = null;
+      this._sprite     = null;
+      this._btnMinus   = null;
+      this._btnPlus    = null;
+      this._nameSprite = null;
+      this._scene      = null;
     },
 
     // ----------------------------------------------------------
@@ -945,6 +1023,11 @@
         this._pendingExplore = false;
         this.explore($gamePlayer.x, $gamePlayer.y);
         this._dirty = true;
+      }
+
+      if (CFG.showMapName && $gameMap && $gameMap.mapId() !== this._lastMapId) {
+        this._lastMapId = $gameMap.mapId();
+        this._renderNameSprite();
       }
 
       this._frameCount++;
@@ -991,9 +1074,10 @@
     setVisible(visible) {
       this._visible = visible;
       if ($gameSystem) $gameSystem._minimapVisible = visible;
-      if (this._sprite)   this._sprite.visible   = visible;
-      if (this._btnMinus) this._btnMinus.visible  = visible;
-      if (this._btnPlus)  this._btnPlus.visible   = visible;
+      if (this._sprite)     this._sprite.visible     = visible;
+      if (this._btnMinus)   this._btnMinus.visible    = visible;
+      if (this._btnPlus)    this._btnPlus.visible     = visible;
+      if (this._nameSprite) this._nameSprite.visible  = visible;
       this._checkedAncestor = false; // 가시성 변경 시 조상 체인 재확인
       if (visible) {
         // 즉시 렌더링하여 빈 캔버스로 인해 투명하게 보이는 현상 방지
@@ -1056,6 +1140,46 @@
     clearMarkers() {
       if ($gameSystem) $gameSystem._minimapMarkers = [];
       this._dirty = true;
+    },
+
+    // ----------------------------------------------------------
+    // 맵 이름
+    // ----------------------------------------------------------
+    _getCurrentMapName() {
+      if (!$gameMap) return '';
+      const info = $dataMapInfos && $dataMapInfos[$gameMap.mapId()];
+      return info ? (info.name || '') : '';
+    },
+
+    _renderNameSprite() {
+      if (!this._nameSprite) return;
+      const name = ($gameSystem && $gameSystem._minimapCustomName != null)
+        ? $gameSystem._minimapCustomName
+        : this._getCurrentMapName();
+      const bm  = this._nameSprite.bitmap;
+      const ctx = bm._context;
+      const w   = bm.width;
+      const h   = bm.height;
+      ctx.clearRect(0, 0, w, h);
+      if (name) {
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(N_PAD, 2, CFG.size, h - 4);
+        bm.fontSize  = CFG.mapNameFontSize;
+        bm.textColor = CFG.mapNameColor;
+        bm.drawText(name, N_PAD, 0, CFG.size, h, 'center');
+      }
+      bm._dirty = true;
+      if (bm._baseTexture) bm._baseTexture.update();
+    },
+
+    setMapName(name) {
+      if ($gameSystem) $gameSystem._minimapCustomName = (name || null);
+      this._renderNameSprite();
+    },
+
+    resetMapName() {
+      if ($gameSystem) $gameSystem._minimapCustomName = null;
+      this._renderNameSprite();
     },
   };
 
