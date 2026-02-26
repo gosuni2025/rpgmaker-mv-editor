@@ -8,7 +8,7 @@ export * from './uiEditorTypes';
 
 import type { HistoryEntry, TileChange, PassageChange } from './historyTypes';
 import type { ClipboardData } from './clipboardTypes';
-import type { UIWindowInfo, UIWindowOverride, UiSkinUndoEntry } from './uiEditorTypes';
+import type { UIWindowInfo, UIWindowOverride, UiSkinUndoEntry, CustomScenesData, CustomSceneDef, CustomWindowDef } from './uiEditorTypes';
 
 export interface RendererInitError {
   title: string;
@@ -86,6 +86,10 @@ export interface EditorState {
   uiFontDefaultFace: string;    // 폰트 에디터: 저장된 기본 폰트
   uiFontList: Array<{ name: string; file: string; family: string }>; // 프로젝트 폰트 목록
   uiFontSceneFonts: Record<string, string>; // 씬별 기본 폰트 (sceneName → fontFamily)
+
+  // Custom scenes
+  customScenes: CustomScenesData;
+  customSceneDirty: boolean;
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -265,6 +269,16 @@ export interface EditorState {
   setUiFontDefaultFace: (face: string) => void;
   setUiFontList: (list: Array<{ name: string; file: string; family: string }>) => void;
   setUiFontSceneFonts: (sceneFonts: Record<string, string>) => void;
+
+  // Actions - Custom Scenes
+  loadCustomScenes: () => Promise<void>;
+  saveCustomScenes: () => Promise<void>;
+  addCustomScene: (scene: CustomSceneDef) => void;
+  removeCustomScene: (id: string) => void;
+  updateCustomScene: (id: string, updates: Partial<CustomSceneDef>) => void;
+  addCustomWindow: (sceneId: string, def: CustomWindowDef) => void;
+  removeCustomWindow: (sceneId: string, winId: string) => void;
+  updateCustomWindow: (sceneId: string, winId: string, updates: Partial<CustomWindowDef>) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

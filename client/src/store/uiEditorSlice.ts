@@ -1,5 +1,7 @@
 import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from './types';
+import type { CustomScenesData, CustomSceneDef, CustomWindowDef } from './uiEditorTypes';
 import { TOOLBAR_STORAGE_KEY } from './types';
+import apiClient from '../api/client';
 
 /** undo/redo 후 iframe에 전체 override 상태를 재적용 (씬 새로고침으로 처리) */
 function _syncOverridesToIframe(overrides: Record<string, UIWindowOverride>) {
@@ -37,14 +39,17 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiFontSelectedFamily' | 'uiFontDefaultFace' | 'uiFontList' | 'uiFontSceneFonts' |
   'uiEditorSelectedElementType' |
+  'customScenes' | 'customSceneDirty' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
   'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'setUiSkinCursorRenderMode' | 'setUiSkinCursorBlendMode' | 'setUiSkinCursorOpacity' | 'setUiSkinCursorBlink' | 'setUiSkinCursorPadding' | 'setUiSkinCursorTone' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
   'setUiFontSelectedFamily' | 'setUiFontDefaultFace' | 'setUiFontList' | 'setUiFontSceneFonts' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride' |
-  'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride'
->> = (set) => ({
+  'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride' |
+  'loadCustomScenes' | 'saveCustomScenes' | 'addCustomScene' | 'removeCustomScene' | 'updateCustomScene' |
+  'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow'
+>> = (set, get) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
   uiEditorIframeReady: false,
@@ -91,6 +96,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiFontList: [],
   uiFontSceneFonts: {},
   uiEditorSelectedElementType: null,
+  customScenes: { scenes: {} },
+  customSceneDirty: false,
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
   setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorOriginalWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
@@ -261,6 +268,94 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
           } as UIWindowOverride,
         },
         uiEditorDirty: true,
+      };
+    });
+  },
+
+  // ── Custom Scenes ──────────────────────────────────────
+  loadCustomScenes: async () => {
+    try {
+      const data = await apiClient.get<CustomScenesData>('/ui-editor/scenes');
+      set({ customScenes: data, customSceneDirty: false });
+    } catch {
+      // API가 없거나 실패 시 빈 상태 유지
+    }
+  },
+  saveCustomScenes: async () => {
+    try {
+      await apiClient.put('/ui-editor/scenes', get().customScenes);
+      set({ customSceneDirty: false });
+    } catch {
+      // ignore
+    }
+  },
+  addCustomScene: (scene: CustomSceneDef) => {
+    set((state) => ({
+      customScenes: { scenes: { ...state.customScenes.scenes, [scene.id]: scene } },
+      customSceneDirty: true,
+    }));
+  },
+  removeCustomScene: (id: string) => {
+    set((state) => {
+      const { [id]: _, ...rest } = state.customScenes.scenes;
+      return { customScenes: { scenes: rest }, customSceneDirty: true };
+    });
+  },
+  updateCustomScene: (id: string, updates: Partial<CustomSceneDef>) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[id];
+      if (!scene) return {};
+      return {
+        customScenes: { scenes: { ...state.customScenes.scenes, [id]: { ...scene, ...updates } } },
+        customSceneDirty: true,
+      };
+    });
+  },
+  addCustomWindow: (sceneId: string, def: CustomWindowDef) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId];
+      if (!scene) return {};
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, windows: [...scene.windows, def] },
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+  removeCustomWindow: (sceneId: string, winId: string) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId];
+      if (!scene) return {};
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, windows: scene.windows.filter((w) => w.id !== winId) },
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+  updateCustomWindow: (sceneId: string, winId: string, updates: Partial<CustomWindowDef>) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId];
+      if (!scene) return {};
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: {
+              ...scene,
+              windows: scene.windows.map((w) => w.id === winId ? { ...w, ...updates } : w),
+            },
+          },
+        },
+        customSceneDirty: true,
       };
     });
   },

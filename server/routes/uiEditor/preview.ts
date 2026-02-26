@@ -81,6 +81,7 @@ function buildPreviewHTML(useWebp: boolean): string {
     <script defer src="js/FogOfWar3DVolume.js${cb}"></script>
     <script defer src="js/ExtendedText.js${cb}"></script>
     <script defer src="js/plugins.js"></script>
+    <script defer src="js/plugins/CustomSceneEngine.js${cb}"></script>
     <script type="module">
     // UI 에디터 브릿지 + Scene_Boot 오버라이드
     (function() {
@@ -329,7 +330,7 @@ function buildPreviewHTML(useWebp: boolean): string {
         var pivotY = (win.pivot && win.pivot.y) || 0;
         return {
           id: id,
-          className: win.constructor ? win.constructor.name : 'Unknown',
+          className: win._customClassName || (win.constructor ? win.constructor.name : 'Unknown'),
           x: Math.round(win.x - pivotX), y: Math.round(win.y - pivotY),
           width: Math.round(win.width), height: Math.round(win.height),
           opacity: typeof win.opacity !== 'undefined' ? win.opacity : 255,
@@ -353,7 +354,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           for (var i = 0; i < container.children.length; i++) {
             var child = container.children[i];
             if (!child) continue;
-            var cname = child.constructor && child.constructor.name;
+            var cname = child._customClassName || (child.constructor && child.constructor.name);
             if (cname && cname.startsWith('Window_') && typeof child.width !== 'undefined') {
               if (!counter[cname]) counter[cname] = 0;
               var id = cname + '_' + counter[cname]++;
@@ -376,7 +377,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           for (var i = 0; i < container.children.length; i++) {
             var child = container.children[i];
             if (!child) continue;
-            var cname = child.constructor && child.constructor.name;
+            var cname = child._customClassName || (child.constructor && child.constructor.name);
             if (cname && cname.startsWith('Window_') && typeof child.width !== 'undefined') {
               // 첫 번째 호출에서 원본 visibility 저장
               if (child._uiViewOrigVisible === undefined) {
@@ -425,7 +426,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           for (var i = 0; i < container.children.length; i++) {
             var child = container.children[i];
             if (!child) continue;
-            var cname = child.constructor && child.constructor.name;
+            var cname = child._customClassName || (child.constructor && child.constructor.name);
             if (cname && cname.startsWith('Window_') && typeof child.width !== 'undefined') {
               if (!counter[cname]) counter[cname] = 0;
               var id = cname + '_' + counter[cname]++;
@@ -592,7 +593,8 @@ function buildPreviewHTML(useWebp: boolean): string {
           for (var i = 0; i < container.children.length; i++) {
             var child = container.children[i];
             if (!child) continue;
-            if (child.constructor && child.constructor.name === className) {
+            var wname = child._customClassName || (child.constructor && child.constructor.name);
+            if (wname === className) {
               if (prop === 'elements' && value && typeof value === 'object') {
                 child.__uiElemOvs = value;
                 reinstallElemOvs(child);
@@ -617,8 +619,15 @@ function buildPreviewHTML(useWebp: boolean): string {
       function loadScene(sceneName) {
         var SceneCtor = window[sceneName];
         if (!SceneCtor) {
-          console.warn('[UIEditorBridge] 씬 없음:', sceneName);
-          return;
+          // 커스텀 씬 재로드 시도
+          if (sceneName.startsWith('Scene_CS_') && window.__customSceneEngine) {
+            window.__customSceneEngine.reloadCustomScenes();
+            SceneCtor = window[sceneName];
+          }
+          if (!SceneCtor) {
+            console.warn('[UIEditorBridge] 씬 없음:', sceneName);
+            return;
+          }
         }
         _targetScene = sceneName;
         try {
@@ -686,6 +695,12 @@ function buildPreviewHTML(useWebp: boolean): string {
           case 'refreshScene':
             loadScene(_targetScene);
             break;
+          case 'reloadCustomScenes':
+            if (window.__customSceneEngine) {
+              window.__customSceneEngine.reloadCustomScenes();
+              loadScene(_targetScene);
+            }
+            break;
           case 'reloadWindowskin': {
             if (typeof ImageManager === 'undefined' || typeof SceneManager === 'undefined') break;
             var fname = data.filename;
@@ -715,8 +730,8 @@ function buildPreviewHTML(useWebp: boolean): string {
                 for (var i = 0; i < container.children.length; i++) {
                   var child = container.children[i];
                   if (!child) continue;
-                  if (child.constructor && child.constructor.name &&
-                      child.constructor.name.startsWith('Window_')) {
+                  var rwName = child._customClassName || (child.constructor && child.constructor.name);
+                  if (rwName && rwName.startsWith('Window_')) {
                     var needRefresh = false;
                     if (urlMatches(child.windowskin)) {
                       child.windowskin = reloadBitmap;

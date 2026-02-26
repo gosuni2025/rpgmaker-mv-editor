@@ -91,14 +91,19 @@ export default function UIEditorToolbar() {
   const handleSave = async () => {
     if (!projectPath) return;
     try {
-      const config = useEditorStore.getState().uiEditorOverrides;
+      const s = useEditorStore.getState();
+      const config = s.uiEditorOverrides;
       await fetch('/api/ui-editor/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ overrides: config }),
       });
-      useEditorStore.getState().setUiEditorDirty(false);
-      useEditorStore.getState().showToast('UI 테마 저장 완료');
+      // 커스텀 씬도 함께 저장
+      if (s.customSceneDirty) {
+        await s.saveCustomScenes();
+      }
+      s.setUiEditorDirty(false);
+      s.showToast('UI 테마 저장 완료');
     } catch {
       useEditorStore.getState().showToast('저장 실패', true);
     }

@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import ImagePicker from '../common/ImagePicker';
+import UIEditorNewSceneDialog from './UIEditorNewSceneDialog';
+import UIEditorCustomScenePanel from './UIEditorCustomScenePanel';
 import './UIEditor.css';
 
 interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; }
@@ -27,8 +29,18 @@ function WindowList() {
   const uiEditorIframeReady = useEditorStore((s) => s.uiEditorIframeReady);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiFontSceneFonts = useEditorStore((s) => s.uiFontSceneFonts);
+  const customScenes = useEditorStore((s) => s.customScenes);
+  const loadCustomScenes = useEditorStore((s) => s.loadCustomScenes);
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
+  const projectPath = useEditorStore((s) => s.projectPath);
+  const [showNewSceneDialog, setShowNewSceneDialog] = useState(false);
+
+  // 커스텀 씬 로드
+  useEffect(() => { if (projectPath) loadCustomScenes(); }, [projectPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isCustomScene = uiEditorScene.startsWith('Scene_CS_');
+  const customSceneId = isCustomScene ? uiEditorScene.replace('Scene_CS_', '') : null;
 
   const sceneSelected = uiEditorSelectedWindowId === null;
   const hasSceneFont = !!uiFontSceneFonts[uiEditorScene];
@@ -37,56 +49,85 @@ function WindowList() {
     <>
       <div className="ui-editor-sidebar-section">
         <label>씬 선택</label>
-        <select
-          className="ui-editor-scene-select"
-          value={uiEditorScene}
-          onChange={(e) => setUiEditorScene(e.target.value)}
-        >
-          {AVAILABLE_SCENES.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="ui-editor-window-list">
-        {/* 씬 자체 항목 */}
-        <div
-          className={`ui-editor-window-item${sceneSelected ? ' selected' : ''}`}
-          onClick={() => setUiEditorSelectedWindowId(null)}
-        >
-          <div className={`ui-editor-window-badge${hasSceneFont ? ' has-override' : ''}`} />
-          <div>
-            <div>{uiEditorScene.replace(/^Scene_/, '')}</div>
-            <div className="window-class">{uiEditorScene}</div>
-          </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <select
+            className="ui-editor-scene-select"
+            style={{ flex: 1 }}
+            value={uiEditorScene}
+            onChange={(e) => setUiEditorScene(e.target.value)}
+          >
+            <optgroup label="기본 씬">
+              {AVAILABLE_SCENES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </optgroup>
+            {Object.keys(customScenes.scenes).length > 0 && (
+              <optgroup label="커스텀 씬">
+                {Object.values(customScenes.scenes).map((s) => (
+                  <option key={s.id} value={`Scene_CS_${s.id}`}>{s.displayName} (Scene_CS_{s.id})</option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+          <button
+            className="ui-canvas-toolbar-btn"
+            style={{ padding: '4px 8px', fontSize: 13, whiteSpace: 'nowrap' }}
+            onClick={() => setShowNewSceneDialog(true)}
+            title="새 커스텀 씬 만들기"
+          >+</button>
         </div>
-
-        <div className="ui-window-list-divider" />
-
-        {uiEditorWindows.length === 0 ? (
-          <div className="ui-editor-no-windows">
-            {uiEditorIframeReady ? '창이 없습니다' : '씬 로딩 중...'}
-          </div>
-        ) : (
-          uiEditorWindows.map((win) => {
-            const hasOverride = !!uiEditorOverrides[win.className];
-            const isSelected = uiEditorSelectedWindowId === win.id;
-            return (
-              <div
-                key={win.id}
-                className={`ui-editor-window-item${isSelected ? ' selected' : ''}`}
-                onClick={() => setUiEditorSelectedWindowId(isSelected ? null : win.id)}
-              >
-                <div className={`ui-editor-window-badge${hasOverride ? ' has-override' : ''}`} />
-                <div>
-                  <div>{win.className.replace(/^Window_/, '')}</div>
-                  <div className="window-class">{win.className}</div>
-                </div>
-              </div>
-            );
-          })
-        )}
       </div>
+
+      {isCustomScene && customSceneId ? (
+        <UIEditorCustomScenePanel sceneId={customSceneId} />
+      ) : (
+        <div className="ui-editor-window-list">
+          {/* 씬 자체 항목 */}
+          <div
+            className={`ui-editor-window-item${sceneSelected ? ' selected' : ''}`}
+            onClick={() => setUiEditorSelectedWindowId(null)}
+          >
+            <div className={`ui-editor-window-badge${hasSceneFont ? ' has-override' : ''}`} />
+            <div>
+              <div>{uiEditorScene.replace(/^Scene_/, '')}</div>
+              <div className="window-class">{uiEditorScene}</div>
+            </div>
+          </div>
+
+          <div className="ui-window-list-divider" />
+
+          {uiEditorWindows.length === 0 ? (
+            <div className="ui-editor-no-windows">
+              {uiEditorIframeReady ? '창이 없습니다' : '씬 로딩 중...'}
+            </div>
+          ) : (
+            uiEditorWindows.map((win) => {
+              const hasOverride = !!uiEditorOverrides[win.className];
+              const isSelected = uiEditorSelectedWindowId === win.id;
+              return (
+                <div
+                  key={win.id}
+                  className={`ui-editor-window-item${isSelected ? ' selected' : ''}`}
+                  onClick={() => setUiEditorSelectedWindowId(isSelected ? null : win.id)}
+                >
+                  <div className={`ui-editor-window-badge${hasOverride ? ' has-override' : ''}`} />
+                  <div>
+                    <div>{win.className.replace(/^Window_/, '')}</div>
+                    <div className="window-class">{win.className}</div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {showNewSceneDialog && (
+        <UIEditorNewSceneDialog
+          onClose={() => setShowNewSceneDialog(false)}
+          onCreated={(id) => setUiEditorScene(`Scene_CS_${id}`)}
+        />
+      )}
     </>
   );
 }

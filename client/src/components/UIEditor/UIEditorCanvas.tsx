@@ -157,6 +157,10 @@ export default function UIEditorCanvas() {
   // iframe ready 후 씬 로드
   useEffect(() => {
     if (!uiEditorIframeReady) return;
+    // 커스텀 씬인 경우 먼저 reloadCustomScenes를 보내서 최신 정의를 반영
+    if (uiEditorScene.startsWith('Scene_CS_')) {
+      iframeRef.current?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+    }
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'loadScene', sceneName: uiEditorScene }, '*'
     );

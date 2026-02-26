@@ -104,6 +104,64 @@ export interface UIWindowOverride {
   animPivot?: AnimPivotAnchor;
 }
 
+// ── 커스텀 씬 타입 ──────────────────────────────────────
+export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow';
+
+export interface CustomCommandDef {
+  name: string;
+  symbol: string;
+  enabled: boolean;
+}
+
+export interface CustomCommandHandler {
+  action: CommandActionType;
+  target?: string;
+  eventId?: number;
+}
+
+export interface CustomElementDef {
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  content?: string;
+  file?: string;
+}
+
+export interface CustomWindowDef {
+  id: string;
+  displayName: string;
+  windowType: 'command' | 'display';
+  x: number;
+  y: number;
+  width: number;
+  height: number | null;
+  maxCols?: number;
+  commands?: CustomCommandDef[];
+  handlers?: Record<string, CustomCommandHandler>;
+  elements?: CustomElementDef[];
+}
+
+export interface PrepareArgDef {
+  name: string;
+  type: 'number' | 'string';
+  default: any;
+}
+
+export interface CustomSceneDef {
+  id: string;
+  displayName: string;
+  baseScene: 'Base' | 'MenuBase';
+  prepareArgs: PrepareArgDef[];
+  windows: CustomWindowDef[];
+  windowLinks: Record<string, { activateDefault?: boolean }>;
+}
+
+export interface CustomScenesData {
+  scenes: Record<string, CustomSceneDef>;
+}
+
 export type UiSkinUndoEntry = {
   frameX: number; frameY: number; frameW: number; frameH: number;
   fillX: number; fillY: number; fillW: number; fillH: number;
