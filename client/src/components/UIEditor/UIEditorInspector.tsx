@@ -3,6 +3,8 @@ import useEditorStore from '../../store/useEditorStore';
 import { WindowInspector } from './UIEditorWindowInspector';
 import { ElementInspector } from './UIEditorElementInspector';
 import { useFontEditorData } from './UIEditorFontEditor';
+import { WidgetInspector } from './UIEditorCustomScenePanel';
+import type { WidgetDef, WidgetDef_Panel, WidgetDef_Button } from '../../store/uiEditorTypes';
 import './UIEditor.css';
 
 const ALL_FONTS = [
@@ -250,11 +252,50 @@ function SceneInspector() {
   );
 }
 
+function findWidgetById(root: WidgetDef, id: string): WidgetDef | null {
+  if (root.id === id) return root;
+  if (root.type === 'panel') {
+    for (const c of (root as WidgetDef_Panel).children || []) {
+      const found = findWidgetById(c, id);
+      if (found) return found;
+    }
+  }
+  if (root.type === 'button') {
+    for (const c of (root as WidgetDef_Button).children || []) {
+      const found = findWidgetById(c, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export default function UIEditorInspector() {
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
   const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
   const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
   const uiEditorSelectedElementType = useEditorStore((s) => s.uiEditorSelectedElementType);
+  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
+  const customScenes = useEditorStore((s) => s.customScenes);
+  const customSceneSelectedWidget = useEditorStore((s) => s.customSceneSelectedWidget);
+
+  // 커스텀씬에서 위젯이 선택된 경우 WidgetInspector 표시
+  const isCustomScene = uiEditorScene.startsWith('Scene_CS_');
+  const customSceneId = isCustomScene ? uiEditorScene.replace('Scene_CS_', '') : null;
+  const customScene = customSceneId ? customScenes.scenes[customSceneId] : null;
+  const selectedWidget = (customScene && customSceneSelectedWidget && (customScene as any).root)
+    ? findWidgetById((customScene as any).root, customSceneSelectedWidget)
+    : null;
+
+  if (isCustomScene && selectedWidget) {
+    return (
+      <div className="ui-editor-inspector">
+        <div className="ui-editor-inspector-header">위젯 설정</div>
+        <div className="ui-editor-inspector-body" style={{ overflowY: 'auto' }}>
+          <WidgetInspector sceneId={customSceneId!} widget={selectedWidget} />
+        </div>
+      </div>
+    );
+  }
 
   const selectedWindow = uiEditorWindows.find((w) => w.id === uiEditorSelectedWindowId) ?? null;
   const override = selectedWindow ? (uiEditorOverrides[selectedWindow.className] ?? null) : null;

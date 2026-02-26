@@ -748,7 +748,7 @@ function ListWidgetInspector({ sceneId, widget, update }: {
 
 const SCENE_W = 816, SCENE_H = 624;
 
-function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetDef }) {
+export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetDef }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const moveWidgetWithChildren = useEditorStore((s) => s.moveWidgetWithChildren);
   const update = (updates: Partial<WidgetDef>) => updateWidget(sceneId, widget.id, updates);
@@ -935,6 +935,12 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
           if (found) return found;
         }
       }
+      if (w.type === 'button') {
+        for (const c of (w as WidgetDef_Button).children || []) {
+          const found = find(c);
+          if (found) return found;
+        }
+      }
       return null;
     }
     return find(scene.root);
@@ -953,6 +959,12 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
           if (w.id === selectedId) return w;
           if (w.type === 'panel') {
             for (const c of (w as WidgetDef_Panel).children || []) {
+              const found = find(c);
+              if (found) return found;
+            }
+          }
+          if (w.type === 'button') {
+            for (const c of (w as WidgetDef_Button).children || []) {
               const found = find(c);
               if (found) return found;
             }
@@ -1034,15 +1046,6 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
             <div style={{ padding: 8, color: '#888', fontSize: 12 }}>위젯 없음</div>
           )}
         </div>
-      </div>
-
-      {/* 위젯 인스펙터 */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {selectedWidget ? (
-          <WidgetInspector sceneId={sceneId} widget={selectedWidget} />
-        ) : (
-          <div style={{ padding: 12, color: '#888', fontSize: 12 }}>위젯을 선택하세요</div>
-        )}
       </div>
 
       {/* +위젯 팝업 (portal) */}
