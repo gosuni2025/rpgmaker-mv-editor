@@ -218,6 +218,27 @@
 .ui-resize-handle.handle-sw { bottom: -4px; left: -4px; cursor: sw-resize; }
 .ui-resize-handle.handle-w  { top: calc(50% - 4px); left: -4px; cursor: w-resize; }
 
+/* 커스텀 씬 위젯 오버레이 */
+.ui-overlay-widget {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: auto;
+  cursor: grab;
+  border: 1px dashed rgba(120, 180, 255, 0.35);
+}
+.ui-overlay-widget:hover {
+  border-color: rgba(120, 180, 255, 0.85);
+  background: rgba(120, 180, 255, 0.05);
+}
+.ui-overlay-widget.selected {
+  border: 1.5px solid #5ba3e8;
+  background: rgba(91, 163, 232, 0.08);
+  cursor: grab;
+}
+.ui-overlay-widget.selected:active {
+  cursor: grabbing;
+}
+
 /* 요소 오버레이 */
 .ui-overlay-element {
   position: absolute;

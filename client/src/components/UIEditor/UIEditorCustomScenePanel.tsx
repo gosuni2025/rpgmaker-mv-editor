@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CustomElementDef, CustomWindowDef,
@@ -704,6 +705,8 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
   const [addMenuParent, setAddMenuParent] = React.useState<string | null>(null);
+  const [addMenuBtnRect, setAddMenuBtnRect] = React.useState<DOMRect | null>(null);
+  const addBtnRef = React.useRef<HTMLButtonElement>(null);
 
   const selectedWidget = React.useMemo(() => {
     if (!selectedId || !scene.root) return null;
@@ -778,18 +781,23 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
       <div style={{ ...sectionStyle, flex: '0 0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
           <label style={{ ...labelStyle, marginBottom: 0, flex: 1 }}>위젯 계층</label>
-          <div style={{ position: 'relative' }}>
-            <button style={{ ...smallBtnStyle, background: '#2675bf' }}
-              onClick={() => setAddMenuParent(addMenuParent ? null : addableParentId)}>
+          <div>
+            <button
+              ref={addBtnRef}
+              style={{ ...smallBtnStyle, background: '#2675bf' }}
+              onClick={() => {
+                if (addMenuParent) {
+                  setAddMenuParent(null);
+                  setAddMenuBtnRect(null);
+                } else {
+                  const rect = addBtnRef.current?.getBoundingClientRect() ?? null;
+                  setAddMenuBtnRect(rect);
+                  setAddMenuParent(addableParentId);
+                }
+              }}
+            >
               + 위젯
             </button>
-            {addMenuParent && (
-              <AddWidgetMenu
-                sceneId={sceneId}
-                parentId={addMenuParent}
-                onClose={() => setAddMenuParent(null)}
-              />
-            )}
           </div>
         </div>
         <div style={{ maxHeight: 200, overflowY: 'auto', background: '#222', borderRadius: 3, padding: 4 }}>
@@ -815,10 +823,25 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
         )}
       </div>
 
-      {/* 클릭 외부 닫기 */}
-      {addMenuParent && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99 }}
-          onClick={() => setAddMenuParent(null)} />
+      {/* +위젯 팝업 (portal) */}
+      {addMenuParent && addMenuBtnRect && ReactDOM.createPortal(
+        <>
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9999 }}
+            onClick={() => { setAddMenuParent(null); setAddMenuBtnRect(null); }}
+          />
+          <div
+            style={{ position: 'fixed', left: addMenuBtnRect.left, top: addMenuBtnRect.bottom + 2, zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AddWidgetMenu
+              sceneId={sceneId}
+              parentId={addMenuParent}
+              onClose={() => { setAddMenuParent(null); setAddMenuBtnRect(null); }}
+            />
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

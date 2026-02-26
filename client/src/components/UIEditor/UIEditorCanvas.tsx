@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import type { UIWindowInfo, UIWindowOverride } from '../../store/types';
+import type { WidgetDef, WidgetDef_Panel } from '../../store/uiEditorTypes';
 import './UIEditor.css';
 
 const GAME_W = 816;
@@ -16,6 +17,42 @@ interface DragState {
   startClientX: number;
   startClientY: number;
   startWin: { x: number; y: number; width: number; height: number };
+}
+
+type WidgetAbsPos = {
+  absX: number; absY: number; width: number; height: number;
+  parentInnerAbsX: number; parentInnerAbsY: number;
+};
+
+interface WidgetDragState {
+  sceneId: string; widgetId: string; handleDir: HandleDir;
+  startClientX: number; startClientY: number;
+  startRelX: number; startRelY: number; startWidth: number; startHeight: number;
+  parentInnerAbsX: number; parentInnerAbsY: number;
+}
+
+function computeAllWidgetPositions(root: WidgetDef_Panel): Map<string, WidgetAbsPos> {
+  const res = new Map<string, WidgetAbsPos>();
+  function visit(w: WidgetDef, ax: number, ay: number, pix: number, piy: number) {
+    res.set(w.id, { absX: ax, absY: ay, width: w.width, height: w.height ?? 36, parentInnerAbsX: pix, parentInnerAbsY: piy });
+    if (w.type === 'panel') {
+      const p = w as WidgetDef_Panel;
+      const pad = p.windowed !== false ? (p.padding ?? 18) : 0;
+      for (const c of p.children ?? []) visit(c, ax + pad + c.x, ay + pad + c.y, ax + pad, ay + pad);
+    }
+  }
+  visit(root, root.x, root.y, 0, 0);
+  return res;
+}
+
+function flattenWidgetIds(root: WidgetDef_Panel): string[] {
+  const ids: string[] = [];
+  function visit(w: WidgetDef) {
+    ids.push(w.id);
+    if (w.type === 'panel') for (const c of (w as WidgetDef_Panel).children ?? []) visit(c);
+  }
+  visit(root);
+  return ids;
 }
 
 function computeUpdates(
@@ -75,6 +112,26 @@ export default function UIEditorCanvas() {
   const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
   const undoUiOverride = useEditorStore((s) => s.undoUiOverride);
   const redoUiOverride = useEditorStore((s) => s.redoUiOverride);
+  const customScenes = useEditorStore((s) => s.customScenes);
+  const customSceneSelectedWidget = useEditorStore((s) => s.customSceneSelectedWidget);
+  const setCustomSceneSelectedWidget = useEditorStore((s) => s.setCustomSceneSelectedWidget);
+  const updateWidget = useEditorStore((s) => s.updateWidget);
+  const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+
+  const [widgetDragState, setWidgetDragState] = useState<WidgetDragState | null>(null);
+
+  const customSceneId = uiEditorScene.startsWith('Scene_CS_') ? uiEditorScene.replace('Scene_CS_', '') : null;
+  const customScene = customSceneId ? (customScenes.scenes[customSceneId] as any) : null;
+  const widgetPositions = useMemo(() => {
+    if (!customScene?.root) return new Map<string, WidgetAbsPos>();
+    return computeAllWidgetPositions(customScene.root as WidgetDef_Panel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customScene?.root]);
+  const widgetOrderedIds = useMemo(() => {
+    if (!customScene?.root) return [] as string[];
+    return flattenWidgetIds(customScene.root as WidgetDef_Panel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customScene?.root]);
 
   // Layout 계산 (ResizeObserver)
   useEffect(() => {
@@ -234,6 +291,49 @@ export default function UIEditorCanvas() {
     };
   }, [dragState, setUiEditorOverride]);
 
+  // 위젯 드래그/리사이즈 effect
+  useEffect(() => {
+    if (!widgetDragState) return;
+    const cursor = widgetDragState.handleDir === 'move' ? 'grabbing' : `${widgetDragState.handleDir}-resize`;
+    document.body.style.cursor = cursor;
+    if (iframeRef.current) iframeRef.current.style.pointerEvents = 'none';
+    const onMove = (e: MouseEvent) => {
+      const s = scaleRef.current;
+      const dx = (e.clientX - widgetDragState.startClientX) / s;
+      const dy = (e.clientY - widgetDragState.startClientY) / s;
+      let upd: any;
+      if (widgetDragState.handleDir === 'move') {
+        upd = { x: Math.round(widgetDragState.startRelX + dx), y: Math.round(widgetDragState.startRelY + dy) };
+      } else {
+        const ax = widgetDragState.parentInnerAbsX + widgetDragState.startRelX;
+        const ay = widgetDragState.parentInnerAbsY + widgetDragState.startRelY;
+        const ab = computeUpdates(widgetDragState.handleDir, dx, dy, { x: ax, y: ay, width: widgetDragState.startWidth, height: widgetDragState.startHeight });
+        upd = {};
+        if (ab.x !== undefined) upd.x = Math.round(ab.x - widgetDragState.parentInnerAbsX);
+        if (ab.y !== undefined) upd.y = Math.round(ab.y - widgetDragState.parentInnerAbsY);
+        if (ab.width !== undefined) upd.width = ab.width;
+        if (ab.height !== undefined) upd.height = ab.height;
+      }
+      updateWidget(widgetDragState.sceneId, widgetDragState.widgetId, upd);
+    };
+    const onUp = () => {
+      setWidgetDragState(null);
+      saveCustomScenes().then(() => {
+        const sn = useEditorStore.getState().uiEditorScene;
+        iframeRef.current?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+        iframeRef.current?.contentWindow?.postMessage({ type: 'loadScene', sceneName: sn }, '*');
+      });
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.body.style.cursor = '';
+      if (iframeRef.current) iframeRef.current.style.pointerEvents = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [widgetDragState, updateWidget, saveCustomScenes]);
+
   const handleWindowMouseDown = useCallback((e: React.MouseEvent, win: UIWindowInfo) => {
     e.stopPropagation();
     e.preventDefault();
@@ -356,6 +456,63 @@ export default function UIEditorCanvas() {
 
           {/* 창 선택/드래그 오버레이 */}
           <div className="ui-overlay-container">
+            {/* 커스텀 씬 위젯 오버레이 */}
+            {customSceneId && widgetOrderedIds
+              .filter(id => id !== 'root')
+              .map(id => {
+                const pos = widgetPositions.get(id);
+                if (!pos) return null;
+                const isSel = id === customSceneSelectedWidget;
+                return (
+                  <div
+                    key={id}
+                    className={`ui-overlay-widget${isSel ? ' selected' : ''}`}
+                    style={{ left: pos.absX, top: pos.absY, width: pos.width, height: pos.height }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      setCustomSceneSelectedWidget(id);
+                      setWidgetDragState({
+                        sceneId: customSceneId,
+                        widgetId: id,
+                        handleDir: 'move',
+                        startClientX: e.clientX,
+                        startClientY: e.clientY,
+                        startRelX: pos.absX - pos.parentInnerAbsX,
+                        startRelY: pos.absY - pos.parentInnerAbsY,
+                        startWidth: pos.width,
+                        startHeight: pos.height,
+                        parentInnerAbsX: pos.parentInnerAbsX,
+                        parentInnerAbsY: pos.parentInnerAbsY,
+                      });
+                    }}
+                  >
+                    {isSel && <div className="ui-overlay-label">{id}</div>}
+                    {isSel && RESIZE_HANDLES.map(dir => (
+                      <div
+                        key={dir}
+                        className={`ui-resize-handle handle-${dir}`}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setWidgetDragState({
+                            sceneId: customSceneId,
+                            widgetId: id,
+                            handleDir: dir,
+                            startClientX: e.clientX,
+                            startClientY: e.clientY,
+                            startRelX: pos.absX - pos.parentInnerAbsX,
+                            startRelY: pos.absY - pos.parentInnerAbsY,
+                            startWidth: pos.width,
+                            startHeight: pos.height,
+                            parentInnerAbsX: pos.parentInnerAbsX,
+                            parentInnerAbsY: pos.parentInnerAbsY,
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
             {uiEditorWindows.map((win) => {
               const isSelected = win.id === uiEditorSelectedWindowId;
               const windowOverride = uiEditorOverrides[win.className];
