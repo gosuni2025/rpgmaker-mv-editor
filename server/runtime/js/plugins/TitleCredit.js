@@ -90,111 +90,6 @@
         Scene_MenuBase.prototype.create.call(this);
         this._creditWindow = new Window_Credit();
         this.addWindow(this._creditWindow);
-        this._setupTouchHandlers();
-    };
-
-    Scene_Credit.prototype.terminate = function() {
-        Scene_MenuBase.prototype.terminate.call(this);
-        this._removeTouchHandlers();
-    };
-
-    Scene_Credit.prototype._setupTouchHandlers = function() {
-        var self = this;
-        var canvas = document.getElementById('GameCanvas') || document.querySelector('canvas');
-        if (!canvas) return;
-        this._touchCanvas = canvas;
-        this._onTouchStart = function(e) { self._handleTouchStart(e); };
-        this._onTouchMove  = function(e) { self._handleTouchMove(e); };
-        this._onTouchEnd   = function(e) { self._handleTouchEnd(e); };
-        canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
-        canvas.addEventListener('touchmove',  this._onTouchMove,  { passive: false });
-        canvas.addEventListener('touchend',   this._onTouchEnd,   { passive: false });
-    };
-
-    Scene_Credit.prototype._removeTouchHandlers = function() {
-        var canvas = this._touchCanvas;
-        if (!canvas) return;
-        canvas.removeEventListener('touchstart', this._onTouchStart);
-        canvas.removeEventListener('touchmove',  this._onTouchMove);
-        canvas.removeEventListener('touchend',   this._onTouchEnd);
-    };
-
-    // 터치 좌표 → 게임 캔버스 좌표 변환
-    Scene_Credit.prototype._touchToCanvas = function(touch) {
-        var canvas = this._touchCanvas;
-        var rect = canvas.getBoundingClientRect();
-        var scaleX = Graphics.width  / rect.width;
-        var scaleY = Graphics.height / rect.height;
-        return {
-            x: (touch.clientX - rect.left) * scaleX,
-            y: (touch.clientY - rect.top)  * scaleY
-        };
-    };
-
-    Scene_Credit.prototype._handleTouchStart = function(e) {
-        var w = this._creditWindow;
-        if (!w._loaded) return;
-        e.preventDefault();
-        var touch = e.touches[0];
-        var pos = this._touchToCanvas(touch);
-        this._touchStartY = pos.y;
-        this._touchLastY  = pos.y;
-        this._touchMoved  = false;
-    };
-
-    Scene_Credit.prototype._handleTouchMove = function(e) {
-        var w = this._creditWindow;
-        if (!w._loaded) return;
-        e.preventDefault();
-        var touch = e.touches[0];
-        var pos = this._touchToCanvas(touch);
-        var dy = pos.y - this._touchLastY;
-        this._touchLastY = pos.y;
-
-        if (Math.abs(pos.y - this._touchStartY) > 8) {
-            this._touchMoved = true;
-        }
-
-        if (this._touchMoved) {
-            var maxScroll = Math.max(0, w._footerY + w.lineHeight() - w.contentsHeight());
-            w.origin.y = Math.max(0, Math.min(maxScroll, w.origin.y - dy));
-            w.refresh();
-        }
-    };
-
-    Scene_Credit.prototype._handleTouchEnd = function(e) {
-        var w = this._creditWindow;
-        if (!w._loaded) return;
-        e.preventDefault();
-        if (!this._touchMoved) {
-            var touch = e.changedTouches[0];
-            var pos = this._touchToCanvas(touch);
-            this._handleTap(pos.x, pos.y);
-        }
-    };
-
-    // 탭: 링크면 URL 열기, 일반 줄이면 커서 이동
-    Scene_Credit.prototype._handleTap = function(cx, cy) {
-        var w = this._creditWindow;
-        if (cx < w.x || cx > w.x + w.width || cy < w.y || cy > w.y + w.height) return;
-        var contentY = cy - w.y - w.padding + w.origin.y;
-        var lh = w.lineHeight();
-        var data = w._lineData;
-        for (var i = 0; i < data.length; i++) {
-            if (contentY >= data[i].y && contentY < data[i].y + lh) {
-                if (data[i].type === 'link') {
-                    w._cursorIndex = i;
-                    w.refresh();
-                    SoundManager.playOk();
-                    openURL(data[i].url);
-                } else {
-                    w._cursorIndex = i;
-                    SoundManager.playCursor();
-                    w.refresh();
-                }
-                return;
-            }
-        }
     };
 
     Scene_Credit.prototype.update = function() {
@@ -216,6 +111,11 @@
 
         if (Input.isTriggered('ok')) {
             w.activateCurrentLink();
+        }
+
+        // 터치: 탭한 위치의 줄로 커서 이동 + 링크면 URL 열기
+        if (TouchInput.isTriggered()) {
+            w.handleTouch(TouchInput.x, TouchInput.y);
         }
     };
 
@@ -391,6 +291,29 @@
             this.origin.y = line.y;
         } else if (line.y + lh > this.origin.y + visH) {
             this.origin.y = line.y + lh - visH;
+        }
+    };
+
+    // 터치한 위치의 줄로 커서 이동 + 링크면 URL 열기
+    Window_Credit.prototype.handleTouch = function(cx, cy) {
+        if (cx < this.x || cx > this.x + this.width ||
+            cy < this.y || cy > this.y + this.height) return;
+        var contentY = cy - this.y - this.padding + this.origin.y;
+        var lh = this.lineHeight();
+        for (var i = 0; i < this._lineData.length; i++) {
+            var line = this._lineData[i];
+            if (contentY >= line.y && contentY < line.y + lh) {
+                this._cursorIndex = i;
+                this._updateScroll();
+                this.refresh();
+                if (line.type === 'link') {
+                    SoundManager.playOk();
+                    openURL(line.url);
+                } else {
+                    SoundManager.playCursor();
+                }
+                return;
+            }
         }
     };
 
