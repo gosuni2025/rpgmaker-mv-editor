@@ -556,6 +556,55 @@
         }
       }
     };
+
+    // 디버그: 호버 항목을 3D 녹색 박스로 표시
+    var _origUpdate = win.update;
+    win.update = function() {
+      _origUpdate.call(this);
+      _perspUpdateHoverDebug(this);
+    };
+  }
+
+  function _perspUpdateHoverDebug(win) {
+    if (!win._threeObj || typeof THREE === 'undefined') return;
+
+    var local = null;
+    if (win.isOpen()) {
+      local = _uiPerspScreenToLocal(win, TouchInput.x, TouchInput.y);
+    }
+    var hitIdx = (local && local.x >= 0 && local.y >= 0 && local.x < win.width && local.y < win.height)
+      ? win.hitTest(local.x, local.y) : -1;
+
+    if (hitIdx === win._dbgHoverIdx) return;
+    win._dbgHoverIdx = hitIdx;
+
+    // 이전 메시 제거
+    if (win._dbgHoverMesh) {
+      win._threeObj.remove(win._dbgHoverMesh);
+      win._dbgHoverMesh.geometry.dispose();
+      win._dbgHoverMesh.material.dispose();
+      win._dbgHoverMesh = null;
+    }
+
+    if (hitIdx < 0) return;
+
+    var rect = win.itemRect(hitIdx);
+    var geo = new THREE.PlaneGeometry(rect.width, rect.height);
+    var mat = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.5,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    var mesh = new THREE.Mesh(geo, mat);
+    // 창 로컬 좌표계(Y-down): rect.x/y는 왼쪽 상단 기준
+    mesh.position.set(rect.x + rect.width / 2, rect.y + rect.height / 2, 0.5);
+    mesh.layers.set(1);   // UI perspective 카메라 레이어
+    mesh.renderOrder = 9000;
+    win._threeObj.add(mesh);
+    win._dbgHoverMesh = mesh;
   }
 
   /** _ov 항목 읽기 (preview.ts의 applyPropToWindow에서 사용) */
