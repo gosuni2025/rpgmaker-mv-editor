@@ -47,7 +47,7 @@ export default function StatusBar() {
   const hasMemory = !!perf.memory;
 
   const w = window as any;
-  const gpuInfo = w.Graphics?._renderer?.info;
+  const gpuInfo = w._editorRendererObj?.renderer?.info;
   const gpuLabel = gpuInfo
     ? `GPU: tex ${gpuInfo.memory?.textures ?? '-'} / geo ${gpuInfo.memory?.geometries ?? '-'} / dc ${gpuInfo.render?.calls ?? '-'}`
     : null;
