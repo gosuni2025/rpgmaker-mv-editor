@@ -758,7 +758,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           case 'reloadCustomScenes':
             if (window.__customSceneEngine) {
               window.__customSceneEngine.reloadCustomScenes();
-              loadScene(_targetScene);
+              // loadScene은 에디터가 항상 별도로 전송하므로 여기서 호출하지 않음
             }
             break;
           case 'updateSceneRedirects':
