@@ -48,6 +48,14 @@ RPG Maker MV 프로젝트를 웹 브라우저에서 편집할 수 있는 데스�
 - **사운드 테스트**: BGM/BGS/ME/SE 미리듣기
 - **캐릭터 생성기**: 캐릭터 스프라이트 생성
 
+## 도움말
+
+- [에디터 개요 및 화면 구성](docs/01-overview.md)
+- [맵 에디터](docs/02-map-editor.md) — 타일 편집, 조명, 오브젝트, 안개
+- [3D 모드](docs/03-3d-mode.md) — 카메라 조작, 렌더링, 스카이박스
+- [UI 에디터](docs/04-ui-editor.md) — 스킨 시스템, 커스텀 씬
+- [플러그인 목록](docs/05-plugins.md) — 14개 번들 플러그인 문서
+
 ## AI 연동 (MCP)
 
 에디터는 **MCP(Model Context Protocol)** 서버를 내장하고 있어 Claude가 에디터를 직접 조작할 수 있습니다.
