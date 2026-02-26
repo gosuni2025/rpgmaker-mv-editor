@@ -105,7 +105,7 @@ export interface UIWindowOverride {
 }
 
 // ── 커스텀 씬 타입 ──────────────────────────────────────
-export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow' | 'script';
+export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow' | 'script' | 'focusWidget' | 'refreshWidgets';
 
 export interface CustomCommandDef {
   name: string;
@@ -180,3 +180,89 @@ export type UiSkinUndoEntry = {
   cursorPadding: number;
   cursorToneR: number; cursorToneG: number; cursorToneB: number;
 };
+
+// ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
+
+export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list';
+
+export interface WidgetDefBase {
+  id: string;
+  type: WidgetType;
+  x: number;
+  y: number;
+  width: number;
+  height?: number;
+  visible?: boolean;
+}
+
+export interface WidgetDef_Panel extends WidgetDefBase {
+  type: 'panel';
+  windowed?: boolean;
+  padding?: number;
+  backOpacity?: number;
+  children: WidgetDef[];
+}
+
+export interface WidgetDef_Label extends WidgetDefBase {
+  type: 'label';
+  text: string;
+  align?: 'left' | 'center' | 'right';
+  fontSize?: number;
+}
+
+export interface WidgetDef_Image extends WidgetDefBase {
+  type: 'image';
+  imageName: string;
+  imageFolder?: string;
+}
+
+export interface WidgetDef_ActorFace extends WidgetDefBase {
+  type: 'actorFace';
+  actorIndex: number;
+}
+
+export interface WidgetDef_Gauge extends WidgetDefBase {
+  type: 'gauge';
+  gaugeType: 'hp' | 'mp' | 'tp';
+  actorIndex: number;
+}
+
+export interface WidgetDef_Separator extends WidgetDefBase {
+  type: 'separator';
+}
+
+export interface WidgetDef_Button extends WidgetDefBase {
+  type: 'button';
+  label: string;
+  action: CustomCommandHandler;
+}
+
+export interface WidgetDef_List extends WidgetDefBase {
+  type: 'list';
+  maxCols?: number;
+  items: CustomCommandDef[];
+  handlers: Record<string, CustomCommandHandler>;
+}
+
+export type WidgetDef =
+  | WidgetDef_Panel
+  | WidgetDef_Label
+  | WidgetDef_Image
+  | WidgetDef_ActorFace
+  | WidgetDef_Gauge
+  | WidgetDef_Separator
+  | WidgetDef_Button
+  | WidgetDef_List;
+
+export interface NavigationConfig {
+  defaultFocus?: string;
+  cancelWidget?: string;
+  focusOrder?: string[];
+}
+
+export interface CustomSceneDefV2 extends Omit<CustomSceneDef, 'windows'> {
+  formatVersion?: number;
+  root?: WidgetDef;
+  navigation?: NavigationConfig;
+  windows?: CustomWindowDef[];
+}

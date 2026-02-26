@@ -8,7 +8,7 @@ export * from './uiEditorTypes';
 
 import type { HistoryEntry, TileChange, PassageChange } from './historyTypes';
 import type { ClipboardData } from './clipboardTypes';
-import type { UIWindowInfo, UIWindowOverride, UiSkinUndoEntry, CustomScenesData, CustomSceneDef, CustomWindowDef } from './uiEditorTypes';
+import type { UIWindowInfo, UIWindowOverride, UiSkinUndoEntry, CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, NavigationConfig } from './uiEditorTypes';
 
 export interface RendererInitError {
   title: string;
@@ -90,6 +90,7 @@ export interface EditorState {
   // Custom scenes
   customScenes: CustomScenesData;
   customSceneDirty: boolean;
+  customSceneSelectedWidget: string | null;
   sceneRedirects: Record<string, string>; // 씬 이름 → 대체할 커스텀 씬 이름
 
   // Mode
@@ -281,6 +282,12 @@ export interface EditorState {
   removeCustomWindow: (sceneId: string, winId: string) => void;
   updateCustomWindow: (sceneId: string, winId: string, updates: Partial<CustomWindowDef>) => void;
   setSceneRedirects: (redirects: Record<string, string>) => void;
+  setCustomSceneSelectedWidget: (id: string | null) => void;
+  addWidget: (sceneId: string, parentId: string, def: WidgetDef) => void;
+  removeWidget: (sceneId: string, widgetId: string) => void;
+  updateWidget: (sceneId: string, widgetId: string, updates: Partial<WidgetDef>) => void;
+  updateNavigation: (sceneId: string, nav: Partial<NavigationConfig>) => void;
+  updateSceneRoot: (sceneId: string, root: WidgetDef) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

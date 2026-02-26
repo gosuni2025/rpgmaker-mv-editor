@@ -368,6 +368,38 @@ function buildPreviewHTML(useWebp: boolean): string {
         return windows;
       }
 
+      // 위젯 트리 수집 (formatVersion 2 씬용)
+      function collectWidgets(scene) {
+        if (!scene || !scene._rootWidget) return null;
+        function traverseWidget(widget, parentId) {
+          if (!widget || !widget._id) return null;
+          var info = {
+            id: widget._id,
+            type: widget._def ? widget._def.type : 'unknown',
+            parentId: parentId || null,
+            x: widget._x || 0,
+            y: widget._y || 0,
+            width: widget._width || 0,
+            height: widget._height || 0,
+            visible: widget._visible !== false,
+          };
+          // Window_Base 타입이면 className도 추가
+          var dobj = widget.displayObject ? widget.displayObject() : null;
+          if (dobj) {
+            info.className = dobj._customClassName || (dobj.constructor && dobj.constructor.name) || null;
+          }
+          var result = [info];
+          if (widget._children) {
+            for (var i = 0; i < widget._children.length; i++) {
+              var childInfos = traverseWidget(widget._children[i], widget._id);
+              if (childInfos) result = result.concat(childInfos);
+            }
+          }
+          return result;
+        }
+        return traverseWidget(scene._rootWidget, null);
+      }
+
       // 에디터 뷰 설정: 선택 창 강제 표시 / 선택 창만 표시
       function applyViewSettings(targetId, forceShow, exclusive) {
         var scene = SceneManager._scene;
@@ -407,8 +439,11 @@ function buildPreviewHTML(useWebp: boolean): string {
       }
 
       function reportWindows(type) {
-        var windows = collectWindows(SceneManager._scene);
+        var scene = SceneManager._scene;
+        var windows = collectWindows(scene);
+        var widgets = collectWidgets(scene);
         var msg = { type: type || 'windowUpdated', windows: windows };
+        if (widgets) msg.widgets = widgets;
         if (type === 'sceneReady') {
           msg.gameWidth = (typeof Graphics !== 'undefined' ? Graphics.width : null) || 816;
           msg.gameHeight = (typeof Graphics !== 'undefined' ? Graphics.height : null) || 624;
@@ -695,6 +730,28 @@ function buildPreviewHTML(useWebp: boolean): string {
           case 'refreshScene':
             loadScene(_targetScene);
             break;
+          case 'updateWidgetProp': {
+            var scene = SceneManager._scene;
+            if (scene && scene._widgetMap && data.widgetId && scene._widgetMap[data.widgetId]) {
+              var targetWidget = scene._widgetMap[data.widgetId];
+              // def 업데이트 후 refresh
+              if (targetWidget._def) {
+                targetWidget._def[data.prop] = data.value;
+                // 위치/크기 직접 반영
+                switch (data.prop) {
+                  case 'x': targetWidget._x = data.value; if (targetWidget._displayObject) targetWidget._displayObject.x = data.value; break;
+                  case 'y': targetWidget._y = data.value; if (targetWidget._displayObject) targetWidget._displayObject.y = data.value; break;
+                  case 'width': targetWidget._width = data.value; break;
+                  case 'height': targetWidget._height = data.value; break;
+                  case 'visible': targetWidget._visible = data.value; if (targetWidget._displayObject) targetWidget._displayObject.visible = data.value; break;
+                  case 'text': targetWidget._template = data.value; targetWidget.refresh(); break;
+                  default: if (targetWidget.refresh) targetWidget.refresh(); break;
+                }
+              }
+              reportWindows('windowUpdated');
+            }
+            break;
+          }
           case 'reloadCustomScenes':
             if (window.__customSceneEngine) {
               window.__customSceneEngine.reloadCustomScenes();

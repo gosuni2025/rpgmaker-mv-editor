@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import type { CustomCommandDef, CustomCommandHandler, CustomElementDef, CustomWindowDef, CommandActionType } from '../../store/uiEditorTypes';
+import type {
+  CustomCommandDef, CustomCommandHandler, CustomElementDef, CustomWindowDef,
+  CommandActionType, WidgetDef, WidgetType, WidgetDef_Panel, WidgetDef_Label,
+  WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge, WidgetDef_Button,
+  WidgetDef_List, NavigationConfig, CustomSceneDef, CustomSceneDefV2
+} from '../../store/uiEditorTypes';
 import './UIEditor.css';
 
 const inputStyle: React.CSSProperties = {
@@ -25,6 +30,46 @@ const labelStyle: React.CSSProperties = {
 const rowStyle: React.CSSProperties = {
   display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
 };
+
+// ── V2 포맷 감지 / 변환 ──────────────────────────────────
+
+function isV2Scene(scene: any): boolean {
+  return !!(scene.root || (scene.formatVersion && scene.formatVersion >= 2));
+}
+
+function convertLegacyToV2(scene: CustomSceneDef): Partial<CustomSceneDefV2> {
+  const children: WidgetDef[] = (scene.windows || []).map((win) => {
+    if (win.windowType === 'command') {
+      return {
+        id: win.id, type: 'list' as const,
+        x: win.x, y: win.y,
+        width: win.width, height: win.height || undefined,
+        maxCols: win.maxCols,
+        items: win.commands || [],
+        handlers: win.handlers || {},
+      } as WidgetDef_List;
+    } else {
+      return {
+        id: win.id, type: 'panel' as const,
+        x: win.x, y: win.y,
+        width: win.width, height: win.height || undefined,
+        windowed: true,
+        children: [],
+      } as WidgetDef_Panel;
+    }
+  });
+
+  const root: WidgetDef_Panel = {
+    id: 'root', type: 'panel',
+    x: 0, y: 0, width: 816, height: 624,
+    windowed: false,
+    children,
+  };
+
+  return { root, formatVersion: 2, navigation: { defaultFocus: children[0]?.id } };
+}
+
+// ── 레거시 컴포넌트 (CommandEditor, ElementEditor, WindowDetail) ──
 
 function CommandEditor({ sceneId, win }: { sceneId: string; win: CustomWindowDef }) {
   const updateCustomWindow = useEditorStore((s) => s.updateCustomWindow);
@@ -213,7 +258,466 @@ function WindowDetail({ sceneId, win }: { sceneId: string; win: CustomWindowDef 
   );
 }
 
-export default function UIEditorCustomScenePanel({ sceneId }: { sceneId: string }) {
+// ── V2: NavigationConfigSection ──────────────────────────
+
+function NavigationConfigSection({ sceneId, nav }: { sceneId: string; nav: NavigationConfig }) {
+  const updateNavigation = useEditorStore((s) => s.updateNavigation);
+  return (
+    <div style={sectionStyle}>
+      <label style={labelStyle}>네비게이션 설정</label>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>기본 포커스</span>
+        <input style={{ ...inputStyle, flex: 1 }} value={nav.defaultFocus || ''}
+          placeholder="widget id"
+          onChange={(e) => updateNavigation(sceneId, { defaultFocus: e.target.value || undefined })} />
+      </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>취소 위젯</span>
+        <input style={{ ...inputStyle, flex: 1 }} value={nav.cancelWidget || ''}
+          placeholder="widget id"
+          onChange={(e) => updateNavigation(sceneId, { cancelWidget: e.target.value || undefined })} />
+      </div>
+    </div>
+  );
+}
+
+// ── V2: WidgetHierarchy (트리 뷰) ────────────────────────
+
+const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
+  panel: '#4a6fa5', label: '#5a8a5a', image: '#8a5a8a',
+  actorFace: '#8a7a3a', gauge: '#8a4a3a', separator: '#555',
+  button: '#2675bf', list: '#2a7a3a',
+};
+
+const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
+  panel: 'PANEL', label: 'LABEL', image: 'IMG',
+  actorFace: 'FACE', gauge: 'GAUGE', separator: 'SEP',
+  button: 'BTN', list: 'LIST',
+};
+
+function WidgetTreeNode({
+  widget, depth, sceneId, selectedId, onSelect, onRemove
+}: {
+  widget: WidgetDef; depth: number; sceneId: string;
+  selectedId: string | null; onSelect: (id: string) => void; onRemove: (id: string) => void;
+}) {
+  const isSelected = widget.id === selectedId;
+  const isPanel = widget.type === 'panel';
+  const [expanded, setExpanded] = React.useState(true);
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          paddingLeft: depth * 12 + 4, paddingRight: 4,
+          paddingTop: 3, paddingBottom: 3,
+          background: isSelected ? '#2675bf33' : 'transparent',
+          cursor: 'pointer', borderRadius: 2,
+        }}
+        onClick={() => onSelect(widget.id)}
+      >
+        {isPanel && (
+          <span
+            style={{ fontSize: 10, color: '#888', cursor: 'pointer', width: 12, textAlign: 'center' }}
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          >
+            {expanded ? '\u25BE' : '\u25B8'}
+          </span>
+        )}
+        {!isPanel && <span style={{ width: 12 }} />}
+        <span style={{
+          fontSize: 9, padding: '1px 3px', borderRadius: 2,
+          background: WIDGET_TYPE_COLORS[widget.type] || '#555', color: '#fff',
+          flexShrink: 0,
+        }}>
+          {WIDGET_TYPE_LABELS[widget.type]}
+        </span>
+        <span style={{ flex: 1, fontSize: 12, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {widget.id}
+          {'text' in widget && (widget as any).text ? (
+            <span style={{ color: '#888', fontSize: 10, marginLeft: 4 }}>"{(widget as any).text.slice(0, 15)}"</span>
+          ) : null}
+        </span>
+        {widget.id !== 'root' && (
+          <button style={{ ...deleteBtnStyle, fontSize: 9, padding: '1px 4px' }}
+            onClick={(e) => { e.stopPropagation(); onRemove(widget.id); }}>
+            ×
+          </button>
+        )}
+      </div>
+      {isPanel && expanded && (widget as WidgetDef_Panel).children?.map((child) => (
+        <WidgetTreeNode
+          key={child.id} widget={child} depth={depth + 1}
+          sceneId={sceneId} selectedId={selectedId}
+          onSelect={onSelect} onRemove={onRemove}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── V2: AddWidgetMenu ────────────────────────────────────
+
+function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parentId: string; onClose: () => void }) {
+  const addWidget = useEditorStore((s) => s.addWidget);
+  const setCustomSceneSelectedWidget = useEditorStore((s) => s.setCustomSceneSelectedWidget);
+
+  const handleAdd = (type: WidgetType) => {
+    const id = `${type}_${Date.now()}`;
+    let def: WidgetDef;
+    switch (type) {
+      case 'panel': def = { id, type, x: 0, y: 0, width: 300, height: 200, windowed: true, children: [] }; break;
+      case 'label': def = { id, type, x: 0, y: 0, width: 200, height: 36, text: '텍스트' }; break;
+      case 'image': def = { id, type, x: 0, y: 0, width: 100, height: 100, imageName: '' }; break;
+      case 'actorFace': def = { id, type, x: 0, y: 0, width: 144, height: 144, actorIndex: 0 }; break;
+      case 'gauge': def = { id, type, x: 0, y: 0, width: 200, height: 36, gaugeType: 'hp', actorIndex: 0 }; break;
+      case 'separator': def = { id, type, x: 0, y: 0, width: 200, height: 4 }; break;
+      case 'button': def = { id, type, x: 0, y: 0, width: 200, label: '버튼', action: { action: 'popScene' } }; break;
+      case 'list': def = { id, type, x: 0, y: 0, width: 200, items: [], handlers: {} }; break;
+      default: return;
+    }
+    addWidget(sceneId, parentId, def);
+    setCustomSceneSelectedWidget(id);
+    onClose();
+  };
+
+  const types: WidgetType[] = ['panel', 'label', 'image', 'actorFace', 'gauge', 'separator', 'button', 'list'];
+  const typeLabels: Record<WidgetType, string> = {
+    panel: '패널', label: '레이블', image: '이미지',
+    actorFace: '액터 얼굴', gauge: '게이지', separator: '구분선',
+    button: '버튼', list: '리스트',
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', background: '#2a2a2a', border: '1px solid #555',
+      borderRadius: 4, padding: 4, zIndex: 100, minWidth: 120,
+    }}>
+      {types.map((t) => (
+        <div key={t} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: '#ddd', borderRadius: 2 }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#3a3a3a')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          onClick={() => handleAdd(t)}>
+          <span style={{
+            fontSize: 9, padding: '1px 3px', borderRadius: 2, marginRight: 6,
+            background: WIDGET_TYPE_COLORS[t] || '#555', color: '#fff',
+          }}>{WIDGET_TYPE_LABELS[t]}</span>
+          {typeLabels[t]}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── V2: WidgetInspector (타입별 속성 편집) ───────────────
+
+function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetDef }) {
+  const updateWidget = useEditorStore((s) => s.updateWidget);
+  const update = (updates: Partial<WidgetDef>) => updateWidget(sceneId, widget.id, updates);
+
+  return (
+    <div>
+      {/* 공통 속성 */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>공통 속성</label>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
+          <input style={{ ...inputStyle, flex: 1 }} value={widget.id}
+            onChange={(e) => update({ id: e.target.value } as any)} />
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>X</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.x}
+            onChange={(e) => update({ x: parseInt(e.target.value) || 0 } as any)} />
+          <span style={{ fontSize: 11, color: '#888', width: 20 }}>Y</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.y}
+            onChange={(e) => update({ y: parseInt(e.target.value) || 0 } as any)} />
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>W</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.width}
+            onChange={(e) => update({ width: parseInt(e.target.value) || 0 } as any)} />
+          <span style={{ fontSize: 11, color: '#888', width: 20 }}>H</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.height ?? ''}
+            placeholder="auto"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              update({ height: v === '' ? undefined : (parseInt(v) || 0) } as any);
+            }} />
+        </div>
+        <div style={rowStyle}>
+          <label style={{ fontSize: 11, color: '#aaa' }}>
+            <input type="checkbox" checked={widget.visible !== false}
+              onChange={(e) => update({ visible: e.target.checked } as any)} /> 표시
+          </label>
+        </div>
+      </div>
+
+      {/* 타입별 속성 */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>타입 속성 ({widget.type})</label>
+        {widget.type === 'panel' && (
+          <div>
+            <div style={rowStyle}>
+              <label style={{ fontSize: 11, color: '#aaa' }}>
+                <input type="checkbox" checked={(widget as WidgetDef_Panel).windowed !== false}
+                  onChange={(e) => update({ windowed: e.target.checked } as any)} /> 창 배경
+              </label>
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
+              <input style={{ ...inputStyle, width: 60 }} type="number"
+                value={(widget as WidgetDef_Panel).padding ?? ''}
+                placeholder="기본"
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
+                }} />
+            </div>
+          </div>
+        )}
+        {widget.type === 'label' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>텍스트</span>
+            </div>
+            <textarea
+              style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+              value={(widget as WidgetDef_Label).text}
+              placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
+              onChange={(e) => update({ text: e.target.value } as any)}
+            />
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+              <select style={{ ...selectStyle, flex: 1 }}
+                value={(widget as WidgetDef_Label).align || 'left'}
+                onChange={(e) => update({ align: e.target.value as any } as any)}>
+                <option value="left">왼쪽</option>
+                <option value="center">가운데</option>
+                <option value="right">오른쪽</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {widget.type === 'actorFace' && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 70 }}>액터 인덱스</span>
+            <input style={{ ...inputStyle, width: 60 }} type="number"
+              value={(widget as WidgetDef_ActorFace).actorIndex}
+              onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
+          </div>
+        )}
+        {widget.type === 'gauge' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 타입</span>
+              <select style={{ ...selectStyle, flex: 1 }}
+                value={(widget as WidgetDef_Gauge).gaugeType}
+                onChange={(e) => update({ gaugeType: e.target.value as any } as any)}>
+                <option value="hp">HP</option>
+                <option value="mp">MP</option>
+                <option value="tp">TP</option>
+              </select>
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>액터 인덱스</span>
+              <input style={{ ...inputStyle, width: 60 }} type="number"
+                value={(widget as WidgetDef_Gauge).actorIndex}
+                onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
+            </div>
+          </div>
+        )}
+        {widget.type === 'image' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
+              <input style={{ ...inputStyle, flex: 1 }}
+                value={(widget as WidgetDef_Image).imageName}
+                onChange={(e) => update({ imageName: e.target.value } as any)} />
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
+              <input style={{ ...inputStyle, flex: 1 }}
+                value={(widget as WidgetDef_Image).imageFolder || 'img/system/'}
+                onChange={(e) => update({ imageFolder: e.target.value } as any)} />
+            </div>
+          </div>
+        )}
+        {widget.type === 'button' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>레이블</span>
+              <input style={{ ...inputStyle, flex: 1 }}
+                value={(widget as WidgetDef_Button).label}
+                onChange={(e) => update({ label: e.target.value } as any)} />
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>동작</span>
+              <select style={{ ...selectStyle, flex: 1 }}
+                value={(widget as WidgetDef_Button).action?.action || 'popScene'}
+                onChange={(e) => update({ action: { action: e.target.value as CommandActionType } } as any)}>
+                <option value="popScene">씬 닫기</option>
+                <option value="gotoScene">씬 이동</option>
+                <option value="customScene">커스텀 씬</option>
+                <option value="focusWidget">위젯 포커스</option>
+                <option value="callCommonEvent">커먼 이벤트</option>
+                <option value="script">스크립트</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {widget.type === 'list' && (
+          <CommandEditor
+            sceneId={sceneId}
+            win={{
+              id: widget.id, displayName: widget.id, windowType: 'command',
+              x: widget.x, y: widget.y, width: widget.width, height: widget.height ?? null,
+              commands: (widget as WidgetDef_List).items,
+              handlers: (widget as WidgetDef_List).handlers,
+              maxCols: (widget as WidgetDef_List).maxCols,
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── V2: V2ScenePanel (위젯 트리 메인 패널) ──────────────
+
+function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneDefV2 }) {
+  const selectedId = useEditorStore((s) => s.customSceneSelectedWidget);
+  const setSelectedId = useEditorStore((s) => s.setCustomSceneSelectedWidget);
+  const removeWidget = useEditorStore((s) => s.removeWidget);
+  const updateCustomScene = useEditorStore((s) => s.updateCustomScene);
+  const removeCustomScene = useEditorStore((s) => s.removeCustomScene);
+  const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+  const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
+  const [addMenuParent, setAddMenuParent] = React.useState<string | null>(null);
+
+  const selectedWidget = React.useMemo(() => {
+    if (!selectedId || !scene.root) return null;
+    function find(w: WidgetDef): WidgetDef | null {
+      if (w.id === selectedId) return w;
+      if (w.type === 'panel') {
+        for (const c of (w as WidgetDef_Panel).children || []) {
+          const found = find(c);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+    return find(scene.root);
+  }, [selectedId, scene.root]);
+
+  const handleDeleteScene = async () => {
+    if (!confirm(`씬 "${scene.displayName}"을 삭제하시겠습니까?`)) return;
+    removeCustomScene(sceneId);
+    await saveCustomScenes();
+    setUiEditorScene('Scene_Menu');
+  };
+
+  const addableParentId = selectedId && scene.root
+    ? (() => {
+        function find(w: WidgetDef): WidgetDef | null {
+          if (w.id === selectedId) return w;
+          if (w.type === 'panel') {
+            for (const c of (w as WidgetDef_Panel).children || []) {
+              const found = find(c);
+              if (found) return found;
+            }
+          }
+          return null;
+        }
+        const sel = find(scene.root!);
+        return sel?.type === 'panel' ? selectedId : (scene.root?.id || 'root');
+      })()
+    : (scene.root?.id || 'root');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', position: 'relative' }}>
+      {/* 씬 속성 */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>씬 속성</label>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
+          <span style={{ fontSize: 12, color: '#ddd' }}>Scene_CS_{scene.id}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>이름</span>
+          <input style={{ ...inputStyle, flex: 1 }} value={scene.displayName}
+            onChange={(e) => updateCustomScene(sceneId, { displayName: e.target.value })} />
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>기반</span>
+          <select style={{ ...selectStyle, flex: 1 }} value={scene.baseScene}
+            onChange={(e) => updateCustomScene(sceneId, { baseScene: e.target.value as 'Base' | 'MenuBase' })}>
+            <option value="MenuBase">MenuBase</option>
+            <option value="Base">Base</option>
+          </select>
+        </div>
+        <button style={{ ...deleteBtnStyle, width: '100%', marginTop: 4 }} onClick={handleDeleteScene}>
+          씬 삭제
+        </button>
+      </div>
+
+      {/* 네비게이션 설정 */}
+      <NavigationConfigSection sceneId={sceneId} nav={scene.navigation || {}} />
+
+      {/* 위젯 계층 */}
+      <div style={{ ...sectionStyle, flex: '0 0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+          <label style={{ ...labelStyle, marginBottom: 0, flex: 1 }}>위젯 계층</label>
+          <div style={{ position: 'relative' }}>
+            <button style={{ ...smallBtnStyle, background: '#2675bf' }}
+              onClick={() => setAddMenuParent(addMenuParent ? null : addableParentId)}>
+              + 위젯
+            </button>
+            {addMenuParent && (
+              <AddWidgetMenu
+                sceneId={sceneId}
+                parentId={addMenuParent}
+                onClose={() => setAddMenuParent(null)}
+              />
+            )}
+          </div>
+        </div>
+        <div style={{ maxHeight: 200, overflowY: 'auto', background: '#222', borderRadius: 3, padding: 4 }}>
+          {scene.root ? (
+            <WidgetTreeNode
+              widget={scene.root} depth={0} sceneId={sceneId}
+              selectedId={selectedId}
+              onSelect={(id) => { setSelectedId(id); setAddMenuParent(null); }}
+              onRemove={(id) => removeWidget(sceneId, id)}
+            />
+          ) : (
+            <div style={{ padding: 8, color: '#888', fontSize: 12 }}>위젯 없음</div>
+          )}
+        </div>
+      </div>
+
+      {/* 위젯 인스펙터 */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {selectedWidget ? (
+          <WidgetInspector sceneId={sceneId} widget={selectedWidget} />
+        ) : (
+          <div style={{ padding: 12, color: '#888', fontSize: 12 }}>위젯을 선택하세요</div>
+        )}
+      </div>
+
+      {/* 클릭 외부 닫기 */}
+      {addMenuParent && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+          onClick={() => setAddMenuParent(null)} />
+      )}
+    </div>
+  );
+}
+
+// ── LegacyScenePanel (기존 windows[] 기반 UI) ───────────
+
+function LegacyScenePanel({ sceneId, onConvert }: { sceneId: string; onConvert: () => void }) {
   const customScenes = useEditorStore((s) => s.customScenes);
   const updateCustomScene = useEditorStore((s) => s.updateCustomScene);
   const removeCustomScene = useEditorStore((s) => s.removeCustomScene);
@@ -274,6 +778,10 @@ export default function UIEditorCustomScenePanel({ sceneId }: { sceneId: string 
         <button style={{ ...deleteBtnStyle, width: '100%', marginTop: 4 }} onClick={handleDeleteScene}>
           씬 삭제
         </button>
+        <button style={{ ...smallBtnStyle, width: '100%', marginTop: 4, background: '#665500' }}
+          onClick={onConvert}>
+          위젯 트리 포맷으로 변환 (v2)
+        </button>
       </div>
 
       {/* Window 목록 */}
@@ -319,5 +827,32 @@ export default function UIEditorCustomScenePanel({ sceneId }: { sceneId: string 
         )}
       </div>
     </div>
+  );
+}
+
+// ── 메인 export ──────────────────────────────────────────
+
+export default function UIEditorCustomScenePanel({ sceneId }: { sceneId: string }) {
+  const customScenes = useEditorStore((s) => s.customScenes);
+  const updateSceneRoot = useEditorStore((s) => s.updateSceneRoot);
+  const updateNavigation = useEditorStore((s) => s.updateNavigation);
+  const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+
+  const scene = customScenes.scenes[sceneId] as CustomSceneDefV2 | undefined;
+  if (!scene) return <div style={{ padding: 12, color: '#888' }}>씬을 찾을 수 없습니다</div>;
+
+  if (isV2Scene(scene)) {
+    return <V2ScenePanel sceneId={sceneId} scene={scene} />;
+  }
+
+  return (
+    <LegacyScenePanel sceneId={sceneId} onConvert={() => {
+      const v2Data = convertLegacyToV2(scene as CustomSceneDef);
+      updateSceneRoot(sceneId, v2Data.root!);
+      if (v2Data.navigation) {
+        updateNavigation(sceneId, v2Data.navigation);
+      }
+      saveCustomScenes();
+    }} />
   );
 }

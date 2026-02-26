@@ -45,6 +45,58 @@
   _configData = loadJSON('data/UIEditorConfig.json');
 
   //===========================================================================
+  // 템플릿 resolve 함수
+  //===========================================================================
+  function resolveTemplate(text) {
+    if (!text || typeof text !== 'string') return text || '';
+    return text.replace(/\{([^}]+)\}/g, function(match, expr) {
+      try {
+        // actor[N].field
+        var actorMatch = expr.match(/^actor\[(\d+)\]\.(\w+)$/);
+        if (actorMatch && typeof $gameParty !== 'undefined') {
+          var members = $gameParty.members();
+          var idx = parseInt(actorMatch[1]);
+          var field = actorMatch[2];
+          var actor = members[idx];
+          if (!actor) return '';
+          switch (field) {
+            case 'name':  return actor.name();
+            case 'class': return actor.currentClass() ? actor.currentClass().name : '';
+            case 'level': return String(actor.level);
+            case 'hp':    return String(actor.hp);
+            case 'mhp':   return String(actor.mhp);
+            case 'mp':    return String(actor.mp);
+            case 'mmp':   return String(actor.mmp);
+            case 'tp':    return String(actor.tp);
+            default:      return String(actor[field] !== undefined ? actor[field] : '');
+          }
+        }
+        // var:ID
+        var varMatch = expr.match(/^var:(\d+)$/);
+        if (varMatch && typeof $gameVariables !== 'undefined') {
+          return String($gameVariables.value(parseInt(varMatch[1])));
+        }
+        // switch:ID
+        var swMatch = expr.match(/^switch:(\d+)$/);
+        if (swMatch && typeof $gameSwitches !== 'undefined') {
+          return $gameSwitches.value(parseInt(swMatch[1])) ? 'ON' : 'OFF';
+        }
+        // gold
+        if (expr === 'gold' && typeof $gameParty !== 'undefined') {
+          return String($gameParty.gold());
+        }
+        // config.KEY
+        var cfgMatch = expr.match(/^config\.(\w+)$/);
+        if (cfgMatch && typeof ConfigManager !== 'undefined') {
+          var v = ConfigManager[cfgMatch[1]];
+          return typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : String(v !== undefined ? v : '');
+        }
+      } catch (e) {}
+      return match;
+    });
+  }
+
+  //===========================================================================
   // Window_CustomCommand — Window_Command 상속
   //===========================================================================
   function Window_CustomCommand() {
@@ -202,6 +254,451 @@
   window.Window_CustomDisplay = Window_CustomDisplay;
 
   //===========================================================================
+  // Widget_Base — 위젯 트리 기본 클래스
+  //===========================================================================
+  function Widget_Base() {}
+  Widget_Base.prototype.initialize = function(def, parentWidget) {
+    this._def = def || {};
+    this._id = def.id || '';
+    this._x = def.x || 0;
+    this._y = def.y || 0;
+    this._width = def.width || 100;
+    this._height = def.height || 36;
+    this._visible = def.visible !== false;
+    this._children = [];
+    this._parent = parentWidget || null;
+    this._displayObject = null;
+  };
+  Widget_Base.prototype.displayObject = function() { return this._displayObject; };
+  Widget_Base.prototype.addChildWidget = function(child) {
+    this._children.push(child);
+    child._parent = this;
+    if (this._displayObject && child.displayObject()) {
+      this._displayObject.addChild(child.displayObject());
+    }
+  };
+  Widget_Base.prototype.update = function() {
+    for (var i = 0; i < this._children.length; i++) {
+      this._children[i].update();
+    }
+  };
+  Widget_Base.prototype.refresh = function() {
+    for (var i = 0; i < this._children.length; i++) {
+      this._children[i].refresh();
+    }
+  };
+  Widget_Base.prototype.findWidget = function(id) {
+    if (this._id === id) return this;
+    for (var i = 0; i < this._children.length; i++) {
+      var found = this._children[i].findWidget(id);
+      if (found) return found;
+    }
+    return null;
+  };
+  Widget_Base.prototype.collectFocusable = function(out) {
+    for (var i = 0; i < this._children.length; i++) {
+      this._children[i].collectFocusable(out);
+    }
+  };
+  Widget_Base.prototype.destroy = function() {
+    for (var i = 0; i < this._children.length; i++) {
+      this._children[i].destroy();
+    }
+    this._children = [];
+  };
+  window.Widget_Base = Widget_Base;
+
+  //===========================================================================
+  // Widget_Panel — 패널 (windowed 또는 투명 컨테이너)
+  //===========================================================================
+  function Widget_Panel() {}
+  Widget_Panel.prototype = Object.create(Widget_Base.prototype);
+  Widget_Panel.prototype.constructor = Widget_Panel;
+  Widget_Panel.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._windowed = def.windowed !== false;
+    if (this._windowed) {
+      var padding = def.padding;
+      var win = new Window_Base(this._x, this._y, this._width, this._height || 400);
+      if (padding !== undefined) win._padding = padding;
+      if (def.backOpacity !== undefined) win.backOpacity = def.backOpacity;
+      win._customClassName = 'Window_CS_' + this._id;
+      this._displayObject = win;
+      this._padding = win._padding;
+    } else {
+      var container = new Sprite();
+      container.x = this._x;
+      container.y = this._y;
+      this._displayObject = container;
+      this._padding = 0;
+    }
+  };
+  Widget_Panel.prototype.addChildWidget = function(child) {
+    this._children.push(child);
+    child._parent = this;
+    if (child.displayObject()) {
+      var childObj = child.displayObject();
+      if (this._windowed) {
+        childObj.x += this._padding;
+        childObj.y += this._padding;
+      }
+      // Window_Base 자식은 씬에서 addWindow로 별도 추가 — 여기서는 위치 오프셋만 적용
+      if (childObj instanceof Window_Base) {
+        childObj.x += this._x;
+        childObj.y += this._y;
+      } else if (this._displayObject) {
+        this._displayObject.addChild(childObj);
+      }
+    }
+  };
+  window.Widget_Panel = Widget_Panel;
+
+  //===========================================================================
+  // Widget_Label — 텍스트 라벨 (템플릿 지원)
+  //===========================================================================
+  function Widget_Label() {}
+  Widget_Label.prototype = Object.create(Widget_Base.prototype);
+  Widget_Label.prototype.constructor = Widget_Label;
+  Widget_Label.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._template = def.text || '';
+    this._align = def.align || 'left';
+    this._fontSize = def.fontSize || 28;
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    var bitmap = new Bitmap(this._width, this._height);
+    bitmap.fontSize = this._fontSize;
+    sprite.bitmap = bitmap;
+    this._sprite = sprite;
+    this._bitmap = bitmap;
+    this._displayObject = sprite;
+    this.refresh();
+  };
+  Widget_Label.prototype.refresh = function() {
+    if (!this._bitmap) return;
+    this._bitmap.clear();
+    var text = resolveTemplate(this._template);
+    this._bitmap.drawText(text, 0, 0, this._width, this._height, this._align);
+    Widget_Base.prototype.refresh.call(this);
+  };
+  Widget_Label.prototype.update = function() {
+    if (this._updateCount === undefined) this._updateCount = 0;
+    if (++this._updateCount % 60 === 0) this.refresh();
+    Widget_Base.prototype.update.call(this);
+  };
+  window.Widget_Label = Widget_Label;
+
+  //===========================================================================
+  // Widget_Image — 이미지 표시
+  //===========================================================================
+  function Widget_Image() {}
+  Widget_Image.prototype = Object.create(Widget_Base.prototype);
+  Widget_Image.prototype.constructor = Widget_Image;
+  Widget_Image.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    this._displayObject = sprite;
+    if (def.imageName && typeof ImageManager !== 'undefined') {
+      var folder = def.imageFolder || 'img/system/';
+      var bitmap = ImageManager.loadBitmap(folder, def.imageName);
+      var self = this;
+      bitmap.addLoadListener(function() {
+        var drawW = self._width || bitmap.width;
+        var drawH = self._height || bitmap.height;
+        var bmp = new Bitmap(drawW, drawH);
+        bmp.blt(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, drawW, drawH);
+        sprite.bitmap = bmp;
+      });
+    }
+  };
+  window.Widget_Image = Widget_Image;
+
+  //===========================================================================
+  // Widget_ActorFace — 액터 얼굴 이미지
+  //===========================================================================
+  function Widget_ActorFace() {}
+  Widget_ActorFace.prototype = Object.create(Widget_Base.prototype);
+  Widget_ActorFace.prototype.constructor = Widget_ActorFace;
+  Widget_ActorFace.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._actorIndex = def.actorIndex || 0;
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    var bitmap = new Bitmap(this._width || 144, this._height || 144);
+    sprite.bitmap = bitmap;
+    this._sprite = sprite;
+    this._bitmap = bitmap;
+    this._displayObject = sprite;
+    this.refresh();
+  };
+  Widget_ActorFace.prototype.refresh = function() {
+    if (!this._bitmap) return;
+    this._bitmap.clear();
+    var actor = null;
+    if (typeof $gameParty !== 'undefined') {
+      actor = $gameParty.members()[this._actorIndex];
+    }
+    if (actor) {
+      var faceName = actor.faceName();
+      var faceIndex = actor.faceIndex();
+      if (faceName && typeof ImageManager !== 'undefined') {
+        var bitmap = ImageManager.loadFace(faceName);
+        var self = this;
+        var w = this._width || 144;
+        var h = this._height || 144;
+        bitmap.addLoadListener(function() {
+          self._bitmap.clear();
+          var pw = Window_Base._faceWidth || 144;
+          var ph = Window_Base._faceHeight || 144;
+          var sw = Math.min(w, pw);
+          var sh = Math.min(h, ph);
+          var sx = (faceIndex % 4) * pw + (pw - sw) / 2;
+          var sy = Math.floor(faceIndex / 4) * ph + (ph - sh) / 2;
+          self._bitmap.blt(bitmap, sx, sy, sw, sh, 0, 0, w, h);
+        });
+      }
+    }
+    Widget_Base.prototype.refresh.call(this);
+  };
+  window.Widget_ActorFace = Widget_ActorFace;
+
+  //===========================================================================
+  // Widget_Gauge — HP/MP/TP 게이지
+  //===========================================================================
+  function Widget_Gauge() {}
+  Widget_Gauge.prototype = Object.create(Widget_Base.prototype);
+  Widget_Gauge.prototype.constructor = Widget_Gauge;
+  Widget_Gauge.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._gaugeType = def.gaugeType || 'hp';
+    this._actorIndex = def.actorIndex || 0;
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    var bitmap = new Bitmap(this._width, this._height || 36);
+    sprite.bitmap = bitmap;
+    this._sprite = sprite;
+    this._bitmap = bitmap;
+    this._displayObject = sprite;
+    this.refresh();
+  };
+  Widget_Gauge.prototype.refresh = function() {
+    if (!this._bitmap) return;
+    this._bitmap.clear();
+    var actor = null;
+    if (typeof $gameParty !== 'undefined') {
+      actor = $gameParty.members()[this._actorIndex];
+    }
+    if (actor) {
+      var w = this._width;
+      var h = this._height || 36;
+      var label = '', cur = 0, max = 1;
+      switch (this._gaugeType) {
+        case 'hp': label='HP'; cur=actor.hp; max=actor.mhp; break;
+        case 'mp': label='MP'; cur=actor.mp; max=actor.mmp; break;
+        case 'tp': label='TP'; cur=actor.tp; max=actor.maxTp(); break;
+      }
+      var rate = max > 0 ? cur / max : 0;
+      var gaugeH = 6;
+      var gaugeY = h - gaugeH - 2;
+      this._bitmap.fillRect(0, gaugeY, w, gaugeH, '#202020');
+      var color = this._gaugeType === 'hp' ? '#20c020' : (this._gaugeType === 'mp' ? '#2040c0' : '#c08020');
+      this._bitmap.fillRect(0, gaugeY, Math.floor(w * rate), gaugeH, color);
+      this._bitmap.fontSize = 20;
+      this._bitmap.textColor = '#ffffff';
+      this._bitmap.drawText(label, 0, 0, 60, h - gaugeH - 4, 'left');
+      this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h - gaugeH - 4, 'right');
+    }
+    Widget_Base.prototype.refresh.call(this);
+  };
+  Widget_Gauge.prototype.update = function() {
+    if (this._updateCount === undefined) this._updateCount = 0;
+    if (++this._updateCount % 60 === 0) this.refresh();
+    Widget_Base.prototype.update.call(this);
+  };
+  window.Widget_Gauge = Widget_Gauge;
+
+  //===========================================================================
+  // Widget_Separator — 구분선
+  //===========================================================================
+  function Widget_Separator() {}
+  Widget_Separator.prototype = Object.create(Widget_Base.prototype);
+  Widget_Separator.prototype.constructor = Widget_Separator;
+  Widget_Separator.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    var h = this._height || 4;
+    var bitmap = new Bitmap(this._width, h);
+    var lineY = Math.floor(h / 2) - 1;
+    bitmap.paintOpacity = 64;
+    bitmap.fillRect(0, lineY, this._width, 2, '#ffffff');
+    bitmap.paintOpacity = 255;
+    sprite.bitmap = bitmap;
+    this._displayObject = sprite;
+  };
+  window.Widget_Separator = Widget_Separator;
+
+  //===========================================================================
+  // Widget_Button — 버튼 (focusable)
+  //===========================================================================
+  function Widget_Button() {}
+  Widget_Button.prototype = Object.create(Widget_Base.prototype);
+  Widget_Button.prototype.constructor = Widget_Button;
+  Widget_Button.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._label = def.label || def.name || 'Button';
+    this._handlerDef = def.action || null;
+    var btnDef = {
+      id: def.id, width: def.width,
+      commands: [{ name: this._label, symbol: 'ok', enabled: true }],
+      maxCols: 1
+    };
+    if (def.height) btnDef.height = def.height;
+    var win = new Window_CustomCommand(this._x, this._y, btnDef);
+    win._customClassName = 'Widget_CS_' + this._id;
+    win.deactivate();
+    this._window = win;
+    this._displayObject = win;
+  };
+  Widget_Button.prototype.collectFocusable = function(out) {
+    out.push(this);
+  };
+  Widget_Button.prototype.activate = function() {
+    if (this._window) { this._window.activate(); this._window.select(0); }
+  };
+  Widget_Button.prototype.deactivate = function() {
+    if (this._window) this._window.deactivate();
+  };
+  Widget_Button.prototype.setOkHandler = function(fn) {
+    if (this._window) this._window.setHandler('ok', fn);
+  };
+  Widget_Button.prototype.setCancelHandler = function(fn) {
+    if (this._window) this._window.setHandler('cancel', fn);
+  };
+  window.Widget_Button = Widget_Button;
+
+  //===========================================================================
+  // Widget_List — 커맨드 리스트 (focusable)
+  //===========================================================================
+  function Widget_List() {}
+  Widget_List.prototype = Object.create(Widget_Base.prototype);
+  Widget_List.prototype.constructor = Widget_List;
+  Widget_List.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._items = def.items || def.commands || [];
+    this._handlersDef = def.handlers || {};
+    var listDef = {
+      id: def.id, width: def.width,
+      commands: this._items,
+      maxCols: def.maxCols || 1
+    };
+    if (def.height) listDef.height = def.height;
+    var win = new Window_CustomCommand(this._x, this._y, listDef);
+    win._customClassName = 'Widget_CS_' + this._id;
+    win.deactivate();
+    this._window = win;
+    this._displayObject = win;
+  };
+  Widget_List.prototype.collectFocusable = function(out) {
+    out.push(this);
+  };
+  Widget_List.prototype.activate = function() {
+    if (this._window) { this._window.activate(); this._window.select(0); }
+  };
+  Widget_List.prototype.deactivate = function() {
+    if (this._window) this._window.deactivate();
+  };
+  Widget_List.prototype.setHandler = function(symbol, fn) {
+    if (this._window) this._window.setHandler(symbol, fn);
+  };
+  Widget_List.prototype.setCancelHandler = function(fn) {
+    if (this._window) this._window.setHandler('cancel', fn);
+  };
+  window.Widget_List = Widget_List;
+
+  //===========================================================================
+  // NavigationManager — 위젯 간 포커스 관리
+  //===========================================================================
+  function NavigationManager() {}
+  NavigationManager.prototype.initialize = function(config) {
+    config = config || {};
+    this._defaultFocusId = config.defaultFocus || null;
+    this._cancelWidgetId = config.cancelWidget || null;
+    this._focusOrderIds = config.focusOrder || [];
+    this._focusables = [];
+    this._activeIndex = -1;
+    this._scene = null;
+  };
+  NavigationManager.prototype.setScene = function(scene) {
+    this._scene = scene;
+  };
+  NavigationManager.prototype.buildFocusList = function(rootWidget) {
+    var all = [];
+    rootWidget.collectFocusable(all);
+    var self = this;
+    if (self._focusOrderIds.length > 0) {
+      var ordered = [];
+      self._focusOrderIds.forEach(function(id) {
+        for (var i = 0; i < all.length; i++) {
+          if (all[i]._id === id) { ordered.push(all[i]); break; }
+        }
+      });
+      all.forEach(function(w) {
+        if (ordered.indexOf(w) === -1) ordered.push(w);
+      });
+      self._focusables = ordered;
+    } else {
+      self._focusables = all;
+    }
+  };
+  NavigationManager.prototype.start = function() {
+    if (this._focusables.length === 0) return;
+    var startIdx = 0;
+    if (this._defaultFocusId) {
+      for (var i = 0; i < this._focusables.length; i++) {
+        if (this._focusables[i]._id === this._defaultFocusId) { startIdx = i; break; }
+      }
+    }
+    this._activateAt(startIdx);
+  };
+  NavigationManager.prototype._activateAt = function(idx) {
+    if (idx < 0 || idx >= this._focusables.length) return;
+    if (this._activeIndex >= 0 && this._focusables[this._activeIndex]) {
+      this._focusables[this._activeIndex].deactivate();
+    }
+    this._activeIndex = idx;
+    this._focusables[idx].activate();
+  };
+  NavigationManager.prototype.focusWidget = function(id) {
+    for (var i = 0; i < this._focusables.length; i++) {
+      if (this._focusables[i]._id === id) { this._activateAt(i); return; }
+    }
+  };
+  NavigationManager.prototype.focusNext = function() {
+    var next = (this._activeIndex + 1) % this._focusables.length;
+    this._activateAt(next);
+  };
+  NavigationManager.prototype.focusPrev = function() {
+    var prev = (this._activeIndex - 1 + this._focusables.length) % this._focusables.length;
+    this._activateAt(prev);
+  };
+  NavigationManager.prototype.update = function() {
+    if (this._focusables.length <= 1) return;
+    if (Input.isTriggered('pagedown')) {
+      this.focusNext();
+    } else if (Input.isTriggered('pageup')) {
+      this.focusPrev();
+    }
+  };
+  window.NavigationManager = NavigationManager;
+
+  //===========================================================================
   // Scene_CustomUI — Scene_MenuBase 상속
   //===========================================================================
   function Scene_CustomUI() {
@@ -240,6 +737,15 @@
     var sceneDef = this._getSceneDef();
     if (!sceneDef) return;
 
+    // 포맷 감지: root 키 또는 formatVersion >= 2이면 위젯 트리 경로
+    if (sceneDef.root || (sceneDef.formatVersion && sceneDef.formatVersion >= 2)) {
+      this._createWidgetTree(sceneDef);
+    } else {
+      this._createLegacyWindows(sceneDef);
+    }
+  };
+
+  Scene_CustomUI.prototype._createLegacyWindows = function(sceneDef) {
     var windows = sceneDef.windows || [];
     var overrides = _configData.overrides || {};
 
@@ -251,7 +757,6 @@
       var h = winDef.height;
       var customClassName = 'Window_CS_' + winDef.id;
 
-      // UIEditorConfig.json 오버라이드 적용
       var ov = overrides[customClassName];
       if (ov) {
         if (ov.x !== undefined) x = ov.x;
@@ -264,7 +769,6 @@
       if (winDef.windowType === 'command') {
         win = new Window_CustomCommand(x, y, winDef);
       } else {
-        // display or other
         win = new Window_CustomDisplay(x, y, w, h || 400, winDef);
       }
 
@@ -275,11 +779,196 @@
     this._setupHandlers(sceneDef);
   };
 
+  Scene_CustomUI.prototype._createWidgetTree = function(sceneDef) {
+    this._rootWidget = null;
+    this._widgetMap = {};
+    this._navManager = null;
+
+    if (!sceneDef.root) return;
+
+    this._rootWidget = this._buildWidget(sceneDef.root, null);
+    if (!this._rootWidget) return;
+
+    // 위젯 맵 구축 (id → 위젯)
+    var self = this;
+    function buildMap(widget) {
+      if (widget._id) self._widgetMap[widget._id] = widget;
+      for (var i = 0; i < widget._children.length; i++) {
+        buildMap(widget._children[i]);
+      }
+    }
+    buildMap(this._rootWidget);
+
+    // Window_Base 타입 위젯은 addWindow, 그 외 루트는 addChild
+    for (var id in this._widgetMap) {
+      var w = this._widgetMap[id];
+      var obj = w.displayObject();
+      if (obj && obj instanceof Window_Base) {
+        this.addWindow(obj);
+      }
+    }
+    var rootObj = this._rootWidget.displayObject();
+    if (rootObj && !(rootObj instanceof Window_Base)) {
+      this.addChild(rootObj);
+    }
+
+    // 핸들러 설정
+    this._setupWidgetHandlers(this._rootWidget);
+
+    // NavigationManager
+    if (sceneDef.navigation) {
+      this._navManager = new NavigationManager();
+      this._navManager.initialize(sceneDef.navigation);
+      this._navManager.setScene(this);
+      this._navManager.buildFocusList(this._rootWidget);
+    }
+  };
+
+  Scene_CustomUI.prototype._buildWidget = function(def, parentWidget) {
+    if (!def || !def.type) return null;
+    var widget = null;
+    switch (def.type) {
+      case 'panel':     widget = new Widget_Panel();     break;
+      case 'label':     widget = new Widget_Label();     break;
+      case 'image':     widget = new Widget_Image();     break;
+      case 'actorFace': widget = new Widget_ActorFace(); break;
+      case 'gauge':     widget = new Widget_Gauge();     break;
+      case 'separator': widget = new Widget_Separator(); break;
+      case 'button':    widget = new Widget_Button();    break;
+      case 'list':      widget = new Widget_List();      break;
+      default:          return null;
+    }
+    widget.initialize(def, parentWidget);
+
+    // 자식 위젯 재귀 빌드 (panel 타입만 children 가짐)
+    if (def.children && def.children.length) {
+      for (var i = 0; i < def.children.length; i++) {
+        var child = this._buildWidget(def.children[i], widget);
+        if (child) widget.addChildWidget(child);
+      }
+    }
+    return widget;
+  };
+
+  Scene_CustomUI.prototype._setupWidgetHandlers = function(rootWidget) {
+    var self = this;
+    function traverse(widget) {
+      if (widget instanceof Widget_List) {
+        var handlersDef = widget._handlersDef || {};
+        for (var symbol in handlersDef) {
+          (function(sym, handler, w) {
+            w.setHandler(sym, function() {
+              self._executeWidgetHandler(handler, w);
+            });
+          })(symbol, handlersDef[symbol], widget);
+        }
+        widget.setCancelHandler(function() {
+          self._executeWidgetHandler({ action: 'cancel' }, widget);
+        });
+      } else if (widget instanceof Widget_Button) {
+        var handlerDef = widget._handlerDef;
+        if (handlerDef) {
+          (function(handler, w) {
+            w.setOkHandler(function() {
+              self._executeWidgetHandler(handler, w);
+            });
+          })(handlerDef, widget);
+        }
+        widget.setCancelHandler(function() {
+          self._executeWidgetHandler({ action: 'cancel' }, widget);
+        });
+      }
+      for (var i = 0; i < widget._children.length; i++) {
+        traverse(widget._children[i]);
+      }
+    }
+    traverse(rootWidget);
+  };
+
+  Scene_CustomUI.prototype._executeWidgetHandler = function(handler, widget) {
+    if (!handler || !handler.action) return;
+    switch (handler.action) {
+      case 'gotoScene': {
+        var SceneCtor = window[handler.target];
+        if (SceneCtor) SceneManager.push(SceneCtor);
+        break;
+      }
+      case 'popScene':
+        this.popScene();
+        break;
+      case 'callCommonEvent': {
+        var eventId = parseInt(handler.eventId || handler.target, 10);
+        if (eventId && typeof $gameTemp !== 'undefined') {
+          $gameTemp.reserveCommonEvent(eventId);
+          SceneManager.goto(Scene_Map);
+        }
+        break;
+      }
+      case 'customScene': {
+        var target = handler.target || '';
+        var csName = target.startsWith('Scene_CS_') ? target : 'Scene_CS_' + target;
+        var CSCtor = window[csName];
+        if (CSCtor) SceneManager.push(CSCtor);
+        break;
+      }
+      case 'focusWidget': {
+        if (this._navManager && handler.target) {
+          this._navManager.focusWidget(handler.target);
+        }
+        break;
+      }
+      case 'refreshWidgets': {
+        if (this._rootWidget) this._rootWidget.refresh();
+        break;
+      }
+      case 'activateWindow': {
+        if (this._customWindows && this._customWindows[handler.target]) {
+          if (widget && widget._window) widget._window.deactivate();
+          this._customWindows[handler.target].activate();
+          this._customWindows[handler.target].select(0);
+        }
+        break;
+      }
+      case 'script': {
+        if (handler.code) {
+          try {
+            var fn = new Function(handler.code);
+            fn.call(this);
+          } catch (e) {
+            console.error('[CustomScene] script error:', e);
+          }
+          if (this._rootWidget) this._rootWidget.refresh();
+          if (widget && widget.activate) widget.activate();
+        }
+        break;
+      }
+      case 'cancel': {
+        var navMgr = this._navManager;
+        if (navMgr && navMgr._cancelWidgetId) {
+          var cancelWidget = this._widgetMap[navMgr._cancelWidgetId];
+          if (cancelWidget && cancelWidget !== widget) {
+            navMgr.focusWidget(navMgr._cancelWidgetId);
+            return;
+          }
+        }
+        this.popScene();
+        break;
+      }
+    }
+  };
+
   Scene_CustomUI.prototype.start = function () {
     Scene_MenuBase.prototype.start.call(this);
     var sceneDef = this._getSceneDef();
     if (!sceneDef) return;
 
+    // 위젯 트리 경로
+    if (this._navManager) {
+      this._navManager.start();
+      return;
+    }
+
+    // 레거시 경로
     var links = sceneDef.windowLinks || {};
     for (var winId in links) {
       if (links[winId].activateDefault && this._customWindows[winId]) {
@@ -287,6 +976,12 @@
         this._customWindows[winId].select(0);
       }
     }
+  };
+
+  Scene_CustomUI.prototype.update = function() {
+    Scene_MenuBase.prototype.update.call(this);
+    if (this._navManager) this._navManager.update();
+    if (this._rootWidget) this._rootWidget.update();
   };
 
   Scene_CustomUI.prototype._setupHandlers = function (sceneDef) {

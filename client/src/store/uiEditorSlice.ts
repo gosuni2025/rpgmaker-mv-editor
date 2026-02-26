@@ -1,5 +1,5 @@
 import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from './types';
-import type { CustomScenesData, CustomSceneDef, CustomWindowDef } from './uiEditorTypes';
+import type { CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, WidgetDef_Panel, NavigationConfig, CustomSceneDefV2 } from './uiEditorTypes';
 import { TOOLBAR_STORAGE_KEY } from './types';
 import apiClient from '../api/client';
 
@@ -47,8 +47,10 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'setUiFontSelectedFamily' | 'setUiFontDefaultFace' | 'setUiFontList' | 'setUiFontSceneFonts' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride' |
   'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride' |
+  'customSceneSelectedWidget' |
   'loadCustomScenes' | 'saveCustomScenes' | 'addCustomScene' | 'removeCustomScene' | 'updateCustomScene' |
-  'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects'
+  'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects' |
+  'setCustomSceneSelectedWidget' | 'addWidget' | 'removeWidget' | 'updateWidget' | 'updateNavigation' | 'updateSceneRoot'
 >> = (set, get) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -98,6 +100,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiEditorSelectedElementType: null,
   customScenes: { scenes: {} },
   customSceneDirty: false,
+  customSceneSelectedWidget: null as string | null,
   sceneRedirects: {},
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
@@ -361,4 +364,119 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     });
   },
   setSceneRedirects: (redirects: Record<string, string>) => set({ sceneRedirects: redirects }),
+
+  setCustomSceneSelectedWidget: (id: string | null) => set({ customSceneSelectedWidget: id }),
+
+  updateSceneRoot: (sceneId: string, root: WidgetDef) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId];
+      if (!scene) return {};
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root, formatVersion: 2 } as CustomSceneDefV2 as any,
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  updateNavigation: (sceneId: string, nav: Partial<NavigationConfig>) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene) return {};
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, navigation: { ...(scene.navigation || {}), ...nav }, formatVersion: 2 } as any,
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  addWidget: (sceneId: string, parentId: string, def: WidgetDef) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene || !scene.root) return {};
+
+      function addToParent(widget: WidgetDef): WidgetDef {
+        if (widget.type !== 'panel') return widget;
+        if (widget.id === parentId) {
+          return { ...widget, children: [...((widget as WidgetDef_Panel).children || []), def] } as WidgetDef;
+        }
+        return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(addToParent) } as WidgetDef;
+      }
+
+      const newRoot = parentId === scene.root.id
+        ? { ...scene.root as WidgetDef_Panel, children: [...((scene.root as WidgetDef_Panel).children || []), def] }
+        : addToParent(scene.root);
+
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root: newRoot as WidgetDef } as any,
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  removeWidget: (sceneId: string, widgetId: string) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene || !scene.root) return {};
+
+      function removeFromTree(widget: WidgetDef): WidgetDef | null {
+        if (widget.id === widgetId) return null;
+        if (widget.type !== 'panel') return widget;
+        return {
+          ...widget,
+          children: ((widget as WidgetDef_Panel).children || []).map(removeFromTree).filter(Boolean) as WidgetDef[],
+        } as WidgetDef;
+      }
+
+      const newRoot = removeFromTree(scene.root);
+      if (!newRoot) return {};
+
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root: newRoot } as any,
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  updateWidget: (sceneId: string, widgetId: string, updates: Partial<WidgetDef>) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene || !scene.root) return {};
+
+      function updateInTree(widget: WidgetDef): WidgetDef {
+        if (widget.id === widgetId) return { ...widget, ...updates } as WidgetDef;
+        if (widget.type !== 'panel') return widget;
+        return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(updateInTree) } as WidgetDef;
+      }
+
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root: updateInTree(scene.root) } as any,
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
 });
