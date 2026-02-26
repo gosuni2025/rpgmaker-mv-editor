@@ -130,7 +130,7 @@ export default function UIEditorToolbar() {
     s.showToast('RMMV 기본값으로 리셋');
   };
 
-  const handlePlaytest = () => {
+  const handlePlaytest = async () => {
     if (!projectPath) return;
     const s = useEditorStore.getState();
     const mapId = s.currentMapId || 1;
@@ -139,6 +139,14 @@ export default function UIEditorToolbar() {
     const centerY = Math.floor((s.currentMap?.height || 1) / 2);
     const startX = testPos ? testPos.x : centerX;
     const startY = testPos ? testPos.y : centerY;
+    // UI 설정(sceneRedirects, overrides, customScenes) 먼저 저장
+    await fetch('/api/ui-editor/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrides: s.uiEditorOverrides, sceneRedirects: s.sceneRedirects }),
+    });
+    if (s.customSceneDirty) await s.saveCustomScenes();
+    s.setUiEditorDirty(false);
     if (s.demoMode) {
       fetch('/api/playtestSession', {
         method: 'POST',
@@ -148,9 +156,8 @@ export default function UIEditorToolbar() {
         window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}&session=${sessionToken}`, '_blank');
       });
     } else {
-      s.saveCurrentMap().then(() => {
-        window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`, '_blank');
-      });
+      await s.saveCurrentMap();
+      window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`, '_blank');
     }
   };
 
