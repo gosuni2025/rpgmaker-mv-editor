@@ -105,7 +105,7 @@ export interface UIWindowOverride {
 }
 
 // ── 커스텀 씬 타입 ──────────────────────────────────────
-export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow' | 'script' | 'focusWidget' | 'refreshWidgets' | 'selectActor' | 'formation';
+export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow' | 'script' | 'focusWidget' | 'refreshWidgets' | 'selectActor' | 'formation' | 'toggleConfig' | 'incrementConfig' | 'decrementConfig' | 'saveConfig';
 
 export interface CustomCommandDef {
   name: string;
@@ -121,6 +121,8 @@ export interface CustomCommandHandler {
   code?: string; // script 액션용 JS 코드
   widget?: string; // selectActor/formation 액션용 위젯 ID
   thenAction?: CustomCommandHandler; // selectActor 액터 선택 후 실행할 액션
+  configKey?: string; // toggleConfig/incrementConfig/decrementConfig 액션용
+  step?: number; // incrementConfig/decrementConfig 증감 단위 (기본 20)
 }
 
 export interface CustomElementDef {
@@ -186,7 +188,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList' | 'options';
+export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList' | 'options' | 'configValue';
 
 export interface WidgetDefBase {
   id: string;
@@ -238,6 +240,17 @@ export interface WidgetDef_Button extends WidgetDefBase {
   type: 'button';
   label: string;
   action: CustomCommandHandler;
+  leftAction?: CustomCommandHandler;
+  rightAction?: CustomCommandHandler;
+  children?: WidgetDef[];
+}
+
+export interface WidgetDef_ConfigValue extends WidgetDefBase {
+  type: 'configValue';
+  configKey: string;
+  align?: 'left' | 'center' | 'right';
+  configType?: 'bool' | 'volume' | 'auto';
+  fontSize?: number;
 }
 
 export interface WidgetDef_List extends WidgetDefBase {
@@ -272,7 +285,8 @@ export type WidgetDef =
   | WidgetDef_Button
   | WidgetDef_List
   | WidgetDef_ActorList
-  | WidgetDef_Options;
+  | WidgetDef_Options
+  | WidgetDef_ConfigValue;
 
 export interface NavigationConfig {
   defaultFocus?: string;

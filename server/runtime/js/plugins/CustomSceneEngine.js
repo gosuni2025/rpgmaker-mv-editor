@@ -519,6 +519,37 @@
   window.Window_CustomOptions = Window_CustomOptions;
 
   //===========================================================================
+  // Window_ButtonRow — 투명 배경, 커서만 표시하는 1행 선택 창 (Widget_Button 전용)
+  //===========================================================================
+  function Window_ButtonRow(x, y, w, h) {
+    this.initialize.apply(this, arguments);
+  }
+  Window_ButtonRow.prototype = Object.create(Window_Selectable.prototype);
+  Window_ButtonRow.prototype.constructor = Window_ButtonRow;
+  Window_ButtonRow.prototype.initialize = function(x, y, w, h) {
+    Window_Selectable.prototype.initialize.call(this, x, y, w, h);
+    this._leftHandler = null;
+    this._rightHandler = null;
+    // 창 테두리/배경 제거 — 커서 하이라이트만 표시
+    this.opacity = 0;
+    this.backOpacity = 0;
+  };
+  Window_ButtonRow.prototype.standardPadding = function() { return 0; };
+  Window_ButtonRow.prototype.maxItems = function() { return 1; };
+  Window_ButtonRow.prototype.itemHeight = function() { return this.height; };
+  Window_ButtonRow.prototype.drawItem = function(index) { /* 자식 위젯이 렌더링 */ };
+  Window_ButtonRow.prototype.setLeftHandler = function(fn) { this._leftHandler = fn; };
+  Window_ButtonRow.prototype.setRightHandler = function(fn) { this._rightHandler = fn; };
+  Window_ButtonRow.prototype.processHandling = function() {
+    Window_Selectable.prototype.processHandling.call(this);
+    if (this.isOpenAndActive()) {
+      if (Input.isRepeated('left') && this._leftHandler) this._leftHandler();
+      if (Input.isRepeated('right') && this._rightHandler) this._rightHandler();
+    }
+  };
+  window.Window_ButtonRow = Window_ButtonRow;
+
+  //===========================================================================
   // Widget_Base — 위젯 트리 기본 클래스
   //===========================================================================
   function Widget_Base() {}
@@ -653,6 +684,60 @@
     Widget_Base.prototype.update.call(this);
   };
   window.Widget_Label = Widget_Label;
+
+  //===========================================================================
+  // Widget_ConfigValue — ConfigManager 값 표시 라벨 (Sprite 기반, 투명)
+  //===========================================================================
+  function Widget_ConfigValue() {}
+  Widget_ConfigValue.prototype = Object.create(Widget_Base.prototype);
+  Widget_ConfigValue.prototype.constructor = Widget_ConfigValue;
+  Widget_ConfigValue.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._configKey = def.configKey || '';
+    this._align = def.align || 'right';
+    this._fontSize = def.fontSize || 28;
+    this._configType = def.configType || 'auto'; // 'bool' | 'volume' | 'auto'
+    var h = def.height || this._fontSize + 8;
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    var bitmap = new Bitmap(this._width, h);
+    bitmap.fontSize = this._fontSize;
+    sprite.bitmap = bitmap;
+    this._sprite = sprite;
+    this._bitmap = bitmap;
+    this._displayObject = sprite;
+    this._lastValue = undefined;
+    this.refresh();
+  };
+  Widget_ConfigValue.prototype._formatValue = function(val) {
+    var type = this._configType;
+    if (type === 'auto') {
+      if (typeof val === 'boolean') type = 'bool';
+      else if (typeof val === 'number') type = 'volume';
+    }
+    if (type === 'bool') return val ? 'ON' : 'OFF';
+    if (type === 'volume') return (val === undefined ? 100 : val) + '%';
+    return String(val !== undefined ? val : '');
+  };
+  Widget_ConfigValue.prototype.refresh = function() {
+    if (!this._bitmap || !this._configKey) return;
+    var val = (typeof ConfigManager !== 'undefined') ? ConfigManager[this._configKey] : undefined;
+    if (val === this._lastValue) return;
+    this._lastValue = val;
+    this._bitmap.clear();
+    this._bitmap.textColor = '#ffffff';
+    this._bitmap.drawText(this._formatValue(val), 0, 0, this._width, this._bitmap.height, this._align);
+  };
+  Widget_ConfigValue.prototype.update = function() {
+    this.refresh();
+    Widget_Base.prototype.update.call(this);
+  };
+  Widget_ConfigValue.prototype.forceRefresh = function() {
+    this._lastValue = undefined;
+    this.refresh();
+  };
+  window.Widget_ConfigValue = Widget_ConfigValue;
 
   //===========================================================================
   // Widget_Image — 이미지 표시
@@ -860,6 +945,7 @@
   Widget_ActorList.prototype.refresh = function() {
     if (this._window) this._window.refresh();
   };
+  Widget_ActorList.prototype.handlesUpDown = function() { return true; };
   window.Widget_ActorList = Widget_ActorList;
 
   //===========================================================================
@@ -894,6 +980,7 @@
   Widget_Options.prototype.setCancelHandler = function(fn) {
     if (this._window) this._window.setHandler('cancel', fn);
   };
+  Widget_Options.prototype.handlesUpDown = function() { return true; };
   window.Widget_Options = Widget_Options;
 
   //===========================================================================
@@ -904,15 +991,24 @@
   Widget_Button.prototype.constructor = Widget_Button;
   Widget_Button.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._label = def.label || def.name || 'Button';
+    this._label = def.label !== undefined ? def.label : (def.name || 'Button');
     this._handlerDef = def.action || null;
-    var btnDef = {
-      id: def.id, width: def.width,
-      commands: [{ name: this._label, symbol: 'ok', enabled: true }],
-      maxCols: 1
-    };
-    if (def.height) btnDef.height = def.height;
-    var win = new Window_CustomCommand(this._x, this._y, btnDef);
+    this._leftHandlerDef = def.leftAction || null;
+    this._rightHandlerDef = def.rightAction || null;
+    var hasChildren = !!(def.children && def.children.length > 0);
+    var win;
+    if (hasChildren || this._label === '') {
+      // 자식 위젯이 텍스트 렌더링 — 커서/하이라이트만 제공
+      win = new Window_ButtonRow(this._x, this._y, this._width, this._height || 52);
+    } else {
+      var btnDef = {
+        id: def.id, width: def.width,
+        commands: [{ name: this._label, symbol: 'ok', enabled: true }],
+        maxCols: 1
+      };
+      if (def.height) btnDef.height = def.height;
+      win = new Window_CustomCommand(this._x, this._y, btnDef);
+    }
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
     this._window = win;
@@ -985,6 +1081,7 @@
     }
     Widget_Base.prototype.update.call(this);
   };
+  Widget_List.prototype.handlesUpDown = function() { return true; };
   window.Widget_List = Widget_List;
 
   //===========================================================================
@@ -996,6 +1093,7 @@
     this._defaultFocusId = config.defaultFocus || null;
     this._cancelWidgetId = config.cancelWidget || null;
     this._focusOrderIds = config.focusOrder || [];
+    this._upDownNavigation = config.upDownNavigation || false;
     this._focusables = [];
     this._activeIndex = -1;
     this._scene = null;
@@ -1055,10 +1153,16 @@
   };
   NavigationManager.prototype.update = function() {
     if (this._focusables.length <= 1) return;
-    if (Input.isTriggered('pagedown')) {
-      this.focusNext();
-    } else if (Input.isTriggered('pageup')) {
-      this.focusPrev();
+    if (this._upDownNavigation) {
+      var activeWidget = this._focusables[this._activeIndex];
+      var delegated = activeWidget && typeof activeWidget.handlesUpDown === 'function' && activeWidget.handlesUpDown();
+      if (!delegated) {
+        if (Input.isRepeated('down')) this.focusNext();
+        else if (Input.isRepeated('up')) this.focusPrev();
+      }
+    } else {
+      if (Input.isTriggered('pagedown')) this.focusNext();
+      else if (Input.isTriggered('pageup')) this.focusPrev();
     }
   };
   window.NavigationManager = NavigationManager;
@@ -1201,15 +1305,16 @@
       case 'actorFace': widget = new Widget_ActorFace(); break;
       case 'gauge':     widget = new Widget_Gauge();     break;
       case 'separator': widget = new Widget_Separator(); break;
-      case 'button':    widget = new Widget_Button();    break;
-      case 'list':      widget = new Widget_List();      break;
-      case 'actorList': widget = new Widget_ActorList(); break;
-      case 'options':   widget = new Widget_Options();   break;
+      case 'button':      widget = new Widget_Button();      break;
+      case 'list':        widget = new Widget_List();        break;
+      case 'actorList':   widget = new Widget_ActorList();   break;
+      case 'options':     widget = new Widget_Options();     break;
+      case 'configValue': widget = new Widget_ConfigValue(); break;
       default:          return null;
     }
     widget.initialize(def, parentWidget);
 
-    // 자식 위젯 재귀 빌드 (panel 타입만 children 가짐)
+    // 자식 위젯 재귀 빌드
     if (def.children && def.children.length) {
       for (var i = 0; i < def.children.length; i++) {
         var child = this._buildWidget(def.children[i], widget);
@@ -1255,6 +1360,22 @@
               self._executeWidgetHandler(handler, w);
             });
           })(handlerDef, widget);
+        }
+        var leftDef = widget._leftHandlerDef;
+        if (leftDef && widget._window && widget._window.setLeftHandler) {
+          (function(handler, w) {
+            w._window.setLeftHandler(function() {
+              self._executeWidgetHandler(handler, w);
+            });
+          })(leftDef, widget);
+        }
+        var rightDef = widget._rightHandlerDef;
+        if (rightDef && widget._window && widget._window.setRightHandler) {
+          (function(handler, w) {
+            w._window.setRightHandler(function() {
+              self._executeWidgetHandler(handler, w);
+            });
+          })(rightDef, widget);
         }
         widget.setCancelHandler(function() {
           self._executeWidgetHandler({ action: 'cancel' }, widget);
@@ -1343,6 +1464,46 @@
         }
         break;
       }
+      case 'toggleConfig': {
+        var cfgKey = handler.configKey;
+        if (cfgKey !== undefined && typeof ConfigManager !== 'undefined') {
+          ConfigManager[cfgKey] = !ConfigManager[cfgKey];
+          this._refreshConfigValues();
+        }
+        if (widget && widget.activate) widget.activate();
+        break;
+      }
+      case 'incrementConfig': {
+        var cfgKey2 = handler.configKey;
+        if (cfgKey2 !== undefined && typeof ConfigManager !== 'undefined') {
+          var cur = ConfigManager[cfgKey2] !== undefined ? ConfigManager[cfgKey2] : 100;
+          var step = handler.step || 20;
+          ConfigManager[cfgKey2] = cur + step > 100 ? 0 : cur + step;
+          this._refreshConfigValues();
+        }
+        if (widget && widget.activate) widget.activate();
+        break;
+      }
+      case 'decrementConfig': {
+        var cfgKey3 = handler.configKey;
+        if (cfgKey3 !== undefined && typeof ConfigManager !== 'undefined') {
+          var cur2 = ConfigManager[cfgKey3] !== undefined ? ConfigManager[cfgKey3] : 100;
+          var step2 = handler.step || 20;
+          ConfigManager[cfgKey3] = Math.max(0, cur2 - step2);
+          this._refreshConfigValues();
+        }
+        if (widget && widget.activate) widget.activate();
+        break;
+      }
+      case 'saveConfig': {
+        if (typeof ConfigManager !== 'undefined' && typeof ConfigManager.save === 'function') {
+          ConfigManager.save();
+        }
+        if (handler.thenAction) {
+          this._executeWidgetHandler(handler.thenAction, widget);
+        }
+        break;
+      }
       case 'cancel': {
         var navMgr = this._navManager;
         if (navMgr && navMgr._cancelWidgetId) {
@@ -1377,6 +1538,28 @@
       if (action) {
         this._pendingPersonalAction = null;
         this._executeWidgetHandler(action, widget);
+      }
+    }
+  };
+
+  Scene_CustomUI.prototype._refreshConfigValues = function() {
+    function traverse(widget) {
+      if (widget instanceof Widget_ConfigValue) {
+        widget.forceRefresh();
+      }
+      for (var i = 0; i < widget._children.length; i++) {
+        traverse(widget._children[i]);
+      }
+    }
+    if (this._rootWidget) traverse(this._rootWidget);
+  };
+
+  Scene_CustomUI.prototype.terminate = function() {
+    Scene_MenuBase.prototype.terminate.call(this);
+    var sceneDef = this._getSceneDef();
+    if (sceneDef && sceneDef.saveConfigOnExit) {
+      if (typeof ConfigManager !== 'undefined' && typeof ConfigManager.save === 'function') {
+        ConfigManager.save();
       }
     }
   };
