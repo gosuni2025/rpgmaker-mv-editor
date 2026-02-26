@@ -972,7 +972,7 @@
     }
   };
   Widget_Options.prototype.deactivate = function() {
-    if (this._window) this._window.deactivate();
+    if (this._window) { this._window.deactivate(); this._window.deselect(); }
   };
   Widget_Options.prototype.setHandler = function(symbol, fn) {
     if (this._window) this._window.setHandler(symbol, fn);
@@ -1021,7 +1021,7 @@
     if (this._window) { this._window.activate(); this._window.select(0); }
   };
   Widget_Button.prototype.deactivate = function() {
-    if (this._window) this._window.deactivate();
+    if (this._window) { this._window.deactivate(); this._window.deselect(); }
   };
   Widget_Button.prototype.setOkHandler = function(fn) {
     if (this._window) this._window.setHandler('ok', fn);
@@ -1057,7 +1057,7 @@
     out.push(this);
   };
   Widget_List.prototype.activate = function() {
-    if (this._window) { this._window.activate(); this._window.select(0); }
+    if (this._window) { this._window.activate(); if (this._window.index() < 0) this._window.select(0); }
   };
   Widget_List.prototype.deactivate = function() {
     if (this._window) this._window.deactivate();
@@ -1145,10 +1145,12 @@
   };
   NavigationManager.prototype.focusNext = function() {
     var next = (this._activeIndex + 1) % this._focusables.length;
+    if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
     this._activateAt(next);
   };
   NavigationManager.prototype.focusPrev = function() {
     var prev = (this._activeIndex - 1 + this._focusables.length) % this._focusables.length;
+    if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
     this._activateAt(prev);
   };
   NavigationManager.prototype.update = function() {
