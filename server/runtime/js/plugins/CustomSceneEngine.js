@@ -547,6 +547,14 @@
       if (Input.isRepeated('right') && this._rightHandler) this._rightHandler();
     }
   };
+  // inactive 시 커서를 즉시 숨김 (매 프레임 보장)
+  Window_ButtonRow.prototype._updateCursor = function() {
+    if (!this.active) {
+      if (this._windowCursorSprite) this._windowCursorSprite.alpha = 0;
+      return;
+    }
+    Window_Selectable.prototype._updateCursor.call(this);
+  };
   window.Window_ButtonRow = Window_ButtonRow;
 
   //===========================================================================
@@ -1057,10 +1065,18 @@
     out.push(this);
   };
   Widget_List.prototype.activate = function() {
-    if (this._window) { this._window.activate(); if (this._window.index() < 0) this._window.select(0); }
+    if (this._window) {
+      this._window.activate();
+      var restore = (this._lastIndex !== undefined && this._lastIndex >= 0) ? this._lastIndex : 0;
+      this._window.select(restore);
+    }
   };
   Widget_List.prototype.deactivate = function() {
-    if (this._window) this._window.deactivate();
+    if (this._window) {
+      this._lastIndex = this._window.index();
+      this._window.deactivate();
+      this._window.deselect();
+    }
   };
   Widget_List.prototype.setHandler = function(symbol, fn) {
     if (this._window) this._window.setHandler(symbol, fn);
