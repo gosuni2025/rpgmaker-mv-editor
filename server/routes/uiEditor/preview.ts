@@ -653,12 +653,15 @@ function buildPreviewHTML(useWebp: boolean): string {
       }
 
       function loadScene(sceneName) {
+        console.log('[UIEditorBridge] loadScene 호출:', sceneName, '| __customSceneEngine:', !!window.__customSceneEngine, '| window[씬]:', !!window[sceneName]);
         var SceneCtor = window[sceneName];
         if (!SceneCtor) {
           // 커스텀 씬 재로드 시도
           if (sceneName.startsWith('Scene_CS_') && window.__customSceneEngine) {
+            console.log('[UIEditorBridge] 커스텀 씬 재로드 시도');
             window.__customSceneEngine.reloadCustomScenes();
             SceneCtor = window[sceneName];
+            console.log('[UIEditorBridge] 재로드 후 window[씬]:', !!SceneCtor);
           }
           if (!SceneCtor) {
             console.warn('[UIEditorBridge] 씬 없음:', sceneName);
@@ -667,6 +670,7 @@ function buildPreviewHTML(useWebp: boolean): string {
         }
         _targetScene = sceneName;
         _prevScene = null; // 같은 씬이어도 sceneReady가 발생하도록 리셋
+        console.log('[UIEditorBridge] SceneManager.goto →', sceneName, '| 현재 씬:', SceneManager._scene && SceneManager._scene.constructor && SceneManager._scene.constructor.name);
         try {
           window._uiEditorPreview = true;
           SceneManager.goto(SceneCtor);
@@ -678,6 +682,8 @@ function buildPreviewHTML(useWebp: boolean): string {
       setInterval(function() {
         var scene = SceneManager._scene;
         if (!scene || scene === _prevScene) return;
+        var sceneName = scene.constructor && scene.constructor.name;
+        console.log('[UIEditorBridge] 씬 전환 감지:', sceneName, '→ sceneReady 예약');
         _prevScene = scene;
         window._uiEditorPreview = false;
         setTimeout(function() { reportWindows('sceneReady'); }, 500);
@@ -757,12 +763,14 @@ function buildPreviewHTML(useWebp: boolean): string {
             break;
           }
           case 'reloadCustomScenes':
+            console.log('[UIEditorBridge] reloadCustomScenes 수신 | __customSceneEngine:', !!window.__customSceneEngine);
             if (window.__customSceneEngine) {
               window.__customSceneEngine.reloadCustomScenes();
               // loadScene은 에디터가 항상 별도로 전송하므로 여기서 호출하지 않음
             }
             break;
           case 'updateSceneRedirects':
+            console.log('[UIEditorBridge] updateSceneRedirects 수신:', JSON.stringify(data.redirects));
             if (window.__customSceneEngine) {
               window.__customSceneEngine.updateSceneRedirects(data.redirects);
             }
