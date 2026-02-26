@@ -46,6 +46,12 @@ export default function StatusBar() {
   const perf = performance as Performance & { memory?: unknown };
   const hasMemory = !!perf.memory;
 
+  const w = window as any;
+  const gpuInfo = w.Graphics?._renderer?.info;
+  const gpuLabel = gpuInfo
+    ? `GPU: tex ${gpuInfo.memory?.textures ?? '-'} / geo ${gpuInfo.memory?.geometries ?? '-'} / dc ${gpuInfo.render?.calls ?? '-'}`
+    : null;
+
   const versionLabel = versionInfo?.version ? `v${versionInfo.version}` : null;
 
   return (
@@ -81,9 +87,14 @@ export default function StatusBar() {
       <span className="statusbar-item">
         {t('statusBar.zoom')}: {Math.round(zoomLevel * 100)}%
       </span>
+      {gpuLabel && (
+        <span className="statusbar-item statusbar-gpu statusbar-push-right" title="Three.js GPU 사용 현황 (텍스처 / 지오메트리 / 드로우콜)">
+          {gpuLabel}
+        </span>
+      )}
       {hasMemory && latest && (
         <span
-          className="statusbar-item statusbar-memory"
+          className={`statusbar-item statusbar-memory${gpuLabel ? '' : ' statusbar-push-right'}`}
           onClick={handleMemClick}
           title="클릭하여 메모리 그래프 표시"
         >

@@ -16,8 +16,16 @@
   white-space: nowrap;
 }
 
-.statusbar-memory {
+.statusbar-push-right {
   margin-left: auto;
+}
+
+.statusbar-gpu {
+  color: #88a8d8;
+  font-size: 11px;
+}
+
+.statusbar-memory {
   color: #8a8;
   cursor: pointer;
   user-select: none;
