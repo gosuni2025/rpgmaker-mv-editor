@@ -555,6 +555,8 @@
     }
     Window_Selectable.prototype._updateCursor.call(this);
   };
+  // OK 소리 억제 — config 액션 핸들러에서 값 적용 후 playCursor로 대체
+  Window_ButtonRow.prototype.playOkSound = function() { /* suppressed */ };
   window.Window_ButtonRow = Window_ButtonRow;
 
   //===========================================================================
@@ -1485,8 +1487,10 @@
       case 'toggleConfig': {
         var cfgKey = handler.configKey;
         if (cfgKey !== undefined && typeof ConfigManager !== 'undefined') {
-          ConfigManager[cfgKey] = !ConfigManager[cfgKey];
+          var prev = ConfigManager[cfgKey];
+          ConfigManager[cfgKey] = !prev;
           this._refreshConfigValues();
+          if (prev !== ConfigManager[cfgKey] && typeof SoundManager !== 'undefined') SoundManager.playCursor();
         }
         if (widget && widget.activate) widget.activate();
         break;
@@ -1496,8 +1500,12 @@
         if (cfgKey2 !== undefined && typeof ConfigManager !== 'undefined') {
           var cur = ConfigManager[cfgKey2] !== undefined ? ConfigManager[cfgKey2] : 100;
           var step = handler.step || 20;
-          ConfigManager[cfgKey2] = cur + step > 100 ? 0 : cur + step;
-          this._refreshConfigValues();
+          var next = cur + step > 100 ? 0 : cur + step;
+          if (cur !== next) {
+            ConfigManager[cfgKey2] = next;
+            this._refreshConfigValues();
+            if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
+          }
         }
         if (widget && widget.activate) widget.activate();
         break;
@@ -1507,8 +1515,12 @@
         if (cfgKey3 !== undefined && typeof ConfigManager !== 'undefined') {
           var cur2 = ConfigManager[cfgKey3] !== undefined ? ConfigManager[cfgKey3] : 100;
           var step2 = handler.step || 20;
-          ConfigManager[cfgKey3] = Math.max(0, cur2 - step2);
-          this._refreshConfigValues();
+          var next2 = Math.max(0, cur2 - step2);
+          if (cur2 !== next2) {
+            ConfigManager[cfgKey3] = next2;
+            this._refreshConfigValues();
+            if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
+          }
         }
         if (widget && widget.activate) widget.activate();
         break;
