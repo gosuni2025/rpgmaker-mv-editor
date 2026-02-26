@@ -307,6 +307,13 @@ const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   button: 'BTN', list: 'LIST', actorList: 'ACTORS', options: 'OPTS', configValue: 'CFG',
 };
 
+function hasDescendantWithId(w: WidgetDef, id: string): boolean {
+  const ch: WidgetDef[] =
+    w.type === 'panel' ? ((w as WidgetDef_Panel).children || []) :
+    w.type === 'button' ? ((w as WidgetDef_Button).children || []) : [];
+  return ch.some((c) => c.id === id || hasDescendantWithId(c, id));
+}
+
 function WidgetTreeNode({
   widget, depth, sceneId, selectedId, onSelect, onRemove
 }: {
@@ -320,10 +327,26 @@ function WidgetTreeNode({
     [];
   const hasChildren = children.length > 0;
   const [expanded, setExpanded] = React.useState(true);
+  const rowRef = React.useRef<HTMLDivElement>(null);
+
+  // 자손이 선택되면 자동 펼침
+  React.useEffect(() => {
+    if (hasChildren && selectedId && hasDescendantWithId(widget, selectedId)) {
+      setExpanded(true);
+    }
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 선택되면 트리에서 보이도록 스크롤
+  React.useEffect(() => {
+    if (isSelected && rowRef.current) {
+      rowRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isSelected]);
 
   return (
     <div>
       <div
+        ref={rowRef}
         style={{
           display: 'flex', alignItems: 'center', gap: 4,
           paddingLeft: depth * 12 + 4, paddingRight: 4,
