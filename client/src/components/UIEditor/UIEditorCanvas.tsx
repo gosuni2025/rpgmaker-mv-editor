@@ -218,6 +218,10 @@ export default function UIEditorCanvas() {
   const handleWindowMouseDown = useCallback((e: React.MouseEvent, win: UIWindowInfo) => {
     e.stopPropagation();
     e.preventDefault();
+    // undo 복원을 위해 현재 위치를 override에 미리 기록 (없을 때만)
+    const curOv = useEditorStore.getState().uiEditorOverrides[win.className] ?? {};
+    if (curOv.x === undefined) setUiEditorOverride(win.className, 'x', win.x);
+    if (curOv.y === undefined) setUiEditorOverride(win.className, 'y', win.y);
     pushUiOverrideUndo();
     setUiEditorSelectedWindowId(win.id);
     setDragState({
@@ -228,13 +232,19 @@ export default function UIEditorCanvas() {
       startClientY: e.clientY,
       startWin: { x: win.x, y: win.y, width: win.width, height: win.height },
     });
-  }, [setUiEditorSelectedWindowId, pushUiOverrideUndo]);
+  }, [setUiEditorSelectedWindowId, setUiEditorOverride, pushUiOverrideUndo]);
 
   const handleResizeMouseDown = useCallback((
     e: React.MouseEvent, win: UIWindowInfo, dir: HandleDir
   ) => {
     e.stopPropagation();
     e.preventDefault();
+    // undo 복원을 위해 현재 위치/크기를 override에 미리 기록 (없을 때만)
+    const curOv = useEditorStore.getState().uiEditorOverrides[win.className] ?? {};
+    if (curOv.x === undefined) setUiEditorOverride(win.className, 'x', win.x);
+    if (curOv.y === undefined) setUiEditorOverride(win.className, 'y', win.y);
+    if (curOv.width === undefined) setUiEditorOverride(win.className, 'width', win.width);
+    if (curOv.height === undefined) setUiEditorOverride(win.className, 'height', win.height);
     pushUiOverrideUndo();
     setDragState({
       windowId: win.id,
@@ -244,7 +254,7 @@ export default function UIEditorCanvas() {
       startClientY: e.clientY,
       startWin: { x: win.x, y: win.y, width: win.width, height: win.height },
     });
-  }, [pushUiOverrideUndo]);
+  }, [setUiEditorOverride, pushUiOverrideUndo]);
 
   // Cmd+Z / Cmd+Shift+Z undo/redo
   useEffect(() => {
