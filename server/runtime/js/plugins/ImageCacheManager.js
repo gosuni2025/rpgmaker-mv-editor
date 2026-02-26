@@ -6,13 +6,13 @@
  * @param cacheMode
  * @text Cache Mode
  * @type select
- * @option normal
+ * @option normal — MV default (auto cleanup on scene change)
  * @value normal
- * @option aggressive
+ * @option aggressive — periodic force-cleanup (low-memory environments)
  * @value aggressive
- * @option disabled
+ * @option disabled — no cache at all (MZ-style)
  * @value disabled
- * @desc normal=MV default / aggressive=periodic force-cleanup / disabled=no cache (MZ-style)
+ * @desc Cache behavior mode.
  * @default normal
  *
  * @param imageCacheLimit
@@ -127,13 +127,13 @@
  * @param cacheMode
  * @text 캐시 모드
  * @type select
- * @option normal
+ * @option normal — MV 기본 (씬 전환 시 자동 정리)
  * @value normal
- * @option aggressive
+ * @option aggressive — 주기적 강제 정리 (저사양·모바일 환경 권장)
  * @value aggressive
- * @option disabled
+ * @option disabled — 캐시 완전 비활성화 (MZ 방식, 메모리 최소화)
  * @value disabled
- * @desc normal=MV 기본 / aggressive=주기적 강제 정리 / disabled=캐시 끄기 (MZ 방식)
+ * @desc 이미지 캐시 동작 방식을 선택합니다.
  * @default normal
  *
  * @param imageCacheLimit
