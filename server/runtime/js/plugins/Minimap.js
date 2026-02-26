@@ -768,13 +768,14 @@
       const sinY = Math.sin(yaw);
       const cosY = Math.cos(yaw);
 
+      // ctx.rotate(yaw) 후 (0,-r) 점은 화면에서 (+sinY, -cosY) 방향에 나타남
       let nx, ny;
       if (CFG.shape === 'circle') {
-        nx = hs - hs * sinY;
+        nx = hs + hs * sinY;
         ny = hs - hs * cosY;
       } else {
-        // 사각형 테두리: 중심 → -yaw 방향 ray cast
-        const dx = -sinY, dy = -cosY;
+        // 사각형 테두리: 중심 → +sinY/-cosY 방향 ray cast
+        const dx = sinY, dy = -cosY;
         let t = Infinity;
         if (Math.abs(dx) > 1e-6) t = Math.min(t, (dx > 0 ? (s - hs) : hs) / Math.abs(dx));
         if (Math.abs(dy) > 1e-6) t = Math.min(t, (dy > 0 ? (s - hs) : hs) / Math.abs(dy));
