@@ -710,7 +710,7 @@
 
       // ── 플레이어 마커 (항상 중앙) ─────────────────────────────
       const DIR_ANGLE  = {2: Math.PI / 2, 4: Math.PI, 6: 0, 8: -Math.PI / 2};
-      const arrowAngle = (DIR_ANGLE[$gamePlayer.direction()] || 0) - yaw;
+      const arrowAngle = (DIR_ANGLE[$gamePlayer.direction()] || 0);
       const ar         = Math.max(3, ts);
 
       ctx.save();
