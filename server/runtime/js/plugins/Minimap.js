@@ -709,7 +709,9 @@
       });
 
       // ── 플레이어 마커 (항상 중앙) ─────────────────────────────
-      const DIR_ANGLE  = {2: Math.PI / 2, 4: Math.PI, 6: 0, 8: -Math.PI / 2};
+      // 화살표 팁이 (0, -r) 즉 ↑ 방향이 기저(0°)이므로,
+      // 각 방향을 올바른 화면 방향으로 돌리려면 +π/2가 필요
+      const DIR_ANGLE  = {2: Math.PI, 4: -Math.PI / 2, 6: Math.PI / 2, 8: 0};
       const arrowAngle = (DIR_ANGLE[$gamePlayer.direction()] || 0);
       const ar         = Math.max(3, ts);
 
