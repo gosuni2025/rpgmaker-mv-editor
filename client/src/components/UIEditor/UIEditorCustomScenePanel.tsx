@@ -1051,8 +1051,8 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
       <NavigationConfigSection sceneId={sceneId} nav={scene.navigation || {}} />
 
       {/* 위젯 계층 */}
-      <div style={{ ...sectionStyle, flex: '0 0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+      <div style={{ ...sectionStyle, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4, flexShrink: 0 }}>
           <label style={{ ...labelStyle, marginBottom: 0, flex: 1 }}>위젯 계층</label>
           <div>
             <button
@@ -1073,7 +1073,7 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
             </button>
           </div>
         </div>
-        <div style={{ maxHeight: 200, overflowY: 'auto', background: '#222', borderRadius: 3, padding: 4 }}>
+        <div style={{ flex: 1, overflowY: 'auto', background: '#222', borderRadius: 3, padding: 4, minHeight: 0 }}>
           {scene.root ? (
             <WidgetTreeNode
               widget={scene.root} depth={0} sceneId={sceneId}
