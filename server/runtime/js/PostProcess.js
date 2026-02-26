@@ -2496,14 +2496,19 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
         flashObj.visible = true;
     }
 
-    // FOW 메쉬 숨김 (2D UI 패스에서 중복 렌더 방지)
+    // FOW / sky mesh 숨김 (2D UI 패스에서 맵 위에 중복 렌더 방지)
     var fowMesh2d = null, fowWasVisible2d = false;
+    var skyMesh2d = null, skyWasVisible2d = false;
     for (var si = 0; si < scene.children.length; si++) {
         if (scene.children[si]._isFogOfWar) {
             fowMesh2d = scene.children[si];
             fowWasVisible2d = fowMesh2d.visible;
             fowMesh2d.visible = false;
-            break;
+        }
+        if (scene.children[si]._isParallaxSky) {
+            skyMesh2d = scene.children[si];
+            skyWasVisible2d = skyMesh2d.visible;
+            skyMesh2d.visible = false;
         }
     }
 
@@ -2521,10 +2526,14 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
             scene.children[sci].visible = skyVis2d[sci];
         }
         fowMesh2d.visible = false;
+        if (skyMesh2d) skyMesh2d.visible = false;  // sky는 계속 숨김
     }
 
-    // UI 렌더 (블룸 맵 + FOW 위에 합성)
+    // UI 렌더 (블룸 맵 + FOW 위에 합성, sky는 숨긴 상태로)
     renderer.render(scene, camera);
+
+    // sky mesh 가시성 복원
+    if (skyMesh2d) skyMesh2d.visible = skyWasVisible2d;
 
     // layer 1 (perspective) UI 창 렌더 (renderCamera='perspective' 설정 창)
     if (window.Mode3D) {
