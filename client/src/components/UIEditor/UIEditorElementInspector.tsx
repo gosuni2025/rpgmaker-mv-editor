@@ -64,31 +64,41 @@ export function ElementInspector({ selectedWindow, elem }: {
         </span>
       </div>
       <div className="ui-editor-inspector-body">
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">위치 / 크기</div>
-          <div className="ui-inspector-row">
-            <DragLabel label="X" value={ex} onChange={(v) => set('x', Math.round(v))} />
-          </div>
-          {!elem.isPerActor && (
-            <div className="ui-inspector-row">
-              <DragLabel label="Y" value={ey} onChange={(v) => set('y', Math.round(v))} />
+        {/* 위치/크기: supportsPosition이 false인 제네릭 요소는 숨김 */}
+        {elem.supportsPosition !== false && (
+          <>
+            <div className="ui-inspector-section">
+              <div className="ui-inspector-section-title">위치 / 크기</div>
+              <div className="ui-inspector-row">
+                <DragLabel label="X" value={ex} onChange={(v) => set('x', Math.round(v))} />
+              </div>
+              {!elem.isPerActor && (
+                <div className="ui-inspector-row">
+                  <DragLabel label="Y" value={ey} onChange={(v) => set('y', Math.round(v))} />
+                </div>
+              )}
+              {elem.type !== 'actorLevel' && (
+                <div className="ui-inspector-row">
+                  <DragLabel label="너비" value={ew} min={8} onChange={(v) => set('width', Math.round(v))} />
+                </div>
+              )}
+              {elem.type === 'actorFace' && (
+                <div className="ui-inspector-row">
+                  <DragLabel label="높이" value={eh} min={8} onChange={(v) => set('height', Math.round(v))} />
+                </div>
+              )}
             </div>
-          )}
-          {elem.type !== 'actorLevel' && (
-            <div className="ui-inspector-row">
-              <DragLabel label="너비" value={ew} min={8} onChange={(v) => set('width', Math.round(v))} />
-            </div>
-          )}
-          {elem.type === 'actorFace' && (
-            <div className="ui-inspector-row">
-              <DragLabel label="높이" value={eh} min={8} onChange={(v) => set('height', Math.round(v))} />
-            </div>
-          )}
-        </div>
+            {elem.isPerActor && (
+              <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
+                perActor 레이아웃: X/너비만 편집 가능 (Y는 행 순서에 따라 자동)
+              </div>
+            )}
+          </>
+        )}
 
-        {elem.isPerActor && (
-          <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            perActor 레이아웃: X/너비만 편집 가능 (Y는 행 순서에 따라 자동)
+        {elem.supportsPosition === false && (
+          <div style={{ padding: '6px 12px 2px', fontSize: 11, color: '#777' }}>
+            제네릭 요소: 폰트만 설정 가능
           </div>
         )}
 

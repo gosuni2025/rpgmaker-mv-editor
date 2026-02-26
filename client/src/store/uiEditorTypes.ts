@@ -6,6 +6,8 @@ export interface UIElementInfo {
   width: number;
   height: number;
   isPerActor?: boolean; // perActor 레이아웃 (BattleStatus, MenuStatus 등)
+  /** false면 위치/크기 편집 불가 (폰트만 설정 가능한 제네릭 요소) */
+  supportsPosition?: boolean;
 }
 
 export interface UIElementOverride {

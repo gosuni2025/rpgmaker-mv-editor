@@ -1145,6 +1145,44 @@
   wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawActorFace',    'actorFace',    1, null, 3, 4);
   wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawSimpleStatus', 'simpleStatus', 1, null, 3, null);
 
+  // ── 제네릭 요소 fontFace 지원: createContents 훅 ──────────────────────────
+  // wrapDraw가 다루지 않는 창의 window-specific draw 메서드에 대해
+  // 인스턴스 레벨 래퍼를 설치하여 fontFace를 적용.
+  var ELEM_TYPE_TO_METHOD = {
+    actorName: 'drawActorName', actorClass: 'drawActorClass',
+    actorNickname: 'drawActorNickname', actorFace: 'drawActorFace',
+    actorLevel: 'drawActorLevel', actorIcons: 'drawActorIcons',
+    actorHp: 'drawActorHp', actorMp: 'drawActorMp', actorTp: 'drawActorTp',
+    simpleStatus: 'drawSimpleStatus',
+  };
+
+  var _origWindowBaseCreateContents = Window_Base.prototype.createContents;
+  Window_Base.prototype.createContents = function () {
+    _origWindowBaseCreateContents.call(this);
+    var className = this.constructor.name;
+    var classOv = _ov[className];
+    if (!classOv || !classOv.elements) return;
+    var self = this;
+    Object.keys(classOv.elements).forEach(function (elemType) {
+      var elemCfg = classOv.elements[elemType];
+      if (!elemCfg || !elemCfg.fontFace) return;
+      var methodName = ELEM_TYPE_TO_METHOD[elemType] || elemType;
+      if (typeof self[methodName] !== 'function') return;
+      if (self.hasOwnProperty(methodName)) return; // 이미 인스턴스 래퍼 있음
+      // self[methodName]은 wrapDraw로 교체된 prototype 메서드일 수 있음 → 그대로 호출
+      var orig = self[methodName];
+      self[methodName] = (function (fn, cfg) {
+        return function () {
+          var prevFace = this.contents && this.contents.fontFace;
+          if (cfg.fontFace && this.contents) this.contents.fontFace = cfg.fontFace;
+          var r = fn.apply(this, arguments);
+          if (cfg.fontFace && this.contents) this.contents.fontFace = prevFace;
+          return r;
+        };
+      })(orig, elemCfg);
+    });
+  };
+
   //===========================================================================
   // 창 등장 효과 (Entrance Animation)
   //===========================================================================

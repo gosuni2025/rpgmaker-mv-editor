@@ -127,14 +127,31 @@ function buildPreviewHTML(useWebp: boolean): string {
         });
       })();
 
+      // Window_Base의 모든 메서드명 캐시 (제네릭 발견 시 제외 대상)
+      var _windowBaseMethods = null;
+      function getWindowBaseMethods() {
+        if (_windowBaseMethods) return _windowBaseMethods;
+        _windowBaseMethods = {};
+        if (typeof Window_Base === 'undefined') return _windowBaseMethods;
+        var p = Window_Base.prototype;
+        while (p && p !== Object.prototype) {
+          Object.getOwnPropertyNames(p).forEach(function(n) { _windowBaseMethods[n] = true; });
+          p = Object.getPrototypeOf(p);
+        }
+        return _windowBaseMethods;
+      }
+
       function captureElements(win) {
         if (!win || !win.constructor) return [];
         var className = win.constructor.name;
         var isPerActor = !!PER_ACTOR_WINDOWS[className];
         var elements = [];
         var seen = {};
+        var methodMap = {}; // elemType → methodName (reinstallElemOvs에서 사용)
+
+        // === Phase 1: ELEM_SPECS (액터 draw 메서드, 위치/크기 지원) ===
+        var proto = win.constructor.prototype;
         ELEM_SPECS.forEach(function(spec) {
-          var proto = win.constructor.prototype;
           if (!proto || !proto[spec.method]) return;
           win[spec.method] = (function(spec) {
             return function() {
@@ -149,10 +166,71 @@ function buildPreviewHTML(useWebp: boolean): string {
                 width:  spec.argW !== null && args[spec.argW] !== undefined ? args[spec.argW] : 128,
                 height: spec.argH !== null && args[spec.argH] !== undefined ? args[spec.argH] : lh,
                 isPerActor: isPerActor,
+                supportsPosition: true,
               });
+              methodMap[spec.type] = spec.method;
             };
           })(spec);
         });
+
+        // === Phase 2: 제네릭 window-specific draw* 메서드 발견 ===
+        var baseMethods = getWindowBaseMethods();
+        var genericMethods = {}; // methodName → original fn
+        (function() {
+          var p = proto;
+          while (p && p !== Object.prototype) {
+            if (p.constructor && p.constructor.name === 'Window_Base') break;
+            Object.getOwnPropertyNames(p).forEach(function(name) {
+              if (name.startsWith('draw') && typeof p[name] === 'function'
+                  && !baseMethods[name] && !genericMethods[name]
+                  && !win.hasOwnProperty(name)) { // ELEM_SPECS가 이미 설치한 것 제외
+                genericMethods[name] = p[name];
+              }
+            });
+            p = Object.getPrototypeOf(p);
+          }
+        })();
+
+        // Bitmap.drawText 인터셉션으로 실제 draw 위치 캡처
+        var origContentsDrawText = win.contents && win.contents.drawText;
+        var activeGeneric = null;
+
+        if (win.contents && origContentsDrawText) {
+          win.contents.drawText = function(text, x, y, maxWidth, lineHeight, align) {
+            if (activeGeneric && !seen[activeGeneric]) {
+              seen[activeGeneric] = true;
+              var lh = win.lineHeight ? win.lineHeight() : 36;
+              // camelCase → 읽기 쉬운 레이블
+              var lbl = activeGeneric.replace(/^draw/, '').replace(/([A-Z])/g, ' $1').trim();
+              elements.push({
+                type: activeGeneric, label: lbl || activeGeneric,
+                x: typeof x === 'number' ? x : 0,
+                y: typeof y === 'number' ? y : 0,
+                width:  typeof maxWidth === 'number' ? maxWidth : 200,
+                height: typeof lineHeight === 'number' ? lineHeight : lh,
+                isPerActor: false,
+                supportsPosition: false, // 제네릭: 위치편집 불가, fontFace만 지원
+              });
+              methodMap[activeGeneric] = activeGeneric;
+            }
+            return origContentsDrawText.apply(this, arguments);
+          };
+        }
+
+        // 제네릭 메서드 래핑: activeGeneric 추적
+        Object.keys(genericMethods).forEach(function(name) {
+          win[name] = (function(orig, methodName) {
+            return function() {
+              var prev = activeGeneric;
+              activeGeneric = methodName;
+              var r = orig.apply(this, arguments);
+              activeGeneric = prev;
+              return r;
+            };
+          })(genericMethods[name], name);
+        });
+
+        // === 드로잉 트리거 ===
         var hadBlock = false;
         ['drawBlock1','drawBlock2','drawBlock3','drawBlock4'].forEach(function(m) {
           if (typeof win[m] === 'function') { hadBlock = true; try { win[m](); } catch(e) {} }
@@ -160,17 +238,41 @@ function buildPreviewHTML(useWebp: boolean): string {
         if (!hadBlock && typeof win.drawItem === 'function') {
           try { win.drawItem(0); } catch(e) {}
         }
+        // 폴백: 직접 refresh()를 호출하는 창 (Window_EquipStatus 등)
+        if (elements.length === 0 && typeof win.refresh === 'function') {
+          try { win.refresh(); } catch(e) {}
+        }
+
+        // === 정리 ===
+        if (win.contents && origContentsDrawText) {
+          win.contents.drawText = origContentsDrawText;
+        }
         ELEM_SPECS.forEach(function(spec) {
           if (win.hasOwnProperty(spec.method)) delete win[spec.method];
         });
+        Object.keys(genericMethods).forEach(function(name) {
+          if (win.hasOwnProperty(name)) delete win[name];
+        });
+
+        // methodMap 저장 (reinstallElemOvs에서 사용)
+        win.__uiElemMethodMap = methodMap;
+
         return elements;
       }
 
       function reinstallElemOvs(win) {
         var ovs = win.__uiElemOvs || {};
-        ELEM_SPECS.forEach(function(spec) {
-          if (win.hasOwnProperty(spec.method)) delete win[spec.method];
+        var methodMap = win.__uiElemMethodMap || {};
+
+        // 이전 인스턴스 래퍼 정리 (ELEM_SPECS + 제네릭 모두)
+        var allMethods = {};
+        ELEM_SPECS.forEach(function(s) { allMethods[s.method] = true; });
+        Object.keys(methodMap).forEach(function(t) { if (methodMap[t]) allMethods[methodMap[t]] = true; });
+        Object.keys(allMethods).forEach(function(m) {
+          if (win.hasOwnProperty(m)) delete win[m];
         });
+
+        // === ELEM_SPECS: 위치 + fontFace 오버라이드 ===
         ELEM_SPECS.forEach(function(spec) {
           var cfg = ovs[spec.type];
           if (!cfg) return;
@@ -191,6 +293,30 @@ function buildPreviewHTML(useWebp: boolean): string {
             };
           })(origBase, cfg, spec);
         });
+
+        // === 제네릭 요소: fontFace만 오버라이드 ===
+        var specMethodNames = {};
+        ELEM_SPECS.forEach(function(s) { specMethodNames[s.method] = true; });
+
+        Object.keys(ovs).forEach(function(elemType) {
+          var cfg = ovs[elemType];
+          if (!cfg || !cfg.fontFace) return;
+          var methodName = methodMap[elemType];
+          if (!methodName || specMethodNames[methodName]) return; // ELEM_SPECS가 처리
+          if (win.hasOwnProperty(methodName)) return;
+          var orig = win.constructor.prototype[methodName];
+          if (typeof orig !== 'function') return;
+          win[methodName] = (function(orig, cfg) {
+            return function() {
+              var prevFace = this.contents && this.contents.fontFace;
+              if (cfg.fontFace && this.contents) this.contents.fontFace = cfg.fontFace;
+              var result = orig.apply(this, arguments);
+              if (cfg.fontFace && this.contents) this.contents.fontFace = prevFace;
+              return result;
+            };
+          })(orig, cfg);
+        });
+
         try { if (win.refresh) win.refresh(); } catch(e) {}
       }
 
