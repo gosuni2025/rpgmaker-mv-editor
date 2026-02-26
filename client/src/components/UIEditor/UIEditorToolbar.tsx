@@ -58,6 +58,16 @@ export default function UIEditorToolbar() {
       });
       s.setUiEditorDirty(false);
       s.showToast('폰트 설정 저장 완료');
+      // iframe에 갱신된 폰트 설정 전달 후 씬 재로드
+      const fontsRes = await fetch('/api/ui-editor/fonts');
+      if (fontsRes.ok) {
+        const fontsData = await fontsRes.json();
+        const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+        iframe?.contentWindow?.postMessage(
+          { type: 'updateFontsConfig', config: { defaultFontFace: fontsData.defaultFontFace, sceneFonts: fontsData.sceneFonts } },
+          '*'
+        );
+      }
     } catch {
       s.showToast('저장 실패', true);
     }

@@ -537,6 +537,11 @@
     _origSceneBaseCreate.call(this);
   };
 
+  // 에디터 프리뷰에서 동적으로 폰트 설정 갱신 (refreshScene 전에 호출)
+  window._uiThemeUpdateFonts = function(config) {
+    if (config) _fonts = config;
+  };
+
   Window_Base.prototype.loadWindowskin = function () {
     var skinId = _skins.defaultSkin || G('windowskin', 'Window');
     var entry = findSkinEntryById(skinId) || findSkinEntry(skinId);

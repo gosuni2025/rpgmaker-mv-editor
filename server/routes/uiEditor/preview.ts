@@ -499,6 +499,10 @@ function buildPreviewHTML(useWebp: boolean): string {
           case 'clearAllRuntimeOverrides':
             if (window._uiThemeClearAllOv) window._uiThemeClearAllOv();
             break;
+          case 'updateFontsConfig':
+            if (window._uiThemeUpdateFonts) window._uiThemeUpdateFonts(data.config);
+            loadScene(_targetScene);
+            break;
           case 'refreshScene':
             loadScene(_targetScene);
             break;

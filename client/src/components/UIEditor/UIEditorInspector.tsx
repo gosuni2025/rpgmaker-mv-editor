@@ -49,9 +49,14 @@ function SceneInspector() {
     });
     setUiFontSceneFonts(next);
     setUiEditorDirty(true);
-    // iframe 씬 재로드로 적용
+    // iframe에 갱신된 폰트 설정 전달 후 씬 재로드 (_fonts가 스탈이 되지 않도록)
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-    iframe?.contentWindow?.postMessage({ type: 'refreshScene' }, '*');
+    const fontsRes = await fetch('/api/ui-editor/fonts');
+    const fontsData = fontsRes.ok ? await fontsRes.json() : null;
+    iframe?.contentWindow?.postMessage(
+      { type: 'updateFontsConfig', config: fontsData ? { defaultFontFace: fontsData.defaultFontFace, sceneFonts: fontsData.sceneFonts } : { sceneFonts: next } },
+      '*'
+    );
     useEditorStore.getState().showToast(fontFace ? `씬 폰트 설정: ${fontFace}` : '씬 폰트 초기화');
   };
 
