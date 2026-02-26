@@ -682,6 +682,7 @@
     this._template = def.text || '';
     this._align = def.align || 'left';
     this._fontSize = def.fontSize || 28;
+    this._color = def.color || '#ffffff';
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
@@ -699,6 +700,7 @@
     if (text === this._lastText) return;
     this._lastText = text;
     this._bitmap.clear();
+    this._bitmap.textColor = this._color;
     this._bitmap.drawText(text, 0, 0, this._width, this._height, this._align);
     Widget_Base.prototype.refresh.call(this);
   };
