@@ -47,11 +47,18 @@
  * @default blur
  *
  * @param blur
- * @text 블러 강도 (0-100) [blur/zoomBlur 효과에 사용]
+ * @text 블러 강도 (0-100) [blur/zoomBlur 효과 전용]
  * @type number
  * @min 0
  * @max 100
  * @default 40
+ *
+ * @param intensity
+ * @text 효과 강도 (0-100) [blur/zoomBlur 제외한 나머지 효과]
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 80
  *
  * @param overlayColor
  * @text 오버레이 색상 (R,G,B)
@@ -95,6 +102,7 @@
     var Cfg = {
         transitionEffect: String(params.transitionEffect || 'blur'),
         blur:         Number(params.blur)         >= 0 ? Number(params.blur) : 40,
+        intensity:    Number(params.intensity)    >= 0 ? Number(params.intensity) : 80,
         overlayColor: String(params.overlayColor  || '0,0,0'),
         overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 100,
         duration:     Number(params.duration)     || 40,
@@ -177,23 +185,24 @@
 
     function _canvasFilter(t) {
         if (t <= 0.001) return '';
+        var iv = Cfg.intensity / 100;  // 0~1
         switch (Cfg.transitionEffect) {
             case 'blur':
                 return 'blur(' + (t * (Cfg.blur / 100) * 20).toFixed(1) + 'px)';
             case 'desaturation':
-                return 'saturate(' + ((1 - t) * 100).toFixed(1) + '%)';
+                return 'saturate(' + ((1 - t * iv) * 100).toFixed(1) + '%)';
             case 'sepia':
-                return 'sepia(' + (t * 100).toFixed(1) + '%)';
+                return 'sepia(' + (t * iv * 100).toFixed(1) + '%)';
             case 'brightness':
-                return 'brightness(' + (100 + t * 200).toFixed(1) + '%)';
+                return 'brightness(' + (100 + t * iv * 300).toFixed(1) + '%)';
             case 'darkness':
-                return 'brightness(' + ((1 - t * 0.85) * 100).toFixed(1) + '%)';
+                return 'brightness(' + ((1 - t * iv * 0.9) * 100).toFixed(1) + '%)';
             case 'contrast':
-                return 'contrast(' + (100 + t * 250).toFixed(1) + '%)';
+                return 'contrast(' + (100 + t * iv * 400).toFixed(1) + '%)';
             case 'hue':
-                return 'hue-rotate(' + (t * 180).toFixed(1) + 'deg)';
+                return 'hue-rotate(' + (t * iv * 360).toFixed(1) + 'deg)';
             case 'invert':
-                return 'invert(' + (t * 100).toFixed(1) + '%)';
+                return 'invert(' + (t * iv * 100).toFixed(1) + '%)';
             default:
                 return '';
         }
@@ -202,7 +211,8 @@
     // ── 특수 효과: 픽셀화 ─────────────────────────────────────────────────────
 
     function _drawPixelation(ctx, w, h, t) {
-        var blockSize = Math.max(1, Math.round(t * 32));
+        var maxBlock  = Math.max(2, Math.round((Cfg.intensity / 100) * 50));
+        var blockSize = Math.max(1, Math.round(t * maxBlock));
         var sw = Math.max(1, Math.floor(w / blockSize));
         var sh = Math.max(1, Math.floor(h / blockSize));
         var small = document.createElement('canvas');
@@ -219,7 +229,8 @@
     // ── 특수 효과: 줌 인 ─────────────────────────────────────────────────────
 
     function _drawZoom(ctx, w, h, t) {
-        var scale = 1 + t * 0.3;
+        var maxZoom = (Cfg.intensity / 100) * 0.6;
+        var scale   = 1 + t * maxZoom;
         var dx = (w * (1 - scale)) / 2;
         var dy = (h * (1 - scale)) / 2;
         ctx.drawImage(_srcCanvas, dx, dy, w * scale, h * scale);
@@ -229,7 +240,7 @@
 
     function _drawZoomBlur(ctx, w, h, t) {
         var blurPx = t * (Cfg.blur / 100) * 20;
-        var scale  = 1 + t * 0.08;
+        var scale  = 1 + t * (Cfg.intensity / 100) * 0.15;
         var dx = (w * (1 - scale)) / 2;
         var dy = (h * (1 - scale)) / 2;
         if (blurPx > 0.1) ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
@@ -240,7 +251,8 @@
     // ── 특수 효과: 색수차 ─────────────────────────────────────────────────────
 
     function _drawChromatic(ctx, w, h, t) {
-        var offset = Math.round(t * 14);
+        var maxOfs = Math.round((Cfg.intensity / 100) * 28);
+        var offset = Math.round(t * maxOfs);
 
         // 원본
         ctx.drawImage(_srcCanvas, 0, 0, w, h);
@@ -278,13 +290,15 @@
     function _drawVignette(ctx, w, h, t) {
         ctx.drawImage(_srcCanvas, 0, 0, w, h);
 
+        var iv    = Cfg.intensity / 100;
         var cx    = w / 2;
         var cy    = h / 2;
         var maxR  = Math.sqrt(cx * cx + cy * cy);
-        var inner = maxR * Math.max(0.01, 1 - t * 0.85);
+        var inner = maxR * Math.max(0.01, 1 - t * iv * 0.9);
+        var dark  = Math.min(0.99, t * iv * 1.2);
         var grad  = ctx.createRadialGradient(cx, cy, inner, cx, cy, maxR);
         grad.addColorStop(0, 'rgba(0,0,0,0)');
-        grad.addColorStop(1, 'rgba(0,0,0,' + Math.min(0.95, t * 1.1).toFixed(2) + ')');
+        grad.addColorStop(1, 'rgba(0,0,0,' + dark.toFixed(2) + ')');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, w, h);
     }
@@ -292,11 +306,12 @@
     // ── 특수 효과: 스캔라인 ───────────────────────────────────────────────────
 
     function _drawScanline(ctx, w, h, t) {
-        if (t > 0.001) ctx.filter = 'saturate(' + ((1 - t * 0.7) * 100).toFixed(1) + '%)';
+        var iv = Cfg.intensity / 100;
+        if (t > 0.001) ctx.filter = 'saturate(' + ((1 - t * iv * 0.8) * 100).toFixed(1) + '%)';
         ctx.drawImage(_srcCanvas, 0, 0, w, h);
         if (t > 0.001) ctx.filter = 'none';
 
-        ctx.globalAlpha = t * 0.55;
+        ctx.globalAlpha = t * iv * 0.7;
         ctx.fillStyle = '#000000';
         for (var y = 0; y < h; y += 2) {
             ctx.fillRect(0, y, w, 1);
