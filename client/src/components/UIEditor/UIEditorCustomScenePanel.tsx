@@ -314,11 +314,17 @@ function hasDescendantWithId(w: WidgetDef, id: string): boolean {
   return ch.some((c) => c.id === id || hasDescendantWithId(c, id));
 }
 
+// 드래그 중인 widgetId를 모듈 레벨 ref로 관리 (컴포넌트 간 공유)
+const dragState = { widgetId: null as string | null };
+
 function WidgetTreeNode({
-  widget, depth, sceneId, selectedId, onSelect, onRemove
+  widget, depth, sceneId, selectedId, onSelect, onRemove, onReorder
 }: {
   widget: WidgetDef; depth: number; sceneId: string;
-  selectedId: string | null; onSelect: (id: string) => void; onRemove: (id: string) => void;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
+  onReorder: (dragId: string, targetId: string, pos: 'before' | 'inside') => void;
 }) {
   const isSelected = widget.id === selectedId;
   const children: WidgetDef[] =
@@ -328,6 +334,7 @@ function WidgetTreeNode({
   const hasChildren = children.length > 0;
   const [expanded, setExpanded] = React.useState(true);
   const rowRef = React.useRef<HTMLDivElement>(null);
+  const [dropPos, setDropPos] = React.useState<'before' | 'inside' | null>(null);
 
   // 자손이 선택되면 자동 펼침
   React.useEffect(() => {
@@ -343,18 +350,65 @@ function WidgetTreeNode({
     }
   }, [isSelected]);
 
+  const isPanel = widget.type === 'panel';
+  const canDrag = widget.id !== 'root';
+
   return (
     <div>
+      {/* before 드롭 인디케이터 */}
+      {dropPos === 'before' && (
+        <div style={{ height: 2, background: '#2675bf', marginLeft: depth * 12 + 4, borderRadius: 1 }} />
+      )}
       <div
         ref={rowRef}
+        draggable={canDrag}
         style={{
           display: 'flex', alignItems: 'center', gap: 4,
           paddingLeft: depth * 12 + 4, paddingRight: 4,
           paddingTop: 3, paddingBottom: 3,
-          background: isSelected ? '#2675bf33' : 'transparent',
-          cursor: 'pointer', borderRadius: 2,
+          background: isSelected ? '#2675bf33' : dropPos === 'inside' ? '#2675bf22' : 'transparent',
+          cursor: canDrag ? 'grab' : 'pointer', borderRadius: 2,
+          outline: dropPos === 'inside' ? '1px solid #2675bf88' : 'none',
         }}
         onClick={() => onSelect(widget.id)}
+        onDragStart={(e) => {
+          if (!canDrag) { e.preventDefault(); return; }
+          dragState.widgetId = widget.id;
+          e.stopPropagation();
+          e.dataTransfer.effectAllowed = 'move';
+        }}
+        onDragEnd={() => {
+          dragState.widgetId = null;
+          setDropPos(null);
+        }}
+        onDragOver={(e) => {
+          const did = dragState.widgetId;
+          if (!did || did === widget.id || hasDescendantWithId(widget, did)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          // 노드 높이 내에서 상단 30%=before, 나머지=inside(패널) 또는 before
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          const relY = e.clientY - rect.top;
+          if (isPanel && relY > rect.height * 0.35) {
+            setDropPos('inside');
+          } else {
+            setDropPos('before');
+          }
+        }}
+        onDragLeave={() => setDropPos(null)}
+        onDrop={(e) => {
+          const did = dragState.widgetId;
+          if (!did || did === widget.id || hasDescendantWithId(widget, did)) {
+            setDropPos(null);
+            return;
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          const pos = dropPos ?? 'before';
+          setDropPos(null);
+          dragState.widgetId = null;
+          onReorder(did, widget.id, pos);
+        }}
       >
         {hasChildren ? (
           <span
@@ -390,7 +444,7 @@ function WidgetTreeNode({
         <WidgetTreeNode
           key={child.id} widget={child} depth={depth + 1}
           sceneId={sceneId} selectedId={selectedId}
-          onSelect={onSelect} onRemove={onRemove}
+          onSelect={onSelect} onRemove={onRemove} onReorder={onReorder}
         />
       ))}
     </div>
@@ -401,6 +455,7 @@ function WidgetTreeNode({
 
 function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parentId: string; onClose: () => void }) {
   const addWidget = useEditorStore((s) => s.addWidget);
+  const pushCustomSceneUndo = useEditorStore((s) => s.pushCustomSceneUndo);
   const setCustomSceneSelectedWidget = useEditorStore((s) => s.setCustomSceneSelectedWidget);
 
   const handleAdd = (type: WidgetType) => {
@@ -427,6 +482,7 @@ function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parent
       ] }; break;
       default: return;
     }
+    pushCustomSceneUndo();
     addWidget(sceneId, parentId, def);
     setCustomSceneSelectedWidget(id);
     onClose();
@@ -940,6 +996,8 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
   const selectedId = useEditorStore((s) => s.customSceneSelectedWidget);
   const setSelectedId = useEditorStore((s) => s.setCustomSceneSelectedWidget);
   const removeWidget = useEditorStore((s) => s.removeWidget);
+  const pushCustomSceneUndo = useEditorStore((s) => s.pushCustomSceneUndo);
+  const reorderWidgetInTree = useEditorStore((s) => s.reorderWidgetInTree);
   const updateCustomScene = useEditorStore((s) => s.updateCustomScene);
   const removeCustomScene = useEditorStore((s) => s.removeCustomScene);
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
@@ -1079,7 +1137,8 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
               widget={scene.root} depth={0} sceneId={sceneId}
               selectedId={selectedId}
               onSelect={(id) => { setSelectedId(id); setAddMenuParent(null); }}
-              onRemove={(id) => removeWidget(sceneId, id)}
+              onRemove={(id) => { pushCustomSceneUndo(); removeWidget(sceneId, id); }}
+              onReorder={(dragId, targetId, pos) => { pushCustomSceneUndo(); reorderWidgetInTree(sceneId, dragId, targetId, pos); }}
             />
           ) : (
             <div style={{ padding: 8, color: '#888', fontSize: 12 }}>위젯 없음</div>

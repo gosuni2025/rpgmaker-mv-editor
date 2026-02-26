@@ -112,6 +112,9 @@ export default function UIEditorCanvas() {
   const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
   const undoUiOverride = useEditorStore((s) => s.undoUiOverride);
   const redoUiOverride = useEditorStore((s) => s.redoUiOverride);
+  const undoCustomScene = useEditorStore((s) => s.undoCustomScene);
+  const redoCustomScene = useEditorStore((s) => s.redoCustomScene);
+  const pushCustomSceneUndo = useEditorStore((s) => s.pushCustomSceneUndo);
   const customScenes = useEditorStore((s) => s.customScenes);
   const customSceneSelectedWidget = useEditorStore((s) => s.customSceneSelectedWidget);
   const setCustomSceneSelectedWidget = useEditorStore((s) => s.setCustomSceneSelectedWidget);
@@ -380,12 +383,19 @@ export default function UIEditorCanvas() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key !== 'z') return;
       e.preventDefault();
-      if (e.shiftKey) redoUiOverride();
-      else undoUiOverride();
+      if (e.shiftKey) {
+        const state = useEditorStore.getState();
+        if (state.customScenesRedoStack.length > 0) redoCustomScene();
+        else redoUiOverride();
+      } else {
+        const state = useEditorStore.getState();
+        if (state.customScenesUndoStack.length > 0) undoCustomScene();
+        else undoUiOverride();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undoUiOverride, redoUiOverride]);
+  }, [undoUiOverride, redoUiOverride, undoCustomScene, redoCustomScene]);
 
   const handleRefresh = useCallback(() => {
     setUiEditorIframeReady(false);
@@ -471,6 +481,7 @@ export default function UIEditorCanvas() {
                     onMouseDown={(e) => {
                       e.stopPropagation();
                       setCustomSceneSelectedWidget(id);
+                      pushCustomSceneUndo();
                       setWidgetDragState({
                         sceneId: customSceneId,
                         widgetId: id,
@@ -494,6 +505,7 @@ export default function UIEditorCanvas() {
                         onMouseDown={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
+                          pushCustomSceneUndo();
                           setWidgetDragState({
                             sceneId: customSceneId,
                             widgetId: id,

@@ -92,6 +92,8 @@ export interface EditorState {
   customSceneDirty: boolean;
   customSceneSelectedWidget: string | null;
   sceneRedirects: Record<string, string>; // 씬 이름 → 대체할 커스텀 씬 이름
+  customScenesUndoStack: CustomScenesData[];
+  customScenesRedoStack: CustomScenesData[];
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -283,10 +285,14 @@ export interface EditorState {
   updateCustomWindow: (sceneId: string, winId: string, updates: Partial<CustomWindowDef>) => void;
   setSceneRedirects: (redirects: Record<string, string>) => void;
   setCustomSceneSelectedWidget: (id: string | null) => void;
+  pushCustomSceneUndo: () => void;
+  undoCustomScene: () => void;
+  redoCustomScene: () => void;
   addWidget: (sceneId: string, parentId: string, def: WidgetDef) => void;
   removeWidget: (sceneId: string, widgetId: string) => void;
   updateWidget: (sceneId: string, widgetId: string, updates: Partial<WidgetDef>) => void;
   moveWidgetWithChildren: (sceneId: string, widgetId: string, x: number, y: number) => void;
+  reorderWidgetInTree: (sceneId: string, dragId: string, targetId: string, position: 'before' | 'inside') => void;
   updateNavigation: (sceneId: string, nav: Partial<NavigationConfig>) => void;
   updateSceneRoot: (sceneId: string, root: WidgetDef) => void;
 

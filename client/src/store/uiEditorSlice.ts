@@ -47,10 +47,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'setUiFontSelectedFamily' | 'setUiFontDefaultFace' | 'setUiFontList' | 'setUiFontSceneFonts' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride' |
   'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride' |
-  'customSceneSelectedWidget' |
+  'customSceneSelectedWidget' | 'customScenesUndoStack' | 'customScenesRedoStack' |
   'loadCustomScenes' | 'saveCustomScenes' | 'addCustomScene' | 'removeCustomScene' | 'updateCustomScene' |
   'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects' |
-  'setCustomSceneSelectedWidget' | 'addWidget' | 'removeWidget' | 'updateWidget' | 'moveWidgetWithChildren' | 'updateNavigation' | 'updateSceneRoot'
+  'setCustomSceneSelectedWidget' | 'pushCustomSceneUndo' | 'undoCustomScene' | 'redoCustomScene' |
+  'addWidget' | 'removeWidget' | 'updateWidget' | 'moveWidgetWithChildren' | 'reorderWidgetInTree' | 'updateNavigation' | 'updateSceneRoot'
 >> = (set, get) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -102,6 +103,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   customSceneDirty: false,
   customSceneSelectedWidget: null as string | null,
   sceneRedirects: {},
+  customScenesUndoStack: [],
+  customScenesRedoStack: [],
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
   setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorOriginalWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
@@ -367,6 +370,33 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
 
   setCustomSceneSelectedWidget: (id: string | null) => set({ customSceneSelectedWidget: id }),
 
+  pushCustomSceneUndo: () => set((state) => ({
+    customScenesUndoStack: [...state.customScenesUndoStack, state.customScenes].slice(-50),
+    customScenesRedoStack: [],
+  })),
+  undoCustomScene: () => set((state) => {
+    const stack = state.customScenesUndoStack;
+    if (stack.length === 0) return {};
+    const prev = stack[stack.length - 1];
+    return {
+      customScenesUndoStack: stack.slice(0, -1),
+      customScenesRedoStack: [...state.customScenesRedoStack, state.customScenes].slice(-50),
+      customScenes: prev,
+      customSceneDirty: true,
+    };
+  }),
+  redoCustomScene: () => set((state) => {
+    const stack = state.customScenesRedoStack;
+    if (stack.length === 0) return {};
+    const next = stack[stack.length - 1];
+    return {
+      customScenesRedoStack: stack.slice(0, -1),
+      customScenesUndoStack: [...state.customScenesUndoStack, state.customScenes].slice(-50),
+      customScenes: next,
+      customSceneDirty: true,
+    };
+  }),
+
   updateSceneRoot: (sceneId: string, root: WidgetDef) => {
     set((state) => {
       const scene = state.customScenes.scenes[sceneId];
@@ -518,6 +548,68 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
           scenes: {
             ...state.customScenes.scenes,
             [sceneId]: { ...scene, root: moveInTree(scene.root) } as any,
+          },
+        },
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  reorderWidgetInTree: (sceneId: string, dragId: string, targetId: string, position: 'before' | 'inside') => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene || !scene.root) return {};
+
+      // 1. dragId 위젯을 트리에서 추출
+      let dragged: WidgetDef | null = null;
+      function extract(widget: WidgetDef): WidgetDef {
+        if (widget.type === 'panel') {
+          const ch = (widget as WidgetDef_Panel).children || [];
+          const idx = ch.findIndex((c) => c.id === dragId);
+          if (idx >= 0) {
+            dragged = ch[idx];
+            return { ...widget, children: ch.filter((_, i) => i !== idx) } as WidgetDef;
+          }
+          return { ...widget, children: ch.map(extract) } as WidgetDef;
+        }
+        if (widget.type === 'button' && (widget as WidgetDef_Button).children?.length) {
+          const ch = (widget as WidgetDef_Button).children!;
+          const idx = ch.findIndex((c) => c.id === dragId);
+          if (idx >= 0) {
+            dragged = ch[idx];
+            return { ...widget, children: ch.filter((_, i) => i !== idx) } as WidgetDef;
+          }
+          return { ...widget, children: ch.map(extract) } as WidgetDef;
+        }
+        return widget;
+      }
+      const rootAfterExtract = extract(scene.root);
+      if (!dragged) return {};
+
+      // 2. targetId 위치에 삽입
+      function insert(widget: WidgetDef): WidgetDef {
+        if (widget.type === 'panel') {
+          const ch = (widget as WidgetDef_Panel).children || [];
+          if (position === 'inside' && widget.id === targetId) {
+            return { ...widget, children: [...ch, dragged!] } as WidgetDef;
+          }
+          const idx = ch.findIndex((c) => c.id === targetId);
+          if (idx >= 0 && position === 'before') {
+            const next = [...ch];
+            next.splice(idx, 0, dragged!);
+            return { ...widget, children: next } as WidgetDef;
+          }
+          return { ...widget, children: ch.map(insert) } as WidgetDef;
+        }
+        return widget;
+      }
+      const newRoot = insert(rootAfterExtract);
+
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root: newRoot } as any,
           },
         },
         customSceneDirty: true,
