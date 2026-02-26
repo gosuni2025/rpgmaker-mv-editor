@@ -297,8 +297,12 @@
 
   Window_CustomActorList.prototype.loadImages = function() {
     if (typeof $gameParty === 'undefined' || typeof ImageManager === 'undefined') return;
+    var self = this;
     $gameParty.members().forEach(function(actor) {
-      ImageManager.reserveFace(actor.faceName());
+      var bitmap = ImageManager.reserveFace(actor.faceName());
+      if (bitmap && bitmap.addLoadListener) {
+        bitmap.addLoadListener(function() { self.refresh(); });
+      }
     }, this);
   };
 

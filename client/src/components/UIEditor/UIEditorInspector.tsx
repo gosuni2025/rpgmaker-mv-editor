@@ -35,9 +35,13 @@ function SceneRedirectSection({ scene }: { scene: string }) {
     }
     setSceneRedirects(next);
     setUiEditorDirty(true);
-    // iframe에 즉시 반영
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
     iframe?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: next }, '*');
+    // 현재 프리뷰 씬이 교체 대상이면 씬 재로드 (리다이렉트 즉시 반영)
+    if (target?.startsWith('Scene_CS_')) {
+      iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+    }
+    iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: scene }, '*');
   };
 
   return (

@@ -795,7 +795,12 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
         <label style={labelStyle}>씬 속성</label>
         <div style={rowStyle}>
           <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
-          <span style={{ fontSize: 12, color: '#ddd' }}>Scene_CS_{scene.id}</span>
+          <span style={{ fontSize: 12, color: '#ddd', flex: 1, fontFamily: 'monospace' }}>Scene_CS_{scene.id}</span>
+          <button
+            style={{ ...smallBtnStyle, padding: '2px 6px' }}
+            title="클립보드에 복사"
+            onClick={() => navigator.clipboard.writeText(`Scene_CS_${scene.id}`)}
+          >복사</button>
         </div>
         <div style={rowStyle}>
           <span style={{ fontSize: 11, color: '#888', width: 50 }}>이름</span>
