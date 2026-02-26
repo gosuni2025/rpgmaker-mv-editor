@@ -10,7 +10,7 @@
  * @value normal
  * @option aggressive — periodic force-cleanup (low-memory environments)
  * @value aggressive
- * @option disabled — no cache at all (MZ-style)
+ * @option disabled — browser-cache style (no expiry, imageCacheLimit applies)
  * @value disabled
  * @desc Cache behavior mode.
  * @default normal
@@ -73,12 +73,11 @@
  *    → 에디터(SceneManager 스텁 환경)에서도 올바르게 동작합니다.
  *
  *  disabled
- *    이미지를 캐시에 저장하지 않습니다.
- *    loadNormalBitmap 호출마다 항상 새 Bitmap을 로드합니다.
- *    → RPG Maker MZ와 유사한 동작입니다.
- *    → 메모리 사용량을 최소화할 수 있습니다.
- *    ※ 씬 전환이 잦으면 매번 이미지를 새로 로드하므로
- *       로딩 부하가 증가할 수 있습니다.
+ *    MV의 캐시 만료 로직(씬 전환 시 clear, CacheMap TTL)을 비활성화합니다.
+ *    한 번 로드한 이미지는 imageCacheLimit 이하인 한 씬 전환 후에도 유지됩니다.
+ *    → 브라우저 HTTP 캐시처럼 동작합니다.
+ *    → 씬 전환이 잦아도 이미지를 재로드하지 않습니다.
+ *    → imageCacheLimit으로 메모리 상한을 제어하세요.
  *
  * ============================================================
  *  캐시 용량 (imageCacheLimit)
@@ -91,7 +90,7 @@
  *    20 MPix → 약 80MB
  *     5 MPix → 약 20MB
  *
- *  normal / aggressive 모드에서만 적용됩니다.
+ *  모든 모드에서 적용됩니다.
  *
  * ============================================================
  *  정리 주기 (cleanupInterval)
@@ -115,8 +114,8 @@
  *    ImageCacheManager를 사용하는 경우 Community_Basic의 cacheLimit은
  *    무시되도록 본 플러그인을 Community_Basic보다 아래에 배치하세요.
  *
- *  - disabled 모드에서는 hue(색조) 변환 캐시도 비활성화됩니다.
- *    hue 변환을 자주 사용하는 게임에서는 성능 저하가 있을 수 있습니다.
+ *  - disabled 모드에서는 씬 전환 시 캐시가 초기화되지 않으므로
+ *    imageCacheLimit를 적절히 설정하여 메모리를 관리하세요.
  */
 
 /*:ko
@@ -131,7 +130,7 @@
  * @value normal
  * @option aggressive — 주기적 강제 정리 (저사양·모바일 환경 권장)
  * @value aggressive
- * @option disabled — 캐시 완전 비활성화 (MZ 방식, 메모리 최소화)
+ * @option disabled — 브라우저 캐시 방식 (MV 만료 없음, imageCacheLimit 적용)
  * @value disabled
  * @desc 이미지 캐시 동작 방식을 선택합니다.
  * @default normal
@@ -194,12 +193,11 @@
  *    → 에디터(SceneManager 스텁 환경)에서도 올바르게 동작합니다.
  *
  *  disabled
- *    이미지를 캐시에 저장하지 않습니다.
- *    loadNormalBitmap 호출마다 항상 새 Bitmap을 로드합니다.
- *    → RPG Maker MZ와 유사한 동작입니다.
- *    → 메모리 사용량을 최소화할 수 있습니다.
- *    ※ 씬 전환이 잦으면 매번 이미지를 새로 로드하므로
- *       로딩 부하가 증가할 수 있습니다.
+ *    MV의 캐시 만료 로직(씬 전환 시 clear, CacheMap TTL)을 비활성화합니다.
+ *    한 번 로드한 이미지는 imageCacheLimit 이하인 한 씬 전환 후에도 유지됩니다.
+ *    → 브라우저 HTTP 캐시처럼 동작합니다.
+ *    → 씬 전환이 잦아도 이미지를 재로드하지 않습니다.
+ *    → imageCacheLimit으로 메모리 상한을 제어하세요.
  *
  * ============================================================
  *  캐시 용량 (imageCacheLimit)
@@ -212,7 +210,7 @@
  *    20 MPix → 약 80MB
  *     5 MPix → 약 20MB
  *
- *  normal / aggressive 모드에서만 적용됩니다.
+ *  모든 모드에서 적용됩니다.
  *
  * ============================================================
  *  정리 주기 (cleanupInterval)
@@ -236,8 +234,8 @@
  *    ImageCacheManager를 사용하는 경우 Community_Basic의 cacheLimit은
  *    무시되도록 본 플러그인을 Community_Basic보다 아래에 배치하세요.
  *
- *  - disabled 모드에서는 hue(색조) 변환 캐시도 비활성화됩니다.
- *    hue 변환을 자주 사용하는 게임에서는 성능 저하가 있을 수 있습니다.
+ *  - disabled 모드에서는 씬 전환 시 캐시가 초기화되지 않으므로
+ *    imageCacheLimit를 적절히 설정하여 메모리를 관리하세요.
  */
 
 (function() {
@@ -251,42 +249,25 @@
     var imageCacheLimit = Math.max(1, parseInt(parameters['imageCacheLimit']) || 10);
     var cleanupInterval = Math.max(5, parseInt(parameters['cleanupInterval']) || 30);
 
-    // --- disabled 모드: loadNormalBitmap 오버라이드 ---
-    // 캐시에서 꺼내지도, 저장하지도 않음. 항상 새 Bitmap 로드.
-    // 씬 전환 시 이전 씬의 Bitmap GPU 리소스를 명시적으로 해제하여 메모리 누수 방지.
+    // --- disabled 모드: MV 자체 캐시 만료를 끄고 브라우저 HTTP 캐시에 위임 ---
+    // loadNormalBitmap은 수정하지 않음 (ImageCache 정상 사용, GPU 텍스처 재사용).
+    // 씬 전환 시 ImageManager.clear()와 CacheMap TTL을 비활성화하여
+    // 한 번 로드된 이미지가 씬 전환 후에도 캐시에 유지되도록 함.
     if (cacheMode === 'disabled') {
-        var _currentSceneBitmaps = [];
+        // 씬 전환 시 캐시를 비우는 clear()를 무력화
+        ImageManager.clear = function() { /* no-op */ };
 
-        ImageManager.loadNormalBitmap = function(path, hue) {
-            var bitmap = Bitmap.load(path);
-            _currentSceneBitmaps.push(bitmap);
-            return bitmap;
-        };
-
-        // 씬 전환 시 이전 씬 Bitmap들의 GPU 리소스 해제
-        var _SceneManager_goto = SceneManager.goto;
-        SceneManager.goto = function(sceneClass) {
-            var toDestroy = _currentSceneBitmaps;
-            _currentSceneBitmaps = [];
-            // 다음 tick에서 해제 (현재 프레임 렌더링 완료 후)
-            setTimeout(function() {
-                for (var i = 0; i < toDestroy.length; i++) {
-                    var b = toDestroy[i];
-                    if (!b) continue;
-                    if (b.__baseTexture && b.__baseTexture.dispose) b.__baseTexture.dispose();
-                    if (b._baseTexture && b._baseTexture.destroy) b._baseTexture.destroy();
-                    if (b._image) { b._image.src = ''; b._image = null; }
-                }
-            }, 0);
-            _SceneManager_goto.call(this, sceneClass);
-        };
-
-        // 혹시 남아있는 기존 캐시도 즉시 비움
-        if (ImageManager._imageCache) {
-            ImageManager._imageCache._items = {};
+        // CacheMap TTL 만료 비활성화
+        if (ImageManager.cache && ImageManager.cache.update) {
+            ImageManager.cache.update = function() { /* no-op */ };
         }
 
-        console.log('[ImageCacheManager] mode=disabled (MZ-style, no image caching)');
+        // ImageCache limit은 파라미터로 제어
+        if (typeof ImageCache !== 'undefined') {
+            ImageCache.limit = imageCacheLimit * 1000 * 1000;
+        }
+
+        console.log('[ImageCacheManager] mode=disabled (browser-cache style, limit=' + imageCacheLimit + 'Mpx)');
         return; // 이하 normal/aggressive 처리 불필요
     }
 
