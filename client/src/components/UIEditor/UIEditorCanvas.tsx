@@ -232,10 +232,12 @@ export default function UIEditorCanvas() {
       iframeRef.current?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
     }
     // 저장된 리다이렉트 재적용 (씬 전환 시 초기화되므로)
+    // 단, 현재 직접 선택한 씬의 리다이렉트는 제외 — 선택한 씬은 원본 그대로 프리뷰
     const redirects = useEditorStore.getState().sceneRedirects;
-    if (Object.keys(redirects).length > 0) {
-      iframeRef.current?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects }, '*');
-    }
+    const previewRedirects = Object.fromEntries(
+      Object.entries(redirects).filter(([k]) => k !== uiEditorScene)
+    );
+    iframeRef.current?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: previewRedirects }, '*');
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'loadScene', sceneName: uiEditorScene }, '*'
     );
