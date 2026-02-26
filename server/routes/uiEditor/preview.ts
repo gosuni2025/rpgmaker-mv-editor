@@ -357,6 +357,7 @@ function buildPreviewHTML(useWebp: boolean): string {
             if (cname && cname.startsWith('Window_') && typeof child.width !== 'undefined') {
               if (!counter[cname]) counter[cname] = 0;
               var id = cname + '_' + counter[cname]++;
+              child._uiEditorId = id; // 이후 applyViewSettings에서 창 식별에 사용
               windows.push(extractWindowInfo(child, id));
             }
             traverse(child);
@@ -364,6 +365,44 @@ function buildPreviewHTML(useWebp: boolean): string {
         }
         traverse(scene);
         return windows;
+      }
+
+      // 에디터 뷰 설정: 선택 창 강제 표시 / 선택 창만 표시
+      function applyViewSettings(targetId, forceShow, exclusive) {
+        var scene = SceneManager._scene;
+        if (!scene) return;
+        function traverse(container) {
+          if (!container || !container.children) return;
+          for (var i = 0; i < container.children.length; i++) {
+            var child = container.children[i];
+            if (!child) continue;
+            var cname = child.constructor && child.constructor.name;
+            if (cname && cname.startsWith('Window_') && typeof child.width !== 'undefined') {
+              // 첫 번째 호출에서 원본 visibility 저장
+              if (child._uiViewOrigVisible === undefined) {
+                child._uiViewOrigVisible = child.visible;
+              }
+              var origVis = child._uiViewOrigVisible;
+              var isTarget = targetId && child._uiEditorId === targetId;
+              if (!targetId && !exclusive) {
+                // 선택 없음 + exclusive 해제 → 전부 복원
+                child.visible = origVis;
+                delete child._uiViewOrigVisible;
+              } else if (exclusive && targetId) {
+                // 선택 창만 보기: 대상만 표시, 나머지 숨김
+                child.visible = isTarget ? (forceShow ? true : origVis) : false;
+              } else if (forceShow && isTarget) {
+                // 강제 표시만: 대상만 true, 나머지 원본 복원
+                child.visible = true;
+              } else {
+                child.visible = origVis;
+                if (!exclusive) delete child._uiViewOrigVisible;
+              }
+            }
+            traverse(child);
+          }
+        }
+        traverse(scene);
       }
 
       function reportWindows(type) {
@@ -640,6 +679,9 @@ function buildPreviewHTML(useWebp: boolean): string {
           case 'updateFontsConfig':
             if (window._uiThemeUpdateFonts) window._uiThemeUpdateFonts(data.config);
             loadScene(_targetScene);
+            break;
+          case 'applyViewSettings':
+            applyViewSettings(data.windowId, data.forceShowSelected, data.showOnlySelected);
             break;
           case 'refreshScene':
             loadScene(_targetScene);

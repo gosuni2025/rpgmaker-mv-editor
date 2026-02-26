@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import '../MapEditor/DrawToolbar.css';
 import './UIEditor.css';
@@ -45,7 +45,22 @@ export default function UIEditorToolbar() {
   const setUiShowCheckerboard = useEditorStore((s) => s.setUiShowCheckerboard);
   const setUiShowRegionOverlay = useEditorStore((s) => s.setUiShowRegionOverlay);
 
+  const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
   const [showHelp, setShowHelp] = useState(false);
+  const [forceShowSelected, setForceShowSelected] = useState(true);
+  const [showOnlySelected, setShowOnlySelected] = useState(false);
+
+  const sendViewSettings = (windowId: string | null, force: boolean, exclusive: boolean) => {
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    iframe?.contentWindow?.postMessage(
+      { type: 'applyViewSettings', windowId, forceShowSelected: force, showOnlySelected: exclusive },
+      '*'
+    );
+  };
+
+  useEffect(() => {
+    sendViewSettings(uiEditorSelectedWindowId, forceShowSelected, showOnlySelected);
+  }, [uiEditorSelectedWindowId, forceShowSelected, showOnlySelected]);
 
   const handleFontSave = async () => {
     if (!projectPath) return;
@@ -168,15 +183,39 @@ export default function UIEditorToolbar() {
 
         {/* 창 편집 전용 옵션 */}
         {uiEditSubMode === 'window' && (
-          <button
-            className="ui-canvas-toolbar-btn"
-            style={{ fontSize: 11, padding: '2px 8px', color: '#f88' }}
-            disabled={!projectPath || uiEditorWindows.length === 0}
-            onClick={handleResetScene}
-            title="현재 씬 모든 창의 오버라이드를 삭제하고 RMMV 기본값으로 복원"
-          >
-            씬 레이아웃 초기화
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label
+              className="draw-toolbar-checkbox-label"
+              title="선택된 창이 숨겨진 상태여도 강제로 보여줌"
+            >
+              <input
+                type="checkbox"
+                checked={forceShowSelected}
+                onChange={(e) => setForceShowSelected(e.target.checked)}
+              />
+              선택 창 강제 표시
+            </label>
+            <label
+              className="draw-toolbar-checkbox-label"
+              title="선택된 창만 표시하고 나머지 창은 숨김"
+            >
+              <input
+                type="checkbox"
+                checked={showOnlySelected}
+                onChange={(e) => setShowOnlySelected(e.target.checked)}
+              />
+              선택 창만 보기
+            </label>
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ fontSize: 11, padding: '2px 8px', color: '#f88' }}
+              disabled={!projectPath || uiEditorWindows.length === 0}
+              onClick={handleResetScene}
+              title="현재 씬 모든 창의 오버라이드를 삭제하고 RMMV 기본값으로 복원"
+            >
+              씬 레이아웃 초기화
+            </button>
+          </div>
         )}
 
         {/* 프레임/커서 편집 공통 옵션 */}
