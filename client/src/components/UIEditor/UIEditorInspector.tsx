@@ -101,6 +101,22 @@ function SceneInspector() {
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
   const reloadFonts = useFontEditorData();
+  const customScenes = useEditorStore((s) => s.customScenes);
+  const removeCustomScene = useEditorStore((s) => s.removeCustomScene);
+  const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+  const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
+
+  const isCustomScene = uiEditorScene.startsWith('Scene_CS_');
+  const customSceneId = isCustomScene ? uiEditorScene.replace('Scene_CS_', '') : null;
+  const customScene = customSceneId ? customScenes.scenes[customSceneId] : null;
+
+  const handleDeleteCustomScene = async () => {
+    if (!customSceneId || !customScene) return;
+    if (!confirm(`커스텀 씬 "${customScene.displayName}"을 삭제하시겠습니까?`)) return;
+    removeCustomScene(customSceneId);
+    await saveCustomScenes();
+    setUiEditorScene('Scene_Menu');
+  };
 
   const [showFontPicker, setShowFontPicker] = useState(false);
 
@@ -144,6 +160,17 @@ function SceneInspector() {
           <div className="ui-editor-inspector-empty" style={{ padding: '6px 12px', fontSize: 12 }}>
             창을 선택하면 해당 창의 설정을 편집합니다
           </div>
+          {isCustomScene && (
+            <div style={{ padding: '0 12px 8px' }}>
+              <button
+                className="ui-canvas-toolbar-btn"
+                style={{ width: '100%', fontSize: 11, color: '#f88' }}
+                onClick={handleDeleteCustomScene}
+              >
+                이 커스텀 씬 삭제
+              </button>
+            </div>
+          )}
         </div>
 
         <SceneRedirectSection scene={uiEditorScene} />

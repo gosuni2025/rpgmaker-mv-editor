@@ -132,10 +132,16 @@ export default function UIEditorCanvas() {
           }))
         );
         // 씬 로드 후 저장된 오버라이드를 iframe에 적용
+        // rotation 계열 먼저 적용 → pivot이 설정된 후 x, y가 계산되어야 위치 오류 없음
+        const ROTATION_FIRST = ['rotationX', 'rotationY', 'rotationZ', 'animPivot', 'renderCamera'];
         const overrides = useEditorStore.getState().uiEditorOverrides;
         Object.values(overrides).forEach((ov) => {
-          Object.entries(ov).forEach(([prop, value]) => {
-            if (prop === 'className') return;
+          const entries = Object.entries(ov).filter(([p]) => p !== 'className');
+          const sorted = [
+            ...entries.filter(([p]) => ROTATION_FIRST.includes(p)),
+            ...entries.filter(([p]) => !ROTATION_FIRST.includes(p)),
+          ];
+          sorted.forEach(([prop, value]) => {
             iframeRef.current?.contentWindow?.postMessage(
               { type: 'applyOverride', className: ov.className, prop, value }, '*'
             );
@@ -164,6 +170,11 @@ export default function UIEditorCanvas() {
     // 커스텀 씬인 경우 먼저 reloadCustomScenes를 보내서 최신 정의를 반영
     if (uiEditorScene.startsWith('Scene_CS_')) {
       iframeRef.current?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+    }
+    // 저장된 리다이렉트 재적용 (씬 전환 시 초기화되므로)
+    const redirects = useEditorStore.getState().sceneRedirects;
+    if (Object.keys(redirects).length > 0) {
+      iframeRef.current?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects }, '*');
     }
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'loadScene', sceneName: uiEditorScene }, '*'
