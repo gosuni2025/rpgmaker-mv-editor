@@ -727,6 +727,100 @@ PostProcessEffects.createPixelationPass = function(params) {
 };
 
 //=============================================================================
+// 12-B. Pixel Art — 픽셀화 + 색상 팔레트 양자화
+//   다운샘플(nearest-neighbor)로 픽셀 블록을 만든 뒤,
+//   RGB 유클리드 거리 최소화로 고정 팔레트에서 가장 가까운 색을 매핑한다.
+//=============================================================================
+PostProcessEffects._PIXEL_ART_PALETTES = {
+    gameboy:   [[15,56,15],[48,98,48],[139,172,15],[155,188,15]],
+    nes:       [[0,0,0],[252,116,96],[0,120,248],[188,0,188],
+                [0,168,0],[216,40,0],[148,224,16],[248,56,0],
+                [108,136,252],[255,255,255],[72,160,236],[0,168,68],
+                [248,248,0],[60,188,252],[124,124,124],[252,252,252]],
+    cga:       [[0,0,0],[85,255,255],[255,85,255],[255,255,255]],
+    c64:       [[0,0,0],[255,255,255],[136,0,0],[170,255,238],
+                [204,68,204],[0,204,85],[0,0,170],[238,238,119],
+                [221,136,85],[102,68,0],[255,119,119],[51,51,51],
+                [119,119,119],[170,255,102],[0,136,255],[187,187,187]],
+    pico8:     [[0,0,0],[29,43,83],[126,37,83],[0,135,81],
+                [171,82,54],[95,87,79],[194,195,199],[255,241,232],
+                [255,0,77],[255,163,0],[255,236,39],[0,228,54],
+                [41,173,255],[131,118,156],[255,119,168],[255,204,170]],
+    sweetie16: [[26,28,44],[93,39,93],[177,62,83],[239,125,87],
+                [255,205,117],[167,240,112],[56,183,100],[37,113,121],
+                [41,54,111],[59,93,201],[65,166,246],[115,239,247],
+                [244,244,244],[148,176,194],[86,108,134],[51,60,87]],
+    mono:      [[0,0,0],[32,32,32],[64,64,64],[96,96,96],[128,128,128],
+                [160,160,160],[192,192,192],[224,224,224],[255,255,255]],
+    pastel:    [[255,179,186],[255,223,186],[255,255,186],[186,255,201],
+                [186,225,255],[218,186,255],[255,186,255],[210,210,210],
+                [255,255,255],[0,0,0],[100,100,100],[180,180,180]]
+};
+
+PostProcessEffects.PixelArtShader = {
+    uniforms: {
+        tColor:       { value: null },
+        uPixelSize:   { value: 4.0 },
+        uResolution:  { value: new THREE.Vector2(816, 624) },
+        uPalette:     { value: (function() {
+            var a = []; for (var i = 0; i < 32; i++) a.push(new THREE.Vector3(0,0,0)); return a;
+        })() },
+        uPaletteSize: { value: 0.0 },
+        uBlend:       { value: 1.0 }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uPixelSize;',
+        'uniform vec2 uResolution;',
+        'uniform vec3 uPalette[32];',
+        'uniform float uPaletteSize;',
+        'uniform float uBlend;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec2 pixelUv = floor(vUv * uResolution / uPixelSize) * uPixelSize / uResolution;',
+        '    vec4 orig = texture2D(tColor, vUv);',
+        '    vec4 tex  = texture2D(tColor, pixelUv);',
+        '    if (uPaletteSize > 0.5) {',
+        '        vec3 best = tex.rgb;',
+        '        float minDist = 1e9;',
+        '        for (int i = 0; i < 32; i++) {',
+        '            if (float(i) >= uPaletteSize) break;',
+        '            vec3 diff = tex.rgb - uPalette[i];',
+        '            float dist = dot(diff, diff);',
+        '            if (dist < minDist) { minDist = dist; best = uPalette[i]; }',
+        '        }',
+        '        tex.rgb = best;',
+        '    }',
+        '    gl_FragColor = vec4(mix(orig.rgb, tex.rgb, uBlend), orig.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createPixelArtPass = function(params) {
+    var pass = createPass(this.PixelArtShader);
+    // THREE.UniformsUtils.clone은 배열을 shallow copy하므로 독립 배열 재생성
+    var freshPalette = [];
+    for (var i = 0; i < 32; i++) freshPalette.push(new THREE.Vector3(0, 0, 0));
+    pass.uniforms.uPalette.value = freshPalette;
+    if (params) {
+        if (params.pixelSize != null) pass.uniforms.uPixelSize.value = params.pixelSize;
+        if (params.blend     != null) pass.uniforms.uBlend.value     = params.blend;
+        if (params.palette   != null) {
+            var colors = PostProcessEffects._PIXEL_ART_PALETTES[params.palette] || [];
+            for (var j = 0; j < 32; j++) {
+                if (j < colors.length) {
+                    pass.uniforms.uPalette.value[j].set(colors[j][0]/255, colors[j][1]/255, colors[j][2]/255);
+                }
+            }
+            pass.uniforms.uPaletteSize.value = colors.length;
+        }
+    }
+    pass.setSize = function(w, h) { this.uniforms.uResolution.value.set(w, h); };
+    return pass;
+};
+
+//=============================================================================
 // 13. Color Inversion / Negative - 색반전
 //=============================================================================
 PostProcessEffects.ColorInversionShader = {
@@ -1376,6 +1470,7 @@ PostProcessEffects.EFFECT_LIST = [
     { key: 'anamorphic',   name: '아나모픽 플레어', create: 'createAnamorphicFlarePass' },
     { key: 'motionBlur',   name: '모션 블러',      create: 'createMotionBlurPass' },
     { key: 'pixelation',   name: '픽셀화',         create: 'createPixelationPass' },
+    { key: 'pixelArt',     name: '픽셀 아트',       create: 'createPixelArtPass' },
     { key: 'colorInversion', name: '색반전',       create: 'createColorInversionPass' },
     { key: 'edgeDetection', name: '외곽선 검출',   create: 'createEdgeDetectionPass' },
     { key: 'ssao',          name: 'SSAO',          create: 'createSSAOPass' },
@@ -1470,6 +1565,22 @@ PostProcessEffects.EFFECT_PARAMS = {
     pixelation: [
         { key: 'pixelSize', label: '픽셀 크기', min: 1, max: 32, step: 1, default: 4 },
         { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
+    ],
+    pixelArt: [
+        { key: 'pixelSize', label: '픽셀 크기', min: 1, max: 32, step: 1, default: 4 },
+        { key: 'palette',   label: '색상 팔레트', type: 'select', options: [
+            { v: 'none',      l: '팔레트 없음' },
+            { v: 'gameboy',   l: '게임보이 (4색)' },
+            { v: 'nes',       l: 'NES (16색)' },
+            { v: 'cga',       l: 'CGA (4색)' },
+            { v: 'c64',       l: 'C64 (16색)' },
+            { v: 'pico8',     l: 'PICO-8 (16색)' },
+            { v: 'sweetie16', l: 'Sweetie 16 (16색)' },
+            { v: 'mono',      l: '흑백 (9색)' },
+            { v: 'pastel',    l: '파스텔 (12색)' }
+        ], default: 'none' },
+        { key: 'blend',       label: '혼합 강도',    min: 0, max: 1, step: 0.05, default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용',  type: 'checkbox', default: false }
     ],
     colorInversion: [
         { key: 'strength', label: '강도', min: 0, max: 1, step: 0.05, default: 1 },
@@ -1571,6 +1682,7 @@ PostProcessEffects._UNIFORM_MAP = {
     anamorphic:   { threshold: 'uThreshold', intensity: 'uIntensity', streakLength: 'uStreakLength' },
     motionBlur:   { velocityX: 'uVelocity', velocityY: 'uVelocity' },
     pixelation:   { pixelSize: 'uPixelSize' },
+    pixelArt:     { pixelSize: 'uPixelSize', blend: 'uBlend' },
     colorInversion: { strength: 'uStrength' },
     edgeDetection: { strength: 'uStrength', threshold: 'uThreshold', overlay: 'uOverlay' },
     ssao:         { radius: 'uRadius', intensity: 'uIntensity', bias: 'uBias' },
@@ -1588,6 +1700,20 @@ PostProcessEffects._UNIFORM_MAP = {
 
 // 런타임에서 파라미터를 pass의 uniform에 적용
 PostProcessEffects.applyParam = function(effectKey, pass, paramKey, value) {
+    // pixelArt 팔레트 특수 처리: 팔레트 이름 → uniform vec3 배열 + 크기 설정
+    if (effectKey === 'pixelArt' && paramKey === 'palette') {
+        var colors = PostProcessEffects._PIXEL_ART_PALETTES[value] || [];
+        for (var i = 0; i < 32; i++) {
+            if (i < colors.length) {
+                pass.uniforms.uPalette.value[i].set(colors[i][0]/255, colors[i][1]/255, colors[i][2]/255);
+            } else {
+                pass.uniforms.uPalette.value[i].set(0, 0, 0);
+            }
+        }
+        pass.uniforms.uPaletteSize.value = colors.length;
+        return;
+    }
+
     // godRays 특수 처리: useOcclusion은 uniform이 아닌 pass 플래그
     if (effectKey === 'godRays' && paramKey === 'useOcclusion') {
         if (pass._occlusionEnabled !== undefined) pass._occlusionEnabled = !!value;

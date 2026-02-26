@@ -433,6 +433,153 @@
  */
 
 /*:
+ * @plugindesc 픽셀 아트 이펙트 커맨드
+ * @plugincommand PPEffectPixelArt
+ *
+ * @command on
+ * @text 켜기
+ * @desc 픽셀 아트 효과를 활성화합니다. 혼합 강도를 0→1로 서서히 전환합니다.
+ *
+ * @arg pixelSize
+ * @text 픽셀 크기 (1~32)
+ * @type number
+ * @min 1
+ * @max 32
+ * @decimals 0
+ * @default 4
+ *
+ * @arg palette
+ * @text 색상 팔레트
+ * @type select
+ * @option 팔레트 없음
+ * @value none
+ * @option 게임보이 (4색)
+ * @value gameboy
+ * @option NES (16색)
+ * @value nes
+ * @option CGA (4색)
+ * @value cga
+ * @option C64 (16색)
+ * @value c64
+ * @option PICO-8 (16색)
+ * @value pico8
+ * @option Sweetie 16 (16색)
+ * @value sweetie16
+ * @option 흑백 (9색)
+ * @value mono
+ * @option 파스텔 (12색)
+ * @value pastel
+ * @default none
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command off
+ * @text 끄기
+ * @desc 픽셀 아트 효과를 비활성화합니다. 혼합 강도를 1→0으로 서서히 전환합니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command pixelSize
+ * @text 픽셀 크기 변경
+ * @desc 픽셀 블록 크기를 변경합니다.
+ *
+ * @arg value
+ * @text 픽셀 크기 (1~32)
+ * @type number
+ * @min 1
+ * @max 32
+ * @decimals 0
+ * @default 4
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @command palette
+ * @text 팔레트 변경
+ * @desc 색상 팔레트를 즉시 변경합니다.
+ *
+ * @arg name
+ * @text 팔레트 이름
+ * @type select
+ * @option 팔레트 없음
+ * @value none
+ * @option 게임보이 (4색)
+ * @value gameboy
+ * @option NES (16색)
+ * @value nes
+ * @option CGA (4색)
+ * @value cga
+ * @option C64 (16색)
+ * @value c64
+ * @option PICO-8 (16색)
+ * @value pico8
+ * @option Sweetie 16 (16색)
+ * @value sweetie16
+ * @option 흑백 (9색)
+ * @value mono
+ * @option 파스텔 (12색)
+ * @value pastel
+ * @default none
+ *
+ * @command blend
+ * @text 혼합 강도 변경
+ * @desc 원본 이미지와의 혼합 비율을 변경합니다. 1=완전 적용, 0=원본.
+ *
+ * @arg value
+ * @text 혼합 강도 (0~1)
+ * @type number
+ * @min 0
+ * @max 1
+ * @decimals 2
+ * @default 1
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @help
+ * PPEffectPixelArt on 4 gameboy 1    → 게임보이 팔레트, 픽셀 크기 4로 1초에 켜기
+ * PPEffectPixelArt on 6 pico8 0.5   → PICO-8 팔레트, 픽셀 크기 6으로 0.5초에 켜기
+ * PPEffectPixelArt on 4 none 1      → 팔레트 없이 픽셀화만, 1초에 켜기
+ * PPEffectPixelArt off 1             → 1초에 걸쳐 서서히 끄기
+ * PPEffectPixelArt pixelSize 8 0.5  → 픽셀 크기를 8로 0.5초 보간
+ * PPEffectPixelArt palette nes       → NES 팔레트로 즉시 변경
+ * PPEffectPixelArt blend 0.5 1      → 혼합 강도를 0.5로 1초 보간
+ *
+ * 팔레트 목록:
+ *   none      — 팔레트 없음 (픽셀화만)
+ *   gameboy   — 게임보이 LCD (4색, 연두)
+ *   nes       — NES 콘솔 (16색)
+ *   cga       — CGA 모드4 (4색, 청·분홍)
+ *   c64       — Commodore 64 (16색)
+ *   pico8     — PICO-8 (16색)
+ *   sweetie16 — Sweetie 16 (16색, 인디 게임용)
+ *   mono      — 흑백 그레이스케일 (9단계)
+ *   pastel    — 파스텔 톤 (12색)
+ */
+
+/*:
  * @plugindesc CRT 배럴 왜곡 이펙트 커맨드
  * @plugincommand PPEffectBarrel
  *
@@ -4022,6 +4169,67 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 if (args[1] != null) cornerPass.uniforms.uRadius.value = parseFloat(args[1]);
             } else if (sub === 'softness') {
                 if (args[1] != null) cornerPass.uniforms.uSoftness.value = parseFloat(args[1]);
+            }
+        }
+    }
+
+    // ── 픽셀 아트: PPEffectPixelArt on/off/pixelSize/palette/blend ────────────
+    if (command === 'PPEffectPixelArt') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['pixelArt']) {
+            var paPass = PostProcess._ppPasses['pixelArt'];
+            function _paTween(uniform, toVal, dur, onDone) {
+                var proxy = { value: paPass.uniforms[uniform].value };
+                if (dur > 0 && window.PluginTween) {
+                    PluginTween.add({ target: proxy, key: 'value', to: toVal, duration: dur,
+                        onUpdate: function(v) { paPass.uniforms[uniform].value = v; }, onComplete: onDone || null });
+                } else { paPass.uniforms[uniform].value = toVal; if (onDone) onDone(); }
+            }
+            function _paSetPalette(name) {
+                if (window.PostProcessEffects && PostProcessEffects._PIXEL_ART_PALETTES) {
+                    var colors = PostProcessEffects._PIXEL_ART_PALETTES[name] || [];
+                    for (var pi = 0; pi < 32; pi++) {
+                        if (pi < colors.length) {
+                            paPass.uniforms.uPalette.value[pi].set(colors[pi][0]/255, colors[pi][1]/255, colors[pi][2]/255);
+                        } else {
+                            paPass.uniforms.uPalette.value[pi].set(0, 0, 0);
+                        }
+                    }
+                    paPass.uniforms.uPaletteSize.value = colors.length;
+                }
+            }
+            if (sub === 'on') {
+                var pixelSize   = args[1] ? parseFloat(args[1]) : 4;
+                var paletteName = args[2] || 'none';
+                var dur         = args[3] ? parseFloat(args[3]) : 1;
+                paPass.uniforms.uPixelSize.value = pixelSize;
+                _paSetPalette(paletteName);
+                paPass.uniforms.uBlend.value = 0;
+                paPass.enabled = true;
+                PostProcess._updateRenderToScreen();
+                _paTween('uBlend', 1, dur, null);
+                PostProcess._saveEventOverride('pixelArt', true);
+            } else if (sub === 'off') {
+                var dur = args[1] ? parseFloat(args[1]) : 1;
+                _paTween('uBlend', 0, dur, function() {
+                    paPass.enabled = false; PostProcess._updateRenderToScreen();
+                });
+                PostProcess._saveEventOverride('pixelArt', false);
+            } else if (sub === 'pixelSize') {
+                var val = args[1] ? parseFloat(args[1]) : 4;
+                var dur = args[2] ? parseFloat(args[2]) : 0;
+                if (dur > 0 && window.PluginTween) {
+                    var sp = { value: paPass.uniforms.uPixelSize.value };
+                    PluginTween.add({ target: sp, key: 'value', to: val, duration: dur,
+                        onUpdate: function(v) { paPass.uniforms.uPixelSize.value = v; } });
+                } else { paPass.uniforms.uPixelSize.value = val; }
+            } else if (sub === 'palette') {
+                _paSetPalette(args[1] || 'none');
+            } else if (sub === 'blend') {
+                _paTween('uBlend', args[1] ? parseFloat(args[1]) : 1, args[2] ? parseFloat(args[2]) : 0, null);
+            } else if (sub === 'applyOverUI') {
+                paPass._applyOverUI = (args[1] === 'true' || args[1] === '1');
+                PostProcess._rebuildPassOrder(); PostProcess._updateRenderToScreen();
             }
         }
     }
