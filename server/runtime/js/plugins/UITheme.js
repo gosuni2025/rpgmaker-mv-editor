@@ -507,28 +507,54 @@
   }
 
   /**
+   * Perspective 역변환 좌표로 hitTest + select/processOk 처리.
+   */
+  function _perspOnTouch(win, local, triggered) {
+    var lastIndex = win.index();
+    var hitIndex = win.hitTest(local.x, local.y);
+    if (hitIndex >= 0) {
+      if (hitIndex === win.index()) {
+        if (triggered && win.isTouchOkEnabled()) win.processOk();
+      } else if (win.isCursorMovable()) {
+        win.select(hitIndex);
+      }
+    } else if (win._stayCount >= 10) {
+      if (local.y < win.padding) {
+        win.cursorUp();
+      } else if (local.y >= win.height - win.padding) {
+        win.cursorDown();
+      }
+    }
+    if (win.index() !== lastIndex) SoundManager.playCursor();
+  }
+
+  /**
    * rotationX/Y가 있는 창에 Perspective 역변환 기반 히트 테스트를 적용.
-   * isTouchedInsideFrame에서 로컬 좌표를 계산·캐시하고,
-   * canvasToLocalX/Y에서 캐시를 소비하여 hitTest에 전달.
+   * processTouch 자체를 오버라이드하여 캐시 없이 직접 로컬 좌표를 hitTest에 전달.
    */
   function _applyPerspHitTest(win) {
-    win.isTouchedInsideFrame = function() {
-      var local = _uiPerspScreenToLocal(this, TouchInput.x, TouchInput.y);
-      if (!local) {
-        // 역변환 불가(카메라 미초기화 등) 시 기본 2D 판정으로 폴백
-        return Window_Selectable.prototype.isTouchedInsideFrame.call(this);
+    win.processTouch = function() {
+      if (!this.isOpenAndActive()) {
+        this._touching = false;
+        return;
       }
-      this._uiPerspTouchLocal = local;
-      return local.x >= 0 && local.y >= 0 && local.x < this.width && local.y < this.height;
-    };
-    win.canvasToLocalX = function(x) {
-      return this._uiPerspTouchLocal ? this._uiPerspTouchLocal.x
-        : Window_Base.prototype.canvasToLocalX.call(this, x);
-    };
-    win.canvasToLocalY = function(y) {
-      var loc = this._uiPerspTouchLocal;
-      this._uiPerspTouchLocal = null;  // X, Y 쌍 처리 후 캐시 소비
-      return loc ? loc.y : Window_Base.prototype.canvasToLocalY.call(this, y);
+      if (TouchInput.isTriggered()) {
+        var local = _uiPerspScreenToLocal(this, TouchInput.x, TouchInput.y);
+        if (local && local.x >= 0 && local.y >= 0 && local.x < this.width && local.y < this.height) {
+          this._touching = true;
+          _perspOnTouch(this, local, true);
+        }
+      } else if (TouchInput.isCancelled()) {
+        if (this.isCancelEnabled()) this.processCancel();
+      }
+      if (this._touching) {
+        if (TouchInput.isPressed()) {
+          var local2 = _uiPerspScreenToLocal(this, TouchInput.x, TouchInput.y);
+          if (local2) _perspOnTouch(this, local2, false);
+        } else {
+          this._touching = false;
+        }
+      }
     };
   }
 
