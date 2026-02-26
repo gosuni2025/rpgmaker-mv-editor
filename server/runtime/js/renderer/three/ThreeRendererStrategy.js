@@ -321,16 +321,23 @@
             }
             // THREE.Mesh objects get renderOrder for depth-independent sorting
             if (node._threeObj.isMesh) {
-                // 오브젝트 물 메시는 container보다 먼저 렌더링 (물 → 일반 타일 순서)
-                var meshChildren = node._threeObj.children;
-                if (meshChildren) {
-                    for (var t = 0; t < meshChildren.length; t++) {
-                        if (meshChildren[t].isMesh && meshChildren[t].userData && meshChildren[t].userData.isObjectWater) {
-                            meshChildren[t].renderOrder = rendererObj._drawOrderCounter++;
+                // ScreenSprite(fade/flash)는 씬 계층 위치와 무관하게 항상 최상위 renderOrder
+                // (미니맵 등 Scene 레벨 UI가 Spriteset 안의 fade보다 높은 인덱스에 있어도
+                //  fade가 반드시 위에 그려지도록 보장)
+                if (typeof ScreenSprite !== 'undefined' && node instanceof ScreenSprite) {
+                    node._threeObj.renderOrder = 999998;
+                } else {
+                    // 오브젝트 물 메시는 container보다 먼저 렌더링 (물 → 일반 타일 순서)
+                    var meshChildren = node._threeObj.children;
+                    if (meshChildren) {
+                        for (var t = 0; t < meshChildren.length; t++) {
+                            if (meshChildren[t].isMesh && meshChildren[t].userData && meshChildren[t].userData.isObjectWater) {
+                                meshChildren[t].renderOrder = rendererObj._drawOrderCounter++;
+                            }
                         }
                     }
+                    node._threeObj.renderOrder = rendererObj._drawOrderCounter++;
                 }
-                node._threeObj.renderOrder = rendererObj._drawOrderCounter++;
             }
             // For Groups, traverse their direct THREE children that are meshes
             // (e.g., internal meshes of ThreeGraphicsNode)
