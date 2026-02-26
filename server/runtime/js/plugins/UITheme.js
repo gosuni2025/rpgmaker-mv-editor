@@ -466,9 +466,9 @@
     var w = Graphics.width || 816;
     var h = Graphics.height || 624;
 
-    // Y-down NDC: 화면 위쪽(sy=0) → ndc_y=-1, 아래쪽(sy=h) → ndc_y=+1
+    // setFromCamera는 표준 WebGL Y-up NDC를 기대: 위쪽(sy=0) → +1, 아래쪽(sy=h) → -1
     var ndcX = (sx / w) * 2 - 1;
-    var ndcY = (sy / h) * 2 - 1;
+    var ndcY = 1 - (sy / h) * 2;
 
     // 재사용 가능한 Three.js 객체
     if (!_uiPerspScreenToLocal._rc) {
