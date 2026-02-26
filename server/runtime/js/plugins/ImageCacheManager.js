@@ -243,6 +243,9 @@
 (function() {
     'use strict';
 
+    // editor-runtime-bootstrap.js의 기본 캐시 cleanup이 중복 실행되지 않도록 플래그 설정
+    window._imageCacheManagerActive = true;
+
     var parameters = PluginManager.parameters('ImageCacheManager');
     var cacheMode = (parameters['cacheMode'] || 'normal').toLowerCase().trim();
     var imageCacheLimit = Math.max(1, parseInt(parameters['imageCacheLimit']) || 10);
@@ -250,10 +253,32 @@
 
     // --- disabled 모드: loadNormalBitmap 오버라이드 ---
     // 캐시에서 꺼내지도, 저장하지도 않음. 항상 새 Bitmap 로드.
+    // 씬 전환 시 이전 씬의 Bitmap GPU 리소스를 명시적으로 해제하여 메모리 누수 방지.
     if (cacheMode === 'disabled') {
-        var _ImageManager_loadNormalBitmap = ImageManager.loadNormalBitmap;
+        var _currentSceneBitmaps = [];
+
         ImageManager.loadNormalBitmap = function(path, hue) {
-            return Bitmap.load(path);
+            var bitmap = Bitmap.load(path);
+            _currentSceneBitmaps.push(bitmap);
+            return bitmap;
+        };
+
+        // 씬 전환 시 이전 씬 Bitmap들의 GPU 리소스 해제
+        var _SceneManager_goto = SceneManager.goto;
+        SceneManager.goto = function(sceneClass) {
+            var toDestroy = _currentSceneBitmaps;
+            _currentSceneBitmaps = [];
+            // 다음 tick에서 해제 (현재 프레임 렌더링 완료 후)
+            setTimeout(function() {
+                for (var i = 0; i < toDestroy.length; i++) {
+                    var b = toDestroy[i];
+                    if (!b) continue;
+                    if (b.__baseTexture && b.__baseTexture.dispose) b.__baseTexture.dispose();
+                    if (b._baseTexture && b._baseTexture.destroy) b._baseTexture.destroy();
+                    if (b._image) { b._image.src = ''; b._image = null; }
+                }
+            }, 0);
+            _SceneManager_goto.call(this, sceneClass);
         };
 
         // 혹시 남아있는 기존 캐시도 즉시 비움
