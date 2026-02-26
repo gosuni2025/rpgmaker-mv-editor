@@ -565,12 +565,23 @@
     };
   }
 
+  // 마우스 이동 위치 별도 추적 (TouchInput._onMouseMove는 버튼 누름 상태에서만 업데이트됨)
+  if (!window._uiPerspMouse) {
+    window._uiPerspMouse = { x: 0, y: 0 };
+    document.addEventListener('mousemove', function(e) {
+      window._uiPerspMouse.x = Graphics.pageToCanvasX(e.pageX);
+      window._uiPerspMouse.y = Graphics.pageToCanvasY(e.pageY);
+    });
+  }
+
   function _perspUpdateHoverDebug(win) {
     if (!win._threeObj || typeof THREE === 'undefined') return;
 
     var local = null;
     if (win.isOpen()) {
-      local = _uiPerspScreenToLocal(win, TouchInput.x, TouchInput.y);
+      var mx = window._uiPerspMouse.x;
+      var my = window._uiPerspMouse.y;
+      local = _uiPerspScreenToLocal(win, mx, my);
     }
     var hitIdx = (local && local.x >= 0 && local.y >= 0 && local.x < win.width && local.y < win.height)
       ? win.hitTest(local.x, local.y) : -1;
