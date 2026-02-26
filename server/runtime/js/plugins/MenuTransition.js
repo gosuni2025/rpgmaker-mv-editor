@@ -12,74 +12,59 @@
  *   닫기: 메뉴 UI fade-out + 배경 효과 최대→0 동시 진행
  *
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 전환 효과 종류 및 intensity 파라미터
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * intensity1~3은 0~100 범위이며, 효과에 따라 사용하는 개수가 다릅니다.
- * 해당 효과가 사용하지 않는 파라미터는 무시됩니다.
- *
- *  blur
- *    intensity1: 블러 강도 (100 = 최대 20px) — 기본값 80
- *
- *  zoomBlur
- *    intensity1: 블러 강도 (100 = 최대 20px) — 기본값 80
- *    intensity2: 줌 배율  (100 = 최대 30% 확대) — 기본값 50
- *
- *  desaturation
- *    intensity1: 채도 감소량 (100 = 완전 흑백) — 기본값 100
- *
- *  sepia
- *    intensity1: 세피아 강도 (100 = 완전 세피아) — 기본값 100
- *
- *  brightness (화이트아웃)
- *    intensity1: 밝기 증가량 (100 = +300%) — 기본값 80
- *
- *  darkness (블랙아웃)
- *    intensity1: 어두움 강도 (100 = -90% 밝기) — 기본값 80
- *
- *  contrast
- *    intensity1: 대비 증가량 (100 = +400%) — 기본값 70
- *
- *  hue
- *    intensity1: 색조 회전 각도 (100 = 360° 회전) — 기본값 60
- *
- *  invert
- *    intensity1: 반전 강도 (100 = 완전 반전) — 기본값 100
- *
- *  pixelation
- *    intensity1: 최대 픽셀 블록 크기 (100 = 50px) — 기본값 80
- *
- *  zoom
- *    intensity1: 최대 줌 배율 (100 = 60% 확대) — 기본값 60
- *
- *  chromatic (색수차)
- *    intensity1: R/B 채널 오프셋 (100 = 28px) — 기본값 80
- *    intensity2: 채널 알파 강도 (100 = 60%) — 기본값 70
- *
- *  vignette (비네트)
- *    intensity1: 주변 어둠 강도 (100 = 120%) — 기본값 80
- *    intensity2: 비네트 범위 (0=넓게, 100=좁게 집중) — 기본값 50
- *
- *  scanline (스캔라인)
- *    intensity1: 줄 불투명도 (100 = 70%) — 기본값 70
- *    intensity2: 채도 감소량 (100 = 80%) — 기본값 60
- *
- * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- * 기타 파라미터
+ * 전환 효과 종류
  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  *
- *  overlayColor 배경에 덧씌울 색상 (R,G,B). 기본 0,0,0 (검정).
- *  overlayAlpha 오버레이 불투명도 (0=비활성, 255=완전 불투명).
- *               효과와 함께 천천히 나타남.
+ *  blur         가우시안 블러.
+ *               관련 파라미터: blur_amount
  *
- *  duration     전환 시간 (프레임 수, 60fps 기준). 40 = 약 0.67초.
+ *  zoomBlur     블러 + 줌 인.
+ *               관련 파라미터: zoomBlur_amount, zoomBlur_zoom
  *
- *  easing       애니메이션 가속도 곡선.
- *               easeOut: 빠르게 시작해서 느리게 끝남 (기본)
- *               easeIn:  느리게 시작해서 빠르게 끝남
- *               easeInOut: 양쪽 모두 완만하게
- *               linear:  일정한 속도
+ *  desaturation 채도 감소 → 흑백.
+ *               관련 파라미터: desaturation_amount
  *
- *  closeAnim    닫기 시 역방향 애니메이션 사용 여부.
+ *  sepia        세피아 색조.
+ *               관련 파라미터: sepia_amount
+ *
+ *  brightness   화이트아웃 (점점 밝아짐).
+ *               관련 파라미터: brightness_amount
+ *
+ *  darkness     블랙아웃 (점점 어두워짐).
+ *               관련 파라미터: darkness_amount
+ *
+ *  contrast     대비 증가.
+ *               관련 파라미터: contrast_amount
+ *
+ *  hue          색조 회전.
+ *               관련 파라미터: hue_amount
+ *
+ *  invert       색상 반전.
+ *               관련 파라미터: invert_amount
+ *
+ *  pixelation   픽셀화 (화면이 블록으로 뭉개짐).
+ *               관련 파라미터: pixelation_amount
+ *
+ *  zoom         줌 인 (블러 없음).
+ *               관련 파라미터: zoom_amount
+ *
+ *  chromatic    색수차 (R/B 채널 좌우 분리).
+ *               관련 파라미터: chromatic_offset, chromatic_alpha
+ *
+ *  vignette     비네트 (주변부가 점점 어두워짐).
+ *               관련 파라미터: vignette_amount, vignette_range
+ *
+ *  scanline     스캔라인 (CRT 모니터 효과).
+ *               관련 파라미터: scanline_opacity, scanline_desaturation
+ *
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * 공통 파라미터
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  overlayColor  배경 오버레이 색상 (R,G,B). 기본 0,0,0 (검정).
+ *  overlayAlpha  오버레이 불투명도 (0=비활성, 255=완전 불투명).
+ *  duration      전환 시간 (프레임, 60fps 기준). 40 ≒ 0.67초.
+ *  easing        가속도 곡선.
+ *  closeAnim     닫기 시 역방향 애니메이션 사용 여부.
  *
  * @param transitionEffect
  * @text 전환 효과 종류
@@ -100,26 +85,131 @@
  * @option scanline
  * @default blur
  *
- * @param intensity1
- * @text 강도1 (0-100) — 효과별 첫 번째 파라미터
+ * @param blur_amount
+ * @text [blur] 블러 강도 (100=최대 20px)
  * @type number
  * @min 0
  * @max 100
  * @default 80
  *
- * @param intensity2
- * @text 강도2 (0-100) — 효과별 두 번째 파라미터 (zoomBlur/chromatic/vignette/scanline)
+ * @param zoomBlur_amount
+ * @text [zoomBlur] 블러 강도 (100=최대 20px)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 80
+ *
+ * @param zoomBlur_zoom
+ * @text [zoomBlur] 줌 배율 (100=최대 30% 확대)
  * @type number
  * @min 0
  * @max 100
  * @default 50
  *
- * @param intensity3
- * @text 강도3 (0-100) — 예비 파라미터
+ * @param desaturation_amount
+ * @text [desaturation] 채도 감소량 (100=완전 흑백)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 100
+ *
+ * @param sepia_amount
+ * @text [sepia] 세피아 강도 (100=완전 세피아)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 100
+ *
+ * @param brightness_amount
+ * @text [brightness] 밝기 증가량 (100=+300%)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 80
+ *
+ * @param darkness_amount
+ * @text [darkness] 어두움 강도 (100=-90% 밝기)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 80
+ *
+ * @param contrast_amount
+ * @text [contrast] 대비 증가량 (100=+400%)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 70
+ *
+ * @param hue_amount
+ * @text [hue] 색조 회전 각도 (100=360° 회전)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 60
+ *
+ * @param invert_amount
+ * @text [invert] 반전 강도 (100=완전 반전)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 100
+ *
+ * @param pixelation_amount
+ * @text [pixelation] 최대 픽셀 블록 크기 (100=50px)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 80
+ *
+ * @param zoom_amount
+ * @text [zoom] 최대 줌 배율 (100=60% 확대)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 60
+ *
+ * @param chromatic_offset
+ * @text [chromatic] R/B 채널 오프셋 (100=28px)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 80
+ *
+ * @param chromatic_alpha
+ * @text [chromatic] 채널 알파 강도 (100=60%)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 70
+ *
+ * @param vignette_amount
+ * @text [vignette] 주변 어둠 강도 (100=최대)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 80
+ *
+ * @param vignette_range
+ * @text [vignette] 비네트 범위 (0=넓게, 100=좁게 집중)
  * @type number
  * @min 0
  * @max 100
  * @default 50
+ *
+ * @param scanline_opacity
+ * @text [scanline] 가로줄 불투명도 (100=70%)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 70
+ *
+ * @param scanline_desaturation
+ * @text [scanline] 채도 감소량 (100=80%)
+ * @type number
+ * @min 0
+ * @max 100
+ * @default 60
  *
  * @param overlayColor
  * @text 오버레이 색상 (R,G,B)
@@ -160,15 +250,37 @@
 
     var params = PluginManager.parameters('MenuTransition');
 
+    function _p(key, def) {
+        var v = Number(params[key]);
+        return (params[key] !== undefined && !isNaN(v)) ? v : def;
+    }
+
     var Cfg = {
         transitionEffect: String(params.transitionEffect || 'blur'),
-        iv1:          Number(params.intensity1) >= 0 ? Number(params.intensity1) : 80,
-        iv2:          Number(params.intensity2) >= 0 ? Number(params.intensity2) : 50,
-        iv3:          Number(params.intensity3) >= 0 ? Number(params.intensity3) : 50,
-        overlayColor: String(params.overlayColor  || '0,0,0'),
-        overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 100,
-        duration:     Number(params.duration)     || 40,
-        easing:       String(params.easing        || 'easeOut'),
+        // 효과별 파라미터
+        blur_amount:              _p('blur_amount',              80),
+        zoomBlur_amount:          _p('zoomBlur_amount',          80),
+        zoomBlur_zoom:            _p('zoomBlur_zoom',            50),
+        desaturation_amount:      _p('desaturation_amount',     100),
+        sepia_amount:             _p('sepia_amount',            100),
+        brightness_amount:        _p('brightness_amount',        80),
+        darkness_amount:          _p('darkness_amount',          80),
+        contrast_amount:          _p('contrast_amount',          70),
+        hue_amount:               _p('hue_amount',               60),
+        invert_amount:            _p('invert_amount',           100),
+        pixelation_amount:        _p('pixelation_amount',        80),
+        zoom_amount:              _p('zoom_amount',              60),
+        chromatic_offset:         _p('chromatic_offset',         80),
+        chromatic_alpha:          _p('chromatic_alpha',          70),
+        vignette_amount:          _p('vignette_amount',          80),
+        vignette_range:           _p('vignette_range',           50),
+        scanline_opacity:         _p('scanline_opacity',         70),
+        scanline_desaturation:    _p('scanline_desaturation',    60),
+        // 공통
+        overlayColor: String(params.overlayColor || '0,0,0'),
+        overlayAlpha: _p('overlayAlpha', 100),
+        duration:     _p('duration',      40) || 40,
+        easing:       String(params.easing || 'easeOut'),
         closeAnim:    String(params.closeAnim) !== 'false'
     };
 
@@ -196,18 +308,15 @@
 
     // ── 상태 변수 ─────────────────────────────────────────────────────────────
 
-    // _phase: 0=비활성, 2=메뉴 열림
-    var _phase     = 0;
-    var _srcCanvas = null;   // 스냅샷 캔버스 (메뉴 배경용)
+    var _phase     = 0;       // 0=비활성, 2=메뉴 열림
+    var _srcCanvas = null;    // 스냅샷 캔버스 (메뉴 배경용)
 
-    // 배경 효과 애니메이션 상태
     var _bgBlurT      = 0;    // 현재 효과 진행값 (0~1)
     var _bgBlurStartT = 1;    // 닫기 시작 시점의 값
     var _bgBlurDir    = 0;    // 0=정지, 1=열기(증가), -1=닫기(감소)
     var _bgElapsed    = 0;    // 진행 프레임
     var _bgBitmap     = null; // 현재 배경 비트맵 참조
 
-    // 페이드 억제 플래그
     var _suppressMenuFadeOut = false;
     var _suppressGameFadeOut = false;
     var _suppressGameFadeIn  = false;
@@ -218,7 +327,6 @@
         return typeof PostProcess !== 'undefined' && !!PostProcess.clearTransitionEffects;
     }
 
-    // canvas 버전: PostProcess transition 효과는 항상 클리어
     function _clearEffect() {
         if (_hasPostProcess()) PostProcess.clearTransitionEffects();
     }
@@ -243,44 +351,41 @@
         } : null;
     }
 
-    // ── CSS filter 문자열 생성 ────────────────────────────────────────────────
+    // ── CSS filter 문자열 생성 (단일 파라미터 효과) ───────────────────────────
 
     function _canvasFilter(t) {
         if (t <= 0.001) return '';
-        var i1 = Cfg.iv1 / 100;
         switch (Cfg.transitionEffect) {
             case 'blur':
-                return 'blur(' + (t * i1 * 20).toFixed(1) + 'px)';
+                return 'blur(' + (t * (Cfg.blur_amount / 100) * 20).toFixed(1) + 'px)';
             case 'desaturation':
-                return 'saturate(' + ((1 - t * i1) * 100).toFixed(1) + '%)';
+                return 'saturate(' + ((1 - t * (Cfg.desaturation_amount / 100)) * 100).toFixed(1) + '%)';
             case 'sepia':
-                return 'sepia(' + (t * i1 * 100).toFixed(1) + '%)';
+                return 'sepia(' + (t * (Cfg.sepia_amount / 100) * 100).toFixed(1) + '%)';
             case 'brightness':
-                return 'brightness(' + (100 + t * i1 * 300).toFixed(1) + '%)';
+                return 'brightness(' + (100 + t * (Cfg.brightness_amount / 100) * 300).toFixed(1) + '%)';
             case 'darkness':
-                return 'brightness(' + ((1 - t * i1 * 0.9) * 100).toFixed(1) + '%)';
+                return 'brightness(' + ((1 - t * (Cfg.darkness_amount / 100) * 0.9) * 100).toFixed(1) + '%)';
             case 'contrast':
-                return 'contrast(' + (100 + t * i1 * 400).toFixed(1) + '%)';
+                return 'contrast(' + (100 + t * (Cfg.contrast_amount / 100) * 400).toFixed(1) + '%)';
             case 'hue':
-                return 'hue-rotate(' + (t * i1 * 360).toFixed(1) + 'deg)';
+                return 'hue-rotate(' + (t * (Cfg.hue_amount / 100) * 360).toFixed(1) + 'deg)';
             case 'invert':
-                return 'invert(' + (t * i1 * 100).toFixed(1) + '%)';
+                return 'invert(' + (t * (Cfg.invert_amount / 100) * 100).toFixed(1) + '%)';
             default:
                 return '';
         }
     }
 
     // ── 특수 효과: 픽셀화 ─────────────────────────────────────────────────────
-    // intensity1: 최대 블록 크기 (100=50px)
 
     function _drawPixelation(ctx, w, h, t) {
-        var maxBlock  = Math.max(2, Math.round((Cfg.iv1 / 100) * 50));
+        var maxBlock  = Math.max(2, Math.round((Cfg.pixelation_amount / 100) * 50));
         var blockSize = Math.max(1, Math.round(t * maxBlock));
         var sw = Math.max(1, Math.floor(w / blockSize));
         var sh = Math.max(1, Math.floor(h / blockSize));
         var small = document.createElement('canvas');
-        small.width  = sw;
-        small.height = sh;
+        small.width = sw; small.height = sh;
         var sctx = small.getContext('2d');
         sctx.imageSmoothingEnabled = true;
         sctx.drawImage(_srcCanvas, 0, 0, sw, sh);
@@ -290,22 +395,19 @@
     }
 
     // ── 특수 효과: 줌 인 ─────────────────────────────────────────────────────
-    // intensity1: 최대 줌 배율 (100=60%)
 
     function _drawZoom(ctx, w, h, t) {
-        var maxZoom = (Cfg.iv1 / 100) * 0.6;
-        var scale   = 1 + t * maxZoom;
+        var scale = 1 + t * (Cfg.zoom_amount / 100) * 0.6;
         var dx = (w * (1 - scale)) / 2;
         var dy = (h * (1 - scale)) / 2;
         ctx.drawImage(_srcCanvas, dx, dy, w * scale, h * scale);
     }
 
     // ── 특수 효과: 줌 블러 ────────────────────────────────────────────────────
-    // intensity1: 블러 강도 (100=20px), intensity2: 줌 배율 (100=30%)
 
     function _drawZoomBlur(ctx, w, h, t) {
-        var blurPx = t * (Cfg.iv1 / 100) * 20;
-        var scale  = 1 + t * (Cfg.iv2 / 100) * 0.3;
+        var blurPx = t * (Cfg.zoomBlur_amount / 100) * 20;
+        var scale  = 1 + t * (Cfg.zoomBlur_zoom  / 100) * 0.3;
         var dx = (w * (1 - scale)) / 2;
         var dy = (h * (1 - scale)) / 2;
         if (blurPx > 0.1) ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
@@ -314,18 +416,14 @@
     }
 
     // ── 특수 효과: 색수차 ─────────────────────────────────────────────────────
-    // intensity1: R/B 오프셋 (100=28px), intensity2: 채널 알파 (100=60%)
 
     function _drawChromatic(ctx, w, h, t) {
-        var maxOfs = Math.round((Cfg.iv1 / 100) * 28);
-        var offset = Math.round(t * maxOfs);
-        var chAlpha = t * (Cfg.iv2 / 100) * 0.6;
+        var offset  = Math.round(t * (Cfg.chromatic_offset / 100) * 28);
+        var chAlpha = t * (Cfg.chromatic_alpha / 100) * 0.6;
 
-        // 원본
         ctx.drawImage(_srcCanvas, 0, 0, w, h);
         if (offset < 1) return;
 
-        // 빨간 채널 — 왼쪽으로 오프셋
         var offR = document.createElement('canvas');
         offR.width = w; offR.height = h;
         var ctxR = offR.getContext('2d');
@@ -338,7 +436,6 @@
         ctx.globalAlpha = chAlpha;
         ctx.drawImage(offR, -offset, 0, w, h);
 
-        // 파란 채널 — 오른쪽으로 오프셋
         var offB = document.createElement('canvas');
         offB.width = w; offB.height = h;
         var ctxB = offB.getContext('2d');
@@ -353,19 +450,16 @@
     }
 
     // ── 특수 효과: 비네트 ─────────────────────────────────────────────────────
-    // intensity1: 어둠 강도 (100=120%), intensity2: 비네트 범위 (0=넓게, 100=좁게)
 
     function _drawVignette(ctx, w, h, t) {
         ctx.drawImage(_srcCanvas, 0, 0, w, h);
 
-        var i1    = Cfg.iv1 / 100;
-        var i2    = Cfg.iv2 / 100;
-        var cx    = w / 2;
-        var cy    = h / 2;
+        var amt   = Cfg.vignette_amount / 100;
+        var range = Cfg.vignette_range  / 100;  // 0=넓게, 1=좁게
+        var cx    = w / 2, cy = h / 2;
         var maxR  = Math.sqrt(cx * cx + cy * cy);
-        // i2=0이면 inner반경이 크게(넓은 비네트), i2=1이면 작게(좁은 비네트)
-        var inner = maxR * Math.max(0.01, 1 - t * i1 * (0.5 + i2 * 0.5));
-        var dark  = Math.min(0.99, t * i1 * 1.2);
+        var inner = maxR * Math.max(0.01, 1 - t * amt * (0.5 + range * 0.5));
+        var dark  = Math.min(0.99, t * amt * 1.2);
         var grad  = ctx.createRadialGradient(cx, cy, inner, cx, cy, maxR);
         grad.addColorStop(0, 'rgba(0,0,0,0)');
         grad.addColorStop(1, 'rgba(0,0,0,' + dark.toFixed(2) + ')');
@@ -374,15 +468,14 @@
     }
 
     // ── 특수 효과: 스캔라인 ───────────────────────────────────────────────────
-    // intensity1: 줄 불투명도 (100=70%), intensity2: 채도 감소량 (100=80%)
 
     function _drawScanline(ctx, w, h, t) {
-        var satDrop = t * (Cfg.iv2 / 100) * 0.8;
+        var satDrop = t * (Cfg.scanline_desaturation / 100) * 0.8;
         if (satDrop > 0.001) ctx.filter = 'saturate(' + ((1 - satDrop) * 100).toFixed(1) + '%)';
         ctx.drawImage(_srcCanvas, 0, 0, w, h);
         if (satDrop > 0.001) ctx.filter = 'none';
 
-        ctx.globalAlpha = t * (Cfg.iv1 / 100) * 0.7;
+        ctx.globalAlpha = t * (Cfg.scanline_opacity / 100) * 0.7;
         ctx.fillStyle = '#000000';
         for (var y = 0; y < h; y += 2) {
             ctx.fillRect(0, y, w, 1);
@@ -435,7 +528,6 @@
     SceneManager.snapForBackground = function () {
         _origSnapForBg.call(this);
 
-        // PostProcess._captureCanvas: 마지막 렌더 프레임 (효과 없는 원본)
         var cap = _hasPostProcess() ? PostProcess._captureCanvas : null;
         if (cap && cap.width > 0) {
             var copy = document.createElement('canvas');
@@ -448,7 +540,7 @@
         _clearEffect();
     };
 
-    // ── SceneManager.push 가로채기: 즉시 push + canvas 효과 애니메이션 시작 ─
+    // ── SceneManager.push 가로채기 ────────────────────────────────────────────
 
     var _origPush = SceneManager.push;
     SceneManager.push = function (sceneClass) {
@@ -463,7 +555,6 @@
             _bgBitmap            = null;
             _suppressGameFadeOut = true;
 
-            // Scene_Map의 menuCalling 플래그 초기화 (반복 호출 방지)
             var sc = SceneManager._scene;
             if (sc && sc.menuCalling !== undefined) sc.menuCalling = false;
 
@@ -506,13 +597,11 @@
     Scene_MenuBase.prototype.update = function () {
         _SMB_update.call(this);
 
-        // 배경 비트맵 참조 최초 설정
         if (!_bgBitmap && this._backgroundSprite && this._backgroundSprite.bitmap) {
             _bgBitmap = this._backgroundSprite.bitmap;
             _drawBgBitmap(_bgBitmap, _bgBlurT);
         }
 
-        // 효과 애니메이션 진행
         if (_bgBlurDir !== 0 && _bgBitmap) {
             _bgElapsed++;
             var raw = Math.min(1, _bgElapsed / Cfg.duration);
@@ -535,7 +624,6 @@
         _srcCanvas = null;
     };
 
-    // 메뉴 열릴 때: 효과와 동시에 같은 duration으로 fade-in
     var _SMB_startFadeIn = Scene_MenuBase.prototype.startFadeIn;
     Scene_MenuBase.prototype.startFadeIn = function (duration, white) {
         if (_bgBlurDir === 1) {
@@ -545,7 +633,6 @@
         _SMB_startFadeIn.call(this, duration, white);
     };
 
-    // 메뉴 닫힐 때: 효과와 동시에 같은 duration으로 fade-out
     var _SMB_startFadeOut = Scene_MenuBase.prototype.startFadeOut;
     Scene_MenuBase.prototype.startFadeOut = function (duration, white) {
         if (_suppressMenuFadeOut) {
@@ -573,7 +660,7 @@
         };
     }
 
-    // ── PostProcess composer 재생성 훅: transition 효과 항상 0 유지 ───────────
+    // ── PostProcess composer 재생성 훅 ────────────────────────────────────────
 
     if (typeof PostProcess !== 'undefined') {
         if (PostProcess._createComposer) {
