@@ -95,6 +95,7 @@ function buildPreviewHTML(useWebp: boolean): string {
         SoundManager.preloadImportantSounds();
         DataManager.setupNewGame();
         var SceneCtor = window[_targetScene] || window.Scene_Options;
+        window._uiEditorPreview = true;
         SceneManager.goto(SceneCtor);
         _prepareScene(_targetScene);
         this.updateDocumentTitle();
@@ -666,6 +667,7 @@ function buildPreviewHTML(useWebp: boolean): string {
         }
         _targetScene = sceneName;
         try {
+          window._uiEditorPreview = true;
           SceneManager.goto(SceneCtor);
           _prepareScene(sceneName);
         } catch(e) { console.error(e); }
@@ -676,6 +678,7 @@ function buildPreviewHTML(useWebp: boolean): string {
         var scene = SceneManager._scene;
         if (!scene || scene === _prevScene) return;
         _prevScene = scene;
+        window._uiEditorPreview = false;
         setTimeout(function() { reportWindows('sceneReady'); }, 500);
       }, 200);
 

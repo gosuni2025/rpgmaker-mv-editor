@@ -866,8 +866,8 @@
       _applyPerspHitTest(win);
     }
 
-    // 등장 효과 시작
-    if (Array.isArray(ov.entrances) && ov.entrances.length > 0) {
+    // 등장 효과 시작 (에디터 씬 로드 중에는 억제)
+    if (!window._uiEditorPreview && Array.isArray(ov.entrances) && ov.entrances.length > 0) {
       startEntranceAnimation(win, ov.entrances, className);
     }
   }
