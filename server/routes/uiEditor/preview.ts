@@ -666,6 +666,7 @@ function buildPreviewHTML(useWebp: boolean): string {
           }
         }
         _targetScene = sceneName;
+        _prevScene = null; // 같은 씬이어도 sceneReady가 발생하도록 리셋
         try {
           window._uiEditorPreview = true;
           SceneManager.goto(SceneCtor);
