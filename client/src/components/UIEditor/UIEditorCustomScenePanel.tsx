@@ -921,9 +921,25 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
   const removeCustomScene = useEditorStore((s) => s.removeCustomScene);
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
+  const customSceneDirty = useEditorStore((s) => s.customSceneDirty);
+  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const [addMenuParent, setAddMenuParent] = React.useState<string | null>(null);
   const [addMenuBtnRect, setAddMenuBtnRect] = React.useState<DOMRect | null>(null);
   const addBtnRef = React.useRef<HTMLButtonElement>(null);
+
+  // dirty 상태 감지 → debounce 자동저장 + iframe 프리뷰 갱신
+  React.useEffect(() => {
+    if (!customSceneDirty) return;
+    const timer = setTimeout(async () => {
+      await saveCustomScenes();
+      if (uiEditorScene === `Scene_CS_${sceneId}`) {
+        const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+        iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+        iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: uiEditorScene }, '*');
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [customSceneDirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedWidget = React.useMemo(() => {
     if (!selectedId || !scene.root) return null;
