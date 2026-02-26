@@ -135,7 +135,14 @@
     var cmds = this._winDef.commands || [];
     for (var i = 0; i < cmds.length; i++) {
       var cmd = cmds[i];
-      this.addCommand(cmd.name, cmd.symbol, cmd.enabled !== false);
+      var isEnabled;
+      if (typeof cmd.enabledCondition === 'string' && cmd.enabledCondition) {
+        try { isEnabled = !!(new Function('return ' + cmd.enabledCondition)()); }
+        catch(e) { isEnabled = true; }
+      } else {
+        isEnabled = cmd.enabled !== false;
+      }
+      this.addCommand(cmd.name, cmd.symbol, isEnabled);
     }
   };
 
@@ -252,6 +259,132 @@
   };
 
   window.Window_CustomDisplay = Window_CustomDisplay;
+
+  //===========================================================================
+  // Window_CustomActorList — Window_Selectable 상속, 파티 멤버 목록
+  //===========================================================================
+  function Window_CustomActorList() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Window_CustomActorList.prototype = Object.create(Window_Selectable.prototype);
+  Window_CustomActorList.prototype.constructor = Window_CustomActorList;
+
+  Window_CustomActorList.prototype.initialize = function(x, y, winDef) {
+    this._winDef = winDef || {};
+    this._customClassName = 'Window_CS_' + (winDef && winDef.id ? winDef.id : 'actorList');
+    this._formationMode = false;
+    this._pendingIndex = -1;
+    var w = this._winDef.width || 576;
+    var h = this._winDef.height || 624;
+    Window_Selectable.prototype.initialize.call(this, x, y, w, h);
+    this.loadImages();
+    this.refresh();
+  };
+
+  Window_CustomActorList.prototype.maxItems = function() {
+    return typeof $gameParty !== 'undefined' ? $gameParty.size() : 0;
+  };
+
+  Window_CustomActorList.prototype.numVisibleRows = function() {
+    return this._winDef.numVisibleRows || 4;
+  };
+
+  Window_CustomActorList.prototype.itemHeight = function() {
+    var clientHeight = this.height - this.padding * 2;
+    return Math.floor(clientHeight / this.numVisibleRows());
+  };
+
+  Window_CustomActorList.prototype.loadImages = function() {
+    if (typeof $gameParty === 'undefined' || typeof ImageManager === 'undefined') return;
+    $gameParty.members().forEach(function(actor) {
+      ImageManager.reserveFace(actor.faceName());
+    }, this);
+  };
+
+  Window_CustomActorList.prototype.drawItem = function(index) {
+    this.drawItemBackground(index);
+    this.drawItemImage(index);
+    this.drawItemStatus(index);
+  };
+
+  Window_CustomActorList.prototype.drawItemBackground = function(index) {
+    if (index === this._pendingIndex) {
+      var rect = this.itemRect(index);
+      var color = this.pendingColor();
+      this.changePaintOpacity(false);
+      this.contents.fillRect(rect.x, rect.y, rect.width, rect.height, color);
+      this.changePaintOpacity(true);
+    }
+  };
+
+  Window_CustomActorList.prototype.drawItemImage = function(index) {
+    if (typeof $gameParty === 'undefined') return;
+    var actor = $gameParty.members()[index];
+    if (!actor) return;
+    var rect = this.itemRect(index);
+    this.changePaintOpacity(actor.isBattleMember());
+    this.drawActorFace(actor, rect.x + 1, rect.y + 1, Window_Base._faceWidth, Window_Base._faceHeight);
+    this.changePaintOpacity(true);
+  };
+
+  Window_CustomActorList.prototype.drawItemStatus = function(index) {
+    if (typeof $gameParty === 'undefined') return;
+    var actor = $gameParty.members()[index];
+    if (!actor) return;
+    var rect = this.itemRect(index);
+    var x = rect.x + 162;
+    var y = rect.y + rect.height / 2 - this.lineHeight() * 1.5;
+    var width = rect.width - x - this.textPadding();
+    this.drawActorSimpleStatus(actor, x, y, width);
+  };
+
+  Window_CustomActorList.prototype.processOk = function() {
+    if (typeof $gameParty !== 'undefined') {
+      var actor = $gameParty.members()[this.index()];
+      if (actor) $gameParty.setMenuActor(actor);
+    }
+    Window_Selectable.prototype.processOk.call(this);
+  };
+
+  Window_CustomActorList.prototype.isCurrentItemEnabled = function() {
+    if (this._formationMode) {
+      if (typeof $gameParty === 'undefined') return false;
+      var actor = $gameParty.members()[this.index()];
+      return !!(actor && actor.isFormationChangeOk());
+    }
+    return true;
+  };
+
+  Window_CustomActorList.prototype.selectLast = function() {
+    if (typeof $gameParty === 'undefined') return;
+    var actor = $gameParty.menuActor ? $gameParty.menuActor() : null;
+    if (actor) this.select(actor.index());
+    else this.select(0);
+  };
+
+  Window_CustomActorList.prototype.formationMode = function() {
+    return this._formationMode;
+  };
+
+  Window_CustomActorList.prototype.setFormationMode = function(mode) {
+    this._formationMode = mode;
+  };
+
+  Window_CustomActorList.prototype.pendingIndex = function() {
+    return this._pendingIndex;
+  };
+
+  Window_CustomActorList.prototype.setPendingIndex = function(index) {
+    var last = this._pendingIndex;
+    this._pendingIndex = index;
+    if (this._pendingIndex !== last) {
+      this.redrawItem(this._pendingIndex);
+      this.redrawItem(last);
+    }
+  };
+
+  window.Window_CustomActorList = Window_CustomActorList;
 
   //===========================================================================
   // Widget_Base — 위젯 트리 기본 클래스
@@ -545,6 +678,59 @@
   window.Widget_Separator = Widget_Separator;
 
   //===========================================================================
+  // Widget_ActorList — 파티 멤버 선택 위젯 (focusable)
+  //===========================================================================
+  function Widget_ActorList() {}
+  Widget_ActorList.prototype = Object.create(Widget_Base.prototype);
+  Widget_ActorList.prototype.constructor = Widget_ActorList;
+  Widget_ActorList.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._handlersDef = def.handlers || {};
+    var win = new Window_CustomActorList(this._x, this._y, def);
+    win._customClassName = 'Widget_CS_' + this._id;
+    win.deactivate();
+    this._window = win;
+    this._displayObject = win;
+  };
+  Widget_ActorList.prototype.collectFocusable = function(out) {
+    out.push(this);
+  };
+  Widget_ActorList.prototype.activate = function() {
+    if (this._window) {
+      this._window.activate();
+      this._window.selectLast();
+    }
+  };
+  Widget_ActorList.prototype.deactivate = function() {
+    if (this._window) {
+      this._window.deactivate();
+      this._window.deselect();
+    }
+  };
+  Widget_ActorList.prototype.setHandler = function(symbol, fn) {
+    if (this._window) this._window.setHandler(symbol, fn);
+  };
+  Widget_ActorList.prototype.setCancelHandler = function(fn) {
+    if (this._window) this._window.setHandler('cancel', fn);
+  };
+  Widget_ActorList.prototype.setFormationMode = function(mode) {
+    if (this._window) this._window.setFormationMode(mode);
+  };
+  Widget_ActorList.prototype.setPendingIndex = function(index) {
+    if (this._window) this._window.setPendingIndex(index);
+  };
+  Widget_ActorList.prototype.pendingIndex = function() {
+    return this._window ? this._window.pendingIndex() : -1;
+  };
+  Widget_ActorList.prototype.index = function() {
+    return this._window ? this._window.index() : -1;
+  };
+  Widget_ActorList.prototype.refresh = function() {
+    if (this._window) this._window.refresh();
+  };
+  window.Widget_ActorList = Widget_ActorList;
+
+  //===========================================================================
   // Widget_Button — 버튼 (focusable)
   //===========================================================================
   function Widget_Button() {}
@@ -619,6 +805,19 @@
   };
   Widget_List.prototype.setCancelHandler = function(fn) {
     if (this._window) this._window.setHandler('cancel', fn);
+  };
+  Widget_List.prototype.update = function() {
+    var items = this._items;
+    var hasCondition = items && items.some(function(item) {
+      return typeof item.enabledCondition === 'string' && item.enabledCondition;
+    });
+    if (hasCondition) {
+      if (this._updateCount === undefined) this._updateCount = 0;
+      if (++this._updateCount % 60 === 0) {
+        if (this._window) this._window.refresh();
+      }
+    }
+    Widget_Base.prototype.update.call(this);
   };
   window.Widget_List = Widget_List;
 
@@ -713,6 +912,8 @@
     this._sceneId = '';
     this._prepareData = {};
     this._customWindows = {};
+    this._pendingPersonalAction = null;
+    this._personalOriginWidget = null;
   };
 
   Scene_CustomUI.prototype.prepare = function () {
@@ -836,6 +1037,7 @@
       case 'separator': widget = new Widget_Separator(); break;
       case 'button':    widget = new Widget_Button();    break;
       case 'list':      widget = new Widget_List();      break;
+      case 'actorList': widget = new Widget_ActorList(); break;
       default:          return null;
     }
     widget.initialize(def, parentWidget);
@@ -865,6 +1067,15 @@
         widget.setCancelHandler(function() {
           self._executeWidgetHandler({ action: 'cancel' }, widget);
         });
+      } else if (widget instanceof Widget_ActorList) {
+        (function(w) {
+          w.setHandler('ok', function() {
+            self._onActorListOk(w);
+          });
+          w.setCancelHandler(function() {
+            self._onActorListCancel(w);
+          });
+        })(widget);
       } else if (widget instanceof Widget_Button) {
         var handlerDef = widget._handlerDef;
         if (handlerDef) {
@@ -942,6 +1153,25 @@
         }
         break;
       }
+      case 'selectActor': {
+        var actorWidget = this._widgetMap && this._widgetMap[handler.widget];
+        if (actorWidget) {
+          this._pendingPersonalAction = handler.thenAction || null;
+          this._personalOriginWidget = widget;
+          actorWidget.setFormationMode(false);
+          if (this._navManager) this._navManager.focusWidget(handler.widget);
+        }
+        break;
+      }
+      case 'formation': {
+        var actorWidget2 = this._widgetMap && this._widgetMap[handler.widget];
+        if (actorWidget2) {
+          actorWidget2.setFormationMode(true);
+          actorWidget2.setPendingIndex(-1);
+          if (this._navManager) this._navManager.focusWidget(handler.widget);
+        }
+        break;
+      }
       case 'cancel': {
         var navMgr = this._navManager;
         if (navMgr && navMgr._cancelWidgetId) {
@@ -953,6 +1183,48 @@
         }
         this.popScene();
         break;
+      }
+    }
+  };
+
+  Scene_CustomUI.prototype._onActorListOk = function(widget) {
+    var win = widget._window;
+    var index = win.index();
+    if (win.formationMode()) {
+      var pendingIndex = win.pendingIndex();
+      if (pendingIndex >= 0) {
+        $gameParty.swapOrder(index, pendingIndex);
+        win.setPendingIndex(-1);
+        win.redrawItem(index);
+        win.activate();
+      } else {
+        win.setPendingIndex(index);
+        win.activate();
+      }
+    } else {
+      var action = this._pendingPersonalAction;
+      if (action) {
+        this._pendingPersonalAction = null;
+        this._executeWidgetHandler(action, widget);
+      }
+    }
+  };
+
+  Scene_CustomUI.prototype._onActorListCancel = function(widget) {
+    var win = widget._window;
+    if (win.formationMode() && win.pendingIndex() >= 0) {
+      win.setPendingIndex(-1);
+      win.activate();
+    } else {
+      win.deselect();
+      var originId = this._personalOriginWidget ? this._personalOriginWidget._id : null;
+      if (!originId && this._navManager && this._navManager._cancelWidgetId) {
+        originId = this._navManager._cancelWidgetId;
+      }
+      if (originId && this._navManager) {
+        this._navManager.focusWidget(originId);
+      } else {
+        this.popScene();
       }
     }
   };

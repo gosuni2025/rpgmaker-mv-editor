@@ -105,12 +105,13 @@ export interface UIWindowOverride {
 }
 
 // ── 커스텀 씬 타입 ──────────────────────────────────────
-export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow' | 'script' | 'focusWidget' | 'refreshWidgets';
+export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow' | 'script' | 'focusWidget' | 'refreshWidgets' | 'selectActor' | 'formation';
 
 export interface CustomCommandDef {
   name: string;
   symbol: string;
-  enabled: boolean;
+  enabled?: boolean;
+  enabledCondition?: string; // JS 표현식 (동적 활성 여부)
 }
 
 export interface CustomCommandHandler {
@@ -118,6 +119,8 @@ export interface CustomCommandHandler {
   target?: string;
   eventId?: number;
   code?: string; // script 액션용 JS 코드
+  widget?: string; // selectActor/formation 액션용 위젯 ID
+  thenAction?: CustomCommandHandler; // selectActor 액터 선택 후 실행할 액션
 }
 
 export interface CustomElementDef {
@@ -183,7 +186,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list';
+export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList';
 
 export interface WidgetDefBase {
   id: string;
@@ -244,6 +247,11 @@ export interface WidgetDef_List extends WidgetDefBase {
   handlers: Record<string, CustomCommandHandler>;
 }
 
+export interface WidgetDef_ActorList extends WidgetDefBase {
+  type: 'actorList';
+  numVisibleRows?: number;
+}
+
 export type WidgetDef =
   | WidgetDef_Panel
   | WidgetDef_Label
@@ -252,7 +260,8 @@ export type WidgetDef =
   | WidgetDef_Gauge
   | WidgetDef_Separator
   | WidgetDef_Button
-  | WidgetDef_List;
+  | WidgetDef_List
+  | WidgetDef_ActorList;
 
 export interface NavigationConfig {
   defaultFocus?: string;

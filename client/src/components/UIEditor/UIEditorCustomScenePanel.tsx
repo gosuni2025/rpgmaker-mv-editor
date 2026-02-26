@@ -5,7 +5,7 @@ import type {
   CustomCommandDef, CustomCommandHandler, CustomElementDef, CustomWindowDef,
   CommandActionType, WidgetDef, WidgetType, WidgetDef_Panel, WidgetDef_Label,
   WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge, WidgetDef_Button,
-  WidgetDef_List, NavigationConfig, CustomSceneDef, CustomSceneDefV2
+  WidgetDef_List, WidgetDef_ActorList, NavigationConfig, CustomSceneDef, CustomSceneDefV2
 } from '../../store/uiEditorTypes';
 import './UIEditor.css';
 
@@ -297,13 +297,13 @@ function NavigationConfigSection({ sceneId, nav }: { sceneId: string; nav: Navig
 const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
   panel: '#4a6fa5', label: '#5a8a5a', image: '#8a5a8a',
   actorFace: '#8a7a3a', gauge: '#8a4a3a', separator: '#555',
-  button: '#2675bf', list: '#2a7a3a',
+  button: '#2675bf', list: '#2a7a3a', actorList: '#7a3a7a',
 };
 
 const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   panel: 'PANEL', label: 'LABEL', image: 'IMG',
   actorFace: 'FACE', gauge: 'GAUGE', separator: 'SEP',
-  button: 'BTN', list: 'LIST',
+  button: 'BTN', list: 'LIST', actorList: 'ACTORS',
 };
 
 function WidgetTreeNode({
@@ -386,6 +386,7 @@ function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parent
       case 'separator': def = { id, type, x: 0, y: 0, width: 200, height: 4 }; break;
       case 'button': def = { id, type, x: 0, y: 0, width: 200, label: '버튼', action: { action: 'popScene' } }; break;
       case 'list': def = { id, type, x: 0, y: 0, width: 200, items: [], handlers: {} }; break;
+      case 'actorList': def = { id, type, x: 0, y: 0, width: 576, height: 624, numVisibleRows: 4 }; break;
       default: return;
     }
     addWidget(sceneId, parentId, def);
@@ -393,11 +394,11 @@ function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parent
     onClose();
   };
 
-  const types: WidgetType[] = ['panel', 'label', 'image', 'actorFace', 'gauge', 'separator', 'button', 'list'];
+  const types: WidgetType[] = ['panel', 'label', 'image', 'actorFace', 'gauge', 'separator', 'button', 'list', 'actorList'];
   const typeLabels: Record<WidgetType, string> = {
     panel: '패널', label: '레이블', image: '이미지',
     actorFace: '액터 얼굴', gauge: '게이지', separator: '구분선',
-    button: '버튼', list: '리스트',
+    button: '버튼', list: '리스트', actorList: '파티 멤버 목록',
   };
 
   return (
@@ -440,6 +441,8 @@ function ActionHandlerEditor({ handler, onChange }: {
           <option value="callCommonEvent">커먼 이벤트 호출</option>
           <option value="focusWidget">위젯 포커스</option>
           <option value="refreshWidgets">위젯 갱신</option>
+          <option value="selectActor">액터 선택 → 씬 이동</option>
+          <option value="formation">대형 (파티 순서 교체)</option>
           <option value="script">JS 스크립트 실행</option>
         </select>
       </div>
@@ -450,6 +453,27 @@ function ActionHandlerEditor({ handler, onChange }: {
             placeholder={action === 'focusWidget' ? '위젯 ID' : '씬 이름'}
             value={handler.target || ''}
             onChange={(e) => onChange({ target: e.target.value })} />
+        </div>
+      )}
+      {(action === 'selectActor' || action === 'formation') && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>actorList ID:</span>
+          <input style={{ ...inputStyle, flex: 1 }}
+            placeholder="actor_list"
+            value={handler.widget || ''}
+            onChange={(e) => onChange({ widget: e.target.value })} />
+        </div>
+      )}
+      {action === 'selectActor' && (
+        <div>
+          <label style={{ ...labelStyle, marginTop: 4 }}>액터 선택 후 이동할 씬</label>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>씬:</span>
+            <input style={{ ...inputStyle, flex: 1 }}
+              placeholder="Scene_Skill"
+              value={handler.thenAction?.target || ''}
+              onChange={(e) => onChange({ thenAction: { action: 'gotoScene', target: e.target.value } })} />
+          </div>
         </div>
       )}
       {action === 'callCommonEvent' && (
@@ -536,11 +560,20 @@ function ListWidgetInspector({ sceneId, widget, update }: {
               onChange={(e) => updateItem(idx, { name: e.target.value })} />
             <input style={{ ...inputStyle, flex: 1 }} value={item.symbol} placeholder="심볼"
               onChange={(e) => updateItem(idx, { symbol: e.target.value })} />
-            <label style={{ fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>
-              <input type="checkbox" checked={item.enabled}
-                onChange={(e) => updateItem(idx, { enabled: e.target.checked })} /> 활성
-            </label>
+            {!item.enabledCondition && (
+              <label style={{ fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={item.enabled !== false}
+                  onChange={(e) => updateItem(idx, { enabled: e.target.checked })} /> 활성
+              </label>
+            )}
             <button style={deleteBtnStyle} onClick={() => removeItem(idx)}>×</button>
+          </div>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>활성 조건:</span>
+            <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 10 }}
+              placeholder="JS 식 (비워두면 enabled 체크박스 사용)"
+              value={item.enabledCondition || ''}
+              onChange={(e) => updateItem(idx, { enabledCondition: e.target.value || undefined })} />
           </div>
           <ActionHandlerEditor
             handler={handlers[item.symbol] || { action: 'popScene' }}
@@ -689,6 +722,14 @@ function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetD
         )}
         {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
         {widget.type === 'list' && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
+        {widget.type === 'actorList' && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 80 }}>표시 행 수</span>
+            <input style={{ ...inputStyle, width: 60 }} type="number"
+              value={(widget as WidgetDef_ActorList).numVisibleRows ?? 4}
+              onChange={(e) => update({ numVisibleRows: parseInt(e.target.value) || 4 } as any)} />
+          </div>
+        )}
       </div>
     </div>
   );
