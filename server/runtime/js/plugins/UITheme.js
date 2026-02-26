@@ -574,7 +574,21 @@
     });
   }
 
+  // 디버그 호버 박스 on/off 플래그 (콘솔에서 window._uiPerspHoverDebug = true 로 활성화)
+  window._uiPerspHoverDebug = false;
+
   function _perspUpdateHoverDebug(win) {
+    if (!window._uiPerspHoverDebug) {
+      // 꺼질 때 남아있는 박스 정리
+      if (win._dbgHoverMesh) {
+        win._threeObj.remove(win._dbgHoverMesh);
+        win._dbgHoverMesh.geometry.dispose();
+        win._dbgHoverMesh.material.dispose();
+        win._dbgHoverMesh = null;
+        win._dbgHoverIdx = undefined;
+      }
+      return;
+    }
     if (!win._threeObj || typeof THREE === 'undefined') return;
 
     var local = null;
