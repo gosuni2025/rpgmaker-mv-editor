@@ -868,24 +868,24 @@
       // OrthographicCamera(top=0)의 클리핑을 방지하기 위해 y >= 0 보장
       this._sprite.y = Math.max(0, CFG.margin - N_PAD);
       this._sprite.opacity = CFG.opacity;
-      scene.addChild(this._sprite);
+
+      // _windowLayer 바로 위에 삽입 — _fadeSprite는 항상 맨 끝에 추가되므로
+      // 이 위치에 넣으면 항상 fade 아래, 일반 UI 위에 렌더링됨
+      const baseIdx = scene._windowLayer
+        ? scene.getChildIndex(scene._windowLayer) + 1
+        : scene.children.length;
+      scene.addChildAt(this._sprite, baseIdx);
 
       // +/- 버튼
       this._btnMinus = this._makeButton('－');
       this._btnMinus.x = this._btnX('minus');
       this._btnMinus.y = this._btnY();
-      scene.addChild(this._btnMinus);
+      scene.addChildAt(this._btnMinus, baseIdx + 1);
 
       this._btnPlus = this._makeButton('＋');
       this._btnPlus.x = this._btnX('plus');
       this._btnPlus.y = this._btnY();
-      scene.addChild(this._btnPlus);
-
-      // 미니맵은 scene에 직접 추가되므로 _fadeSprite보다 위에 그려질 수 있음.
-      // _fadeSprite가 이미 존재하면 다시 맨 위로 올려 페이드가 미니맵을 덮도록 함.
-      if (scene._fadeSprite) {
-        scene.setChildIndex(scene._fadeSprite, scene.children.length - 1);
-      }
+      scene.addChildAt(this._btnPlus, baseIdx + 2);
 
       // _visible은 건드리지 않음 — setVisible()이 이후에 올바른 값으로 설정함
       this._dirty   = true;
