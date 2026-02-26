@@ -391,6 +391,134 @@
   window.Window_CustomActorList = Window_CustomActorList;
 
   //===========================================================================
+  // Window_CustomOptions — Window_Command 상속, 옵션 설정 창
+  //===========================================================================
+  function Window_CustomOptions() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Window_CustomOptions.prototype = Object.create(Window_Command.prototype);
+  Window_CustomOptions.prototype.constructor = Window_CustomOptions;
+
+  Window_CustomOptions.prototype.initialize = function(x, y, winDef) {
+    this._winDef = winDef || {};
+    this._customClassName = 'Window_CS_' + (winDef && winDef.id ? winDef.id : 'options');
+    Window_Command.prototype.initialize.call(this, x, y);
+  };
+
+  Window_CustomOptions.prototype.windowWidth = function() {
+    return this._winDef.width || 400;
+  };
+
+  Window_CustomOptions.prototype.windowHeight = function() {
+    if (this._winDef.height) return this._winDef.height;
+    var opts = this._winDef.options || [];
+    return this.fittingHeight(Math.max(opts.length, 1));
+  };
+
+  Window_CustomOptions.prototype.numVisibleRows = function() {
+    var opts = this._winDef.options || [];
+    return opts.length || 1;
+  };
+
+  Window_CustomOptions.prototype.makeCommandList = function() {
+    var opts = this._winDef.options || [];
+    for (var i = 0; i < opts.length; i++) {
+      this.addCommand(opts[i].name, opts[i].symbol);
+    }
+  };
+
+  Window_CustomOptions.prototype.statusWidth = function() {
+    return 120;
+  };
+
+  Window_CustomOptions.prototype.drawItem = function(index) {
+    var rect = this.itemRectForText(index);
+    var sw = this.statusWidth();
+    var titleWidth = rect.width - sw;
+    this.resetTextColor();
+    this.changePaintOpacity(this.isCommandEnabled(index));
+    this.drawText(this.commandName(index), rect.x, rect.y, titleWidth, 'left');
+    this.drawText(this.statusText(index), titleWidth, rect.y, sw, 'right');
+    this.changePaintOpacity(true);
+  };
+
+  Window_CustomOptions.prototype.statusText = function(index) {
+    var symbol = this.commandSymbol(index);
+    var value = this.getConfigValue(symbol);
+    if (this.isVolumeSymbol(symbol)) {
+      return (value || 0) + '%';
+    }
+    return value ? 'ON' : 'OFF';
+  };
+
+  Window_CustomOptions.prototype.isVolumeSymbol = function(symbol) {
+    var opts = this._winDef.options || [];
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].symbol === symbol) return opts[i].optionType === 'volume';
+    }
+    return symbol && symbol.indexOf('Volume') >= 0;
+  };
+
+  Window_CustomOptions.prototype.getConfigValue = function(symbol) {
+    return typeof ConfigManager !== 'undefined' ? ConfigManager[symbol] : undefined;
+  };
+
+  Window_CustomOptions.prototype.setConfigValue = function(symbol, value) {
+    if (typeof ConfigManager !== 'undefined') ConfigManager[symbol] = value;
+  };
+
+  Window_CustomOptions.prototype.changeValue = function(symbol, value) {
+    var last = this.getConfigValue(symbol);
+    if (last !== value) {
+      this.setConfigValue(symbol, value);
+      this.redrawItem(this.findSymbol(symbol));
+      if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
+    }
+  };
+
+  Window_CustomOptions.prototype.volumeOffset = function() {
+    return 20;
+  };
+
+  // processOk 완전 오버라이드 — 창 닫지 않고 값만 변경
+  Window_CustomOptions.prototype.processOk = function() {
+    var symbol = this.commandSymbol(this.index());
+    var value = this.getConfigValue(symbol);
+    if (this.isVolumeSymbol(symbol)) {
+      value = ((value || 0) + this.volumeOffset());
+      if (value > 100) value = 0;
+    } else {
+      value = !value;
+    }
+    this.changeValue(symbol, value);
+  };
+
+  Window_CustomOptions.prototype.cursorRight = function(wrap) {
+    var symbol = this.commandSymbol(this.index());
+    var value = this.getConfigValue(symbol);
+    if (this.isVolumeSymbol(symbol)) {
+      value = Math.min(100, (value || 0) + this.volumeOffset());
+      this.changeValue(symbol, value);
+    } else {
+      this.changeValue(symbol, true);
+    }
+  };
+
+  Window_CustomOptions.prototype.cursorLeft = function(wrap) {
+    var symbol = this.commandSymbol(this.index());
+    var value = this.getConfigValue(symbol);
+    if (this.isVolumeSymbol(symbol)) {
+      value = Math.max(0, (value || 0) - this.volumeOffset());
+      this.changeValue(symbol, value);
+    } else {
+      this.changeValue(symbol, false);
+    }
+  };
+
+  window.Window_CustomOptions = Window_CustomOptions;
+
+  //===========================================================================
   // Widget_Base — 위젯 트리 기본 클래스
   //===========================================================================
   function Widget_Base() {}
@@ -735,6 +863,40 @@
   window.Widget_ActorList = Widget_ActorList;
 
   //===========================================================================
+  // Widget_Options — 옵션 설정 위젯 (focusable)
+  //===========================================================================
+  function Widget_Options() {}
+  Widget_Options.prototype = Object.create(Widget_Base.prototype);
+  Widget_Options.prototype.constructor = Widget_Options;
+  Widget_Options.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    var win = new Window_CustomOptions(this._x, this._y, def);
+    win._customClassName = 'Widget_CS_' + this._id;
+    win.deactivate();
+    this._window = win;
+    this._displayObject = win;
+  };
+  Widget_Options.prototype.collectFocusable = function(out) {
+    out.push(this);
+  };
+  Widget_Options.prototype.activate = function() {
+    if (this._window) {
+      this._window.activate();
+      if (this._window.index() < 0) this._window.select(0);
+    }
+  };
+  Widget_Options.prototype.deactivate = function() {
+    if (this._window) this._window.deactivate();
+  };
+  Widget_Options.prototype.setHandler = function(symbol, fn) {
+    if (this._window) this._window.setHandler(symbol, fn);
+  };
+  Widget_Options.prototype.setCancelHandler = function(fn) {
+    if (this._window) this._window.setHandler('cancel', fn);
+  };
+  window.Widget_Options = Widget_Options;
+
+  //===========================================================================
   // Widget_Button — 버튼 (focusable)
   //===========================================================================
   function Widget_Button() {}
@@ -1042,6 +1204,7 @@
       case 'button':    widget = new Widget_Button();    break;
       case 'list':      widget = new Widget_List();      break;
       case 'actorList': widget = new Widget_ActorList(); break;
+      case 'options':   widget = new Widget_Options();   break;
       default:          return null;
     }
     widget.initialize(def, parentWidget);
@@ -1079,6 +1242,10 @@
           w.setCancelHandler(function() {
             self._onActorListCancel(w);
           });
+        })(widget);
+      } else if (widget instanceof Widget_Options) {
+        (function(w) {
+          w.setCancelHandler(function() { self._onOptionsCancel(w); });
         })(widget);
       } else if (widget instanceof Widget_Button) {
         var handlerDef = widget._handlerDef;
@@ -1212,6 +1379,13 @@
         this._executeWidgetHandler(action, widget);
       }
     }
+  };
+
+  Scene_CustomUI.prototype._onOptionsCancel = function(widget) {
+    if (typeof ConfigManager !== 'undefined' && typeof ConfigManager.save === 'function') {
+      ConfigManager.save();
+    }
+    this.popScene();
   };
 
   Scene_CustomUI.prototype._onActorListCancel = function(widget) {
