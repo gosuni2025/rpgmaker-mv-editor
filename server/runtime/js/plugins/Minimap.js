@@ -881,6 +881,12 @@
       this._btnPlus.y = this._btnY();
       scene.addChild(this._btnPlus);
 
+      // 미니맵은 scene에 직접 추가되므로 _fadeSprite보다 위에 그려질 수 있음.
+      // _fadeSprite가 이미 존재하면 다시 맨 위로 올려 페이드가 미니맵을 덮도록 함.
+      if (scene._fadeSprite) {
+        scene.setChildIndex(scene._fadeSprite, scene.children.length - 1);
+      }
+
       // _visible은 건드리지 않음 — setVisible()이 이후에 올바른 값으로 설정함
       this._dirty   = true;
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
@@ -934,18 +940,6 @@
 
       // 버튼은 UPDATE_INTERVAL 무관하게 매 프레임 체크
       this._updateButtons();
-
-      // 화면 페이드에 맞춰 미니맵 투명도 동기화
-      // (이벤트 커맨드 221/222로 인한 $gameScreen 페이드는 Spriteset 안에서만 처리되므로
-      //  Scene 레벨에 직접 추가된 미니맵은 별도로 brightness를 반영해야 함)
-      // _updateButtons() 이후에 적용해야 hover opacity 값이 덮이지 않음
-      if ($gameScreen) {
-        var brightness = $gameScreen.brightness();
-        var fadeFactor = brightness / 255;
-        this._sprite.opacity = Math.round(CFG.opacity * fadeFactor);
-        if (this._btnPlus)  this._btnPlus.opacity  = Math.round(this._btnPlus.opacity  * fadeFactor);
-        if (this._btnMinus) this._btnMinus.opacity = Math.round(this._btnMinus.opacity * fadeFactor);
-      }
 
       if (this._pendingExplore) {
         this._pendingExplore = false;
