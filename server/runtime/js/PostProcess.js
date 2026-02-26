@@ -742,6 +742,7 @@ PostProcess._transitionPixelPass = null;
 PostProcess._transitionChromaticPass = null;
 PostProcess._transitionDissolvePass = null;
 PostProcess._transitionScanlinePass = null;
+PostProcess._screenFadePass = null;
 
 window.PostProcess = PostProcess;
 window.ShaderPass = ShaderPass;
@@ -2582,6 +2583,80 @@ Simple2DUIRenderPass.prototype.dispose = function() {
 };
 
 //=============================================================================
+// ScreenFadePass - $gameScreen 페이드/플래시를 UI 포함 전체 화면에 적용
+//=============================================================================
+
+function ScreenFadePass() {
+    this.enabled = true;
+    this.needsSwap = true;
+    this.renderToScreen = true;
+
+    this.uniforms = {
+        tColor:     { value: null },
+        uBrightness:{ value: 1.0 },
+        uFlashRGB:  { value: new THREE.Vector3(0, 0, 0) },
+        uFlashA:    { value: 0.0 }
+    };
+
+    var material = new THREE.ShaderMaterial({
+        uniforms: this.uniforms,
+        vertexShader: [
+            'varying vec2 vUv;',
+            'void main() {',
+            '  vUv = uv;',
+            '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            'uniform sampler2D tColor;',
+            'uniform float uBrightness;',
+            'uniform vec3 uFlashRGB;',
+            'uniform float uFlashA;',
+            'varying vec2 vUv;',
+            'void main() {',
+            '  vec4 color = texture2D(tColor, vUv);',
+            '  color.rgb *= uBrightness;',
+            '  color.rgb = mix(color.rgb, uFlashRGB, uFlashA);',
+            '  gl_FragColor = color;',
+            '}'
+        ].join('\n'),
+        depthTest: false,
+        depthWrite: false
+    });
+
+    this.fsQuad = new FullScreenQuad(material);
+}
+
+ScreenFadePass.prototype.setSize = function() {};
+
+ScreenFadePass.prototype.dispose = function() {
+    this.fsQuad.dispose();
+};
+
+ScreenFadePass.prototype.render = function(renderer, writeBuffer, readBuffer) {
+    var brightness = 255;
+    var flash = [0, 0, 0, 0];
+    if (window.$gameScreen) {
+        brightness = $gameScreen.brightness();
+        var fc = $gameScreen.flashColor();
+        if (fc) flash = fc;
+    }
+
+    this.uniforms.tColor.value = readBuffer.texture;
+    this.uniforms.uBrightness.value = brightness / 255.0;
+    this.uniforms.uFlashRGB.value.set(flash[0] / 255.0, flash[1] / 255.0, flash[2] / 255.0);
+    this.uniforms.uFlashA.value = flash[3] / 255.0;
+
+    if (this.renderToScreen) {
+        renderer.setRenderTarget(null);
+    } else {
+        renderer.setRenderTarget(writeBuffer);
+    }
+    renderer.clear(true, true, false);
+    this.fsQuad.render(renderer);
+};
+
+//=============================================================================
 // PostProcess - Composer 생성/파괴
 //=============================================================================
 
@@ -2655,11 +2730,16 @@ PostProcess._createComposer = function(rendererObj, stage) {
     var uiPass = new UIRenderPass(scene, camera, Mode3D._spriteset, stage, Mode3D._perspCamera);
     composer.addPass(uiPass);
 
+    // ScreenFadePass - $gameScreen 페이드/플래시를 UI 포함 전체 화면에 적용
+    var screenFadePass = new ScreenFadePass();
+    composer.addPass(screenFadePass);
+
     this._composer = composer;
     this._tiltShiftPass = tiltShiftPass;
     this._bloomPass = bloomPass;
     this._renderPass = renderPass;
     this._uiPass = uiPass;
+    this._screenFadePass = screenFadePass;
     this._ppPasses = ppPasses;
     this._transitionBlurPassH = tbH;
     this._transitionBlurPassV = tbV;
@@ -2737,6 +2817,10 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     var uiPass = new Simple2DUIRenderPass(_prevRender, _ThreeStrategy);
     composer.addPass(uiPass);
 
+    // ScreenFadePass - $gameScreen 페이드/플래시를 UI 포함 전체 화면에 적용
+    var screenFadePass = new ScreenFadePass();
+    composer.addPass(screenFadePass);
+
     this._composer = composer;
     this._tiltShiftPass = null;
     this._bloomPass = bloomPass;
@@ -2744,6 +2828,7 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     this._uiPass = null;
     this._2dRenderPass = renderPass;
     this._2dUIRenderPass = uiPass;
+    this._screenFadePass = screenFadePass;
     this._ppPasses = ppPasses;
     this._transitionBlurPassH = tbH;
     this._transitionBlurPassV = tbV;
@@ -2880,6 +2965,8 @@ PostProcess._rebuildPassOrder = function() {
         if (this._2dUIRenderPass) newPasses.push(this._2dUIRenderPass);
         for (var i = 0; i < ppOverUI.length; i++) newPasses.push(ppOverUI[i]);
     }
+    // ScreenFadePass는 항상 마지막 (모드 공통)
+    if (this._screenFadePass) newPasses.push(this._screenFadePass);
     if (newPasses.length > 0) {
         this._composer.passes = newPasses;
     }
@@ -2905,27 +2992,38 @@ PostProcess._updateRenderToScreen = function() {
         }
     }
     var hasEnabledOverUI = enabledOverUIPasses.length > 0;
+    // ScreenFadePass가 있으면 항상 마지막 — UI pass는 무조건 writeBuffer에 출력
+    var hasScreenFade = !!this._screenFadePass;
 
     if (this._composerMode === '3d') {
         if (this._tiltShiftPass) {
             this._tiltShiftPass.renderToScreen = false;
             this._tiltShiftPass.enabled = ConfigManager.depthOfField;
         }
-        // UI pass: applyOverUI 패스가 있으면 writeBuffer에 출력(needsSwap=true), 없으면 화면에 직접
+        // UI pass: ScreenFadePass 또는 applyOverUI 패스가 있으면 writeBuffer에 출력
         if (this._uiPass) {
-            this._uiPass.renderToScreen = !hasEnabledOverUI;
-            this._uiPass.needsSwap = hasEnabledOverUI;
+            var uiToScreen = !hasEnabledOverUI && !hasScreenFade;
+            this._uiPass.renderToScreen = uiToScreen;
+            this._uiPass.needsSwap = !uiToScreen;
         }
     } else if (this._composerMode === '2d') {
         if (this._2dUIRenderPass) {
-            this._2dUIRenderPass.renderToScreen = !hasEnabledOverUI;
-            this._2dUIRenderPass.needsSwap = hasEnabledOverUI;
+            var ui2dToScreen = !hasEnabledOverUI && !hasScreenFade;
+            this._2dUIRenderPass.renderToScreen = ui2dToScreen;
+            this._2dUIRenderPass.needsSwap = !ui2dToScreen;
         }
     }
 
-    // applyOverUI PP 패스 중 마지막만 화면에 출력
+    // applyOverUI PP 패스: ScreenFadePass가 있으면 마지막도 화면 출력 안 함
     for (var i = 0; i < enabledOverUIPasses.length; i++) {
-        enabledOverUIPasses[i].renderToScreen = (i === enabledOverUIPasses.length - 1);
+        var isLast = (i === enabledOverUIPasses.length - 1);
+        enabledOverUIPasses[i].renderToScreen = isLast && !hasScreenFade;
+    }
+
+    // ScreenFadePass는 항상 최종 출력
+    if (this._screenFadePass) {
+        this._screenFadePass.renderToScreen = true;
+        this._screenFadePass.needsSwap = false;
     }
 };
 
@@ -2939,6 +3037,7 @@ PostProcess._disposeComposer = function() {
         this._uiPass = null;
         this._2dRenderPass = null;
         this._2dUIRenderPass = null;
+        this._screenFadePass = null;
         this._ppPasses = null;
         this._ppNeedsTimeUpdate = false;
         this._lastStage = null;
@@ -3927,5 +4026,23 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
         }
     }
 };
+
+//=============================================================================
+// Spriteset_Base.updateScreenSprites 억제
+// ScreenFadePass가 활성화된 경우 PIXI ScreenSprite 기반 페이드/플래시를 억제하고
+// PostProcess ScreenFadePass가 $gameScreen에서 직접 읽어 전체 화면에 적용한다.
+//=============================================================================
+(function() {
+    var _orig = Spriteset_Base.prototype.updateScreenSprites;
+    Spriteset_Base.prototype.updateScreenSprites = function() {
+        if (PostProcess._screenFadePass) {
+            // ScreenFadePass가 처리 — PIXI ScreenSprite는 투명하게 유지
+            if (this._flashSprite) this._flashSprite.opacity = 0;
+            if (this._fadeSprite)  this._fadeSprite.opacity  = 0;
+            return;
+        }
+        _orig.call(this);
+    };
+})();
 
 })();
