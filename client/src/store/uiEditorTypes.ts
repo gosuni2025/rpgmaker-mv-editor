@@ -251,14 +251,6 @@ export interface WidgetDef_Button extends WidgetDefBase {
   children?: WidgetDef[];
 }
 
-export interface WidgetDef_ConfigValue extends WidgetDefBase {
-  type: 'configValue';
-  configKey: string;
-  align?: 'left' | 'center' | 'right';
-  configType?: 'bool' | 'volume' | 'auto';
-  fontSize?: number;
-}
-
 export interface WidgetDef_List extends WidgetDefBase {
   type: 'list';
   maxCols?: number;
@@ -291,8 +283,7 @@ export type WidgetDef =
   | WidgetDef_Button
   | WidgetDef_List
   | WidgetDef_ActorList
-  | WidgetDef_Options
-  | WidgetDef_ConfigValue;
+  | WidgetDef_Options;
 
 export interface NavigationConfig {
   defaultFocus?: string;

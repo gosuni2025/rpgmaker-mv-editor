@@ -6,7 +6,7 @@ import type {
   CommandActionType, WidgetDef, WidgetType, WidgetDef_Panel, WidgetDef_Label,
   WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge, WidgetDef_Button,
   WidgetDef_List, WidgetDef_ActorList, WidgetDef_Options, OptionItemDef,
-  WidgetDef_ConfigValue, NavigationConfig, CustomSceneDef, CustomSceneDefV2,
+  NavigationConfig, CustomSceneDef, CustomSceneDefV2,
   ImageRenderMode,
 } from '../../store/uiEditorTypes';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
@@ -300,13 +300,13 @@ function NavigationConfigSection({ sceneId, nav }: { sceneId: string; nav: Navig
 const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
   panel: '#4a6fa5', label: '#5a8a5a', image: '#8a5a8a',
   actorFace: '#8a7a3a', gauge: '#8a4a3a', separator: '#555',
-  button: '#2675bf', list: '#2a7a3a', actorList: '#7a3a7a', options: '#7a5a2a', configValue: '#4a7a8a',
+  button: '#2675bf', list: '#2a7a3a', actorList: '#7a3a7a', options: '#7a5a2a',
 };
 
 const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   panel: 'PANEL', label: 'LABEL', image: 'IMG',
   actorFace: 'FACE', gauge: 'GAUGE', separator: 'SEP',
-  button: 'BTN', list: 'LIST', actorList: 'ACTORS', options: 'OPTS', configValue: 'CFG',
+  button: 'BTN', list: 'LIST', actorList: 'ACTORS', options: 'OPTS',
 };
 
 function hasDescendantWithId(w: WidgetDef, id: string): boolean {
@@ -471,7 +471,6 @@ function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parent
       case 'gauge': def = { id, type, x: 0, y: 0, width: 200, height: 36, gaugeType: 'hp', actorIndex: 0 }; break;
       case 'separator': def = { id, type, x: 0, y: 0, width: 200, height: 4 }; break;
       case 'button': def = { id, type, x: 0, y: 0, width: 200, height: 52, label: '버튼', action: { action: 'popScene' } }; break;
-      case 'configValue': def = { id, type, x: 0, y: 0, width: 150, height: 36, configKey: '', align: 'right' } as WidgetDef_ConfigValue; break;
       case 'list': def = { id, type, x: 0, y: 0, width: 200, items: [], handlers: {} }; break;
       case 'actorList': def = { id, type, x: 0, y: 0, width: 576, height: 624, numVisibleRows: 4 }; break;
       case 'options': def = { id, type, x: 0, y: 0, width: 400, options: [
@@ -490,12 +489,12 @@ function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parent
     onClose();
   };
 
-  const types: WidgetType[] = ['panel', 'label', 'image', 'actorFace', 'gauge', 'separator', 'button', 'list', 'actorList', 'options', 'configValue'];
+  const types: WidgetType[] = ['panel', 'label', 'image', 'actorFace', 'gauge', 'separator', 'button', 'list', 'actorList', 'options'];
   const typeLabels: Record<WidgetType, string> = {
     panel: '패널', label: '레이블', image: '이미지',
     actorFace: '액터 얼굴', gauge: '게이지', separator: '구분선',
     button: '버튼', list: '리스트', actorList: '파티 멤버 목록',
-    options: '옵션(블랙박스)', configValue: '설정값 표시',
+    options: '옵션(블랙박스)',
   };
 
   return (
@@ -824,44 +823,6 @@ function ButtonWidgetInspector({ sceneId, widget, update }: {
   );
 }
 
-// ── V2: ConfigValueWidgetInspector ─────────────────────────
-
-function ConfigValueWidgetInspector({ widget, update }: {
-  widget: WidgetDef_ConfigValue; update: (u: Partial<WidgetDef>) => void;
-}) {
-  return (
-    <div>
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 70 }}>configKey</span>
-        <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
-          placeholder="alwaysDash / bgmVolume …"
-          value={widget.configKey}
-          onChange={(e) => update({ configKey: e.target.value } as any)} />
-      </div>
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 70 }}>타입</span>
-        <select style={{ ...selectStyle, flex: 1 }}
-          value={widget.configType || 'auto'}
-          onChange={(e) => update({ configType: e.target.value as any } as any)}>
-          <option value="auto">자동 감지</option>
-          <option value="bool">bool (ON/OFF)</option>
-          <option value="volume">volume (NNN%)</option>
-        </select>
-      </div>
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 70 }}>정렬</span>
-        <select style={{ ...selectStyle, flex: 1 }}
-          value={widget.align || 'right'}
-          onChange={(e) => update({ align: e.target.value as any } as any)}>
-          <option value="left">왼쪽</option>
-          <option value="center">가운데</option>
-          <option value="right">오른쪽</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
 // ── V2: ListWidgetInspector ────────────────────────────────
 
 function ListWidgetInspector({ sceneId, widget, update }: {
@@ -1075,7 +1036,6 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
           </div>
         )}
         {widget.type === 'options' && <OptionsWidgetInspector widget={widget as WidgetDef_Options} update={update} />}
-        {widget.type === 'configValue' && <ConfigValueWidgetInspector widget={widget as WidgetDef_ConfigValue} update={update} />}
       </div>
     </div>
   );
