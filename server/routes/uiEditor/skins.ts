@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import express from 'express';
 import projectManager from '../../services/projectManager';
+import fileWatcher from '../../services/fileWatcher';
 
 const router = express.Router();
 
@@ -43,6 +44,7 @@ function readSkinsData(): SkinsData {
 function writeSkinsData(data: SkinsData): void {
   const p = getSkinsPath();
   if (!p) return;
+  fileWatcher.markApiWrite('UIEditorSkins.json');
   fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
 }
 
