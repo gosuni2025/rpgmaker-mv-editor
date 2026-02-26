@@ -21,6 +21,7 @@ export function usePassageHandlers(
   const lastTile = useRef<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const pendingChanges = useRef<PassageChange[]>([]);
+  const pendingUpperLayerChanges = useRef<PassageChange[]>([]);
 
   // Select 모드용 refs
   const isSelectDragging = useRef(false); // 드래그 선택 중
@@ -61,7 +62,7 @@ export function usePassageHandlers(
     if (!map || x < 0 || x >= map.width || y < 0 || y >= map.height) return;
     const oldValue = getUpperLayerValue(x, y);
     if (oldValue === value) return;
-    pendingChanges.current.push({ x, y, oldValue, newValue: value });
+    pendingUpperLayerChanges.current.push({ x, y, oldValue, newValue: value });
     // Immediately update map for visual feedback
     const ul = map.customUpperLayer ? [...map.customUpperLayer] : new Array(map.width * map.height).fill(0);
     ul[y * map.width + x] = value;
@@ -76,8 +77,12 @@ export function usePassageHandlers(
       applyPassage(x, y, 0xF0); // 전방향 강제 개방
     } else if (passageTool === 'upperLayer') {
       applyUpperLayer(x, y, 1); // 상단레이어 강제
+    } else if (passageTool === 'lowerLayer') {
+      applyUpperLayer(x, y, 2); // 하단레이어 강제
     } else {
-      applyPassage(x, y, 0); // 커스텀 제거
+      // 지우개: customPassage와 customUpperLayer 모두 제거
+      applyPassage(x, y, 0);
+      applyUpperLayer(x, y, 0);
     }
   }, [applyPassage, applyUpperLayer]);
 
@@ -85,9 +90,9 @@ export function usePassageHandlers(
     const map = useEditorStore.getState().currentMap;
     if (!map) return;
     const { passageTool } = useEditorStore.getState();
-    const isUpperLayer = passageTool === 'upperLayer';
+    const isUpperLayer = passageTool === 'upperLayer' || passageTool === 'lowerLayer';
     const targetValue = isUpperLayer ? getUpperLayerValue(startX, startY) : getPassageValue(startX, startY);
-    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : passageTool === 'upperLayer' ? 1 : 0;
+    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : passageTool === 'upperLayer' ? 1 : passageTool === 'lowerLayer' ? 2 : 0;
     if (targetValue === newValue) return;
 
     const w = map.width;
@@ -113,8 +118,8 @@ export function usePassageHandlers(
     const map = useEditorStore.getState().currentMap;
     if (!map) return;
     const { passageTool } = useEditorStore.getState();
-    const isUpperLayer = passageTool === 'upperLayer';
-    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : passageTool === 'upperLayer' ? 1 : 0;
+    const isUpperLayer = passageTool === 'upperLayer' || passageTool === 'lowerLayer';
+    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : passageTool === 'upperLayer' ? 1 : passageTool === 'lowerLayer' ? 2 : 0;
     const apply = isUpperLayer ? applyUpperLayer : applyPassage;
     const minX = Math.max(0, Math.min(x1, x2));
     const maxX = Math.min(map.width - 1, Math.max(x1, x2));
@@ -198,19 +203,24 @@ export function usePassageHandlers(
     isDrawing.current = true;
     lastTile.current = tile;
     pendingChanges.current = [];
+    pendingUpperLayerChanges.current = [];
+
+    const commitAll = () => {
+      if (pendingChanges.current.length > 0) {
+        useEditorStore.getState().updateCustomPassage(pendingChanges.current);
+        pendingChanges.current = [];
+      }
+      if (pendingUpperLayerChanges.current.length > 0) {
+        useEditorStore.getState().updateCustomUpperLayer(pendingUpperLayerChanges.current);
+        pendingUpperLayerChanges.current = [];
+      }
+    };
 
     if (passageShape === 'fill') {
       floodFill(tile.x, tile.y);
       isDrawing.current = false;
       // 즉시 commit
-      if (pendingChanges.current.length > 0) {
-        if (passageTool === 'upperLayer') {
-          useEditorStore.getState().updateCustomUpperLayer(pendingChanges.current);
-        } else {
-          useEditorStore.getState().updateCustomPassage(pendingChanges.current);
-        }
-        pendingChanges.current = [];
-      }
+      commitAll();
     } else if (passageShape === 'rectangle' || passageShape === 'ellipse') {
       dragStart.current = tile;
     } else {
@@ -327,13 +337,12 @@ export function usePassageHandlers(
     lastTile.current = null;
 
     if (pendingChanges.current.length > 0) {
-      const { passageTool } = useEditorStore.getState();
-      if (passageTool === 'upperLayer') {
-        useEditorStore.getState().updateCustomUpperLayer(pendingChanges.current);
-      } else {
-        useEditorStore.getState().updateCustomPassage(pendingChanges.current);
-      }
+      useEditorStore.getState().updateCustomPassage(pendingChanges.current);
       pendingChanges.current = [];
+    }
+    if (pendingUpperLayerChanges.current.length > 0) {
+      useEditorStore.getState().updateCustomUpperLayer(pendingUpperLayerChanges.current);
+      pendingUpperLayerChanges.current = [];
     }
     return true;
   }, [canvasToTile, applyArea]);

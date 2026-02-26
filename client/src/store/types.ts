@@ -137,7 +137,7 @@ export interface EditorState {
   selectedCameraZoneIds: number[];
 
   // Passage editor
-  passageTool: 'select' | 'pen' | 'forceOpen' | 'upperLayer' | 'eraser';
+  passageTool: 'select' | 'pen' | 'forceOpen' | 'upperLayer' | 'lowerLayer' | 'eraser';
   passageShape: 'freehand' | 'rectangle' | 'ellipse' | 'fill';
   selectedPassageTile: { x: number; y: number } | null;
   passageSelectionStart: { x: number; y: number } | null;
@@ -341,7 +341,7 @@ export interface EditorState {
   commitCameraZoneDragUndo: (snapshotZones: CameraZone[]) => void;
 
   // Actions - Passage
-  setPassageTool: (tool: 'select' | 'pen' | 'forceOpen' | 'upperLayer' | 'eraser') => void;
+  setPassageTool: (tool: 'select' | 'pen' | 'forceOpen' | 'upperLayer' | 'lowerLayer' | 'eraser') => void;
   setPassageShape: (shape: 'freehand' | 'rectangle' | 'ellipse' | 'fill') => void;
   setSelectedPassageTile: (tile: { x: number; y: number } | null) => void;
   updateCustomPassage: (changes: PassageChange[]) => void;

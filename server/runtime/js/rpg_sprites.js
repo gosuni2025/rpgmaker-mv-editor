@@ -2577,8 +2577,9 @@ Spriteset_Map.prototype.createTilemap = function() {
             var mx = this._customUpperLayerMx;
             var my = this._customUpperLayerMy;
             if (mx !== undefined && my !== undefined) {
-                var idx = my * $dataMap.width + mx;
-                if (ul[idx]) return true;
+                var ulVal = ul[my * $dataMap.width + mx];
+                if (ulVal === 1) return true;  // 강제 상단 (캐릭터 위)
+                if (ulVal === 2) return false;  // 강제 하단 (캐릭터 아래)
             }
         }
         return origIsHigherTile.call(this, tileId);

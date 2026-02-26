@@ -10,8 +10,36 @@ export default function PassageInspector() {
   const passageSelectionStart = useEditorStore((s) => s.passageSelectionStart);
   const passageSelectionEnd = useEditorStore((s) => s.passageSelectionEnd);
   const updateCustomPassage = useEditorStore((s) => s.updateCustomPassage);
+  const updateCustomUpperLayer = useEditorStore((s) => s.updateCustomUpperLayer);
 
   const hasSelection = !!(passageSelectionStart && passageSelectionEnd);
+
+  // 선택 타일의 customUpperLayer 값 (단일 타일 기준)
+  const ulValue = selectedTile && currentMap
+    ? (currentMap.customUpperLayer?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0)
+    : 0;
+
+  const setLayerMode = useCallback((mode: number) => {
+    if (!currentMap) return;
+    const tiles: { x: number; y: number }[] = [];
+    if (hasSelection && passageSelectionStart && passageSelectionEnd) {
+      const minX = Math.min(passageSelectionStart.x, passageSelectionEnd.x);
+      const maxX = Math.max(passageSelectionStart.x, passageSelectionEnd.x);
+      const minY = Math.min(passageSelectionStart.y, passageSelectionEnd.y);
+      const maxY = Math.max(passageSelectionStart.y, passageSelectionEnd.y);
+      for (let y = minY; y <= maxY; y++)
+        for (let x = minX; x <= maxX; x++)
+          tiles.push({ x, y });
+    } else if (selectedTile) {
+      tiles.push(selectedTile);
+    }
+    const changes = tiles.map((t) => ({
+      x: t.x, y: t.y,
+      oldValue: currentMap.customUpperLayer?.[t.y * currentMap.width + t.x] ?? 0,
+      newValue: mode,
+    })).filter((c) => c.oldValue !== c.newValue);
+    if (changes.length > 0) updateCustomUpperLayer(changes);
+  }, [currentMap, selectedTile, hasSelection, passageSelectionStart, passageSelectionEnd, updateCustomUpperLayer]);
 
   // 단일 타일 값
   const singleValue = selectedTile && currentMap
@@ -161,6 +189,44 @@ export default function PassageInspector() {
               >
                 {t('passage.clearAll')}
               </button>
+            </div>
+          </div>
+
+          {/* 레이어 렌더링 설정 */}
+          <div className="light-inspector-section" style={{ marginTop: 10 }}>
+            <div className="light-inspector-title" style={{ fontSize: 11 }}>
+              {t('passage.layerMode', '레이어 렌더링')}
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+              {[
+                { value: 0, label: t('passage.layerDefault', '기본'), title: '타일셋 설정 따름' },
+                { value: 1, label: t('passage.layerUpper', '상단 ▲'), title: '캐릭터 위에 그림' },
+                { value: 2, label: t('passage.layerLower', '하단 ▽'), title: '캐릭터 아래에 그림' },
+              ].map(({ value, label, title }) => (
+                <button
+                  key={value}
+                  title={title}
+                  className="camera-zone-action-btn"
+                  onClick={() => setLayerMode(value)}
+                  style={{
+                    flex: 1,
+                    background: ulValue === value
+                      ? value === 1 ? 'rgba(30,100,220,0.5)'
+                        : value === 2 ? 'rgba(200,120,20,0.5)'
+                        : 'rgba(80,80,80,0.5)'
+                      : undefined,
+                    borderColor: ulValue === value
+                      ? value === 1 ? '#48f'
+                        : value === 2 ? '#fa6'
+                        : '#888'
+                      : undefined,
+                    color: ulValue === value ? '#fff' : undefined,
+                    fontSize: 11,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </>

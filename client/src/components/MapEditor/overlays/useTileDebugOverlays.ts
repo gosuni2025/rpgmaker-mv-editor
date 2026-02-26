@@ -141,14 +141,17 @@ function drawPassageTileSymbol(
   cx: number, cy: number, tp: number,
   effectiveBits: number,
   cpVal: number,
-  isUpperLayer: boolean,
+  ulVal: number, // 0=default, 1=upper, 2=lower
 ) {
   const isForceOpen = (cpVal & 0xF0) !== 0; // 강제 개방 커스텀
   const isCustomBlock = (cpVal & 0x0F) !== 0 && !isForceOpen; // 차단 커스텀
 
   // 커스텀 오버라이드된 타일 배경 하이라이트
-  if (isUpperLayer) {
+  if (ulVal === 1) {
     ctx.fillStyle = 'rgba(30, 80, 220, 0.18)';
+    ctx.fillRect(cx - tp / 2, cy - tp / 2, tp, tp);
+  } else if (ulVal === 2) {
+    ctx.fillStyle = 'rgba(200, 100, 20, 0.18)';
     ctx.fillRect(cx - tp / 2, cy - tp / 2, tp, tp);
   } else if (isForceOpen) {
     ctx.fillStyle = 'rgba(40, 200, 80, 0.12)';
@@ -161,17 +164,29 @@ function drawPassageTileSymbol(
   const r = tp * 0.28;
   ctx.lineCap = 'round';
 
-  // 상단레이어: 파란 ▲ 삼각형 (추가로 그림)
-  if (isUpperLayer) {
-    ctx.fillStyle = 'rgba(80, 140, 255, 0.88)';
-    const hs = tp * 0.24; // half-size
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - hs * 1.3);
-    ctx.lineTo(cx + hs, cy + hs * 0.6);
-    ctx.lineTo(cx - hs, cy + hs * 0.6);
-    ctx.closePath();
-    ctx.fill();
-    return; // 상단레이어 표시만
+  // 레이어 강제: 파란 ▲ (상단) 또는 주황 ▽ (하단)
+  if (ulVal !== 0) {
+    const hs = tp * 0.24;
+    if (ulVal === 1) {
+      // 상단레이어: 파란 ▲
+      ctx.fillStyle = 'rgba(80, 140, 255, 0.88)';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - hs * 1.3);
+      ctx.lineTo(cx + hs, cy + hs * 0.6);
+      ctx.lineTo(cx - hs, cy + hs * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // 하단레이어: 주황 ▽
+      ctx.fillStyle = 'rgba(240, 150, 40, 0.88)';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + hs * 1.3);
+      ctx.lineTo(cx + hs, cy - hs * 0.6);
+      ctx.lineTo(cx - hs, cy - hs * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    }
+    return;
   }
 
   if (isForceOpen) {
@@ -256,7 +271,7 @@ export function usePassageOverlay(refs: PassageRefs, rendererReady: number) {
         const blockBits = cpVal & 0x0F;
         const openBits = (cpVal >> 4) & 0x0F;
         const effectiveBits = (tilesetBits | blockBits) & ~openBits;
-        drawPassageTileSymbol(ctx, x * tp + tp / 2, y * tp + tp / 2, tp, effectiveBits, cpVal, ulVal !== 0);
+        drawPassageTileSymbol(ctx, x * tp + tp / 2, y * tp + tp / 2, tp, effectiveBits, cpVal, ulVal);
       }
     }
 

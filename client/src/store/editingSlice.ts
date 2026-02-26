@@ -159,7 +159,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   commitCameraZoneDragUndo: (snapshotZones: CameraZone[]) => commitCameraZoneDragUndoOp(get, set, snapshotZones),
 
   // Passage operations (delegated)
-  setPassageTool: (tool: 'select' | 'pen' | 'forceOpen' | 'upperLayer' | 'eraser') => {
+  setPassageTool: (tool: 'select' | 'pen' | 'forceOpen' | 'upperLayer' | 'lowerLayer' | 'eraser') => {
     const updates: Partial<EditorState> = { passageTool: tool };
     if (tool !== 'select') {
       updates.passageSelectionStart = null;
