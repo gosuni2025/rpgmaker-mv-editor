@@ -1184,3 +1184,9 @@
   font-size: 12px;
   border-radius: 0;
 }
+
+.ui-window-list-divider {
+  height: 1px;
+  background: #3c3c3c;
+  margin: 2px 0;
+}

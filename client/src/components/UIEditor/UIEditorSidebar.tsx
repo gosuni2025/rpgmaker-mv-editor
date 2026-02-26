@@ -26,8 +26,12 @@ function WindowList() {
   const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
   const uiEditorIframeReady = useEditorStore((s) => s.uiEditorIframeReady);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
+  const uiFontSceneFonts = useEditorStore((s) => s.uiFontSceneFonts);
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
+
+  const sceneSelected = uiEditorSelectedWindowId === null;
+  const hasSceneFont = !!uiFontSceneFonts[uiEditorScene];
 
   return (
     <>
@@ -44,11 +48,21 @@ function WindowList() {
         </select>
       </div>
 
-      <div className="ui-editor-sidebar-section" style={{ borderBottom: 'none', padding: '6px 8px 4px' }}>
-        <label>창 목록{!uiEditorIframeReady ? ' (로딩 중...)' : ''}</label>
-      </div>
-
       <div className="ui-editor-window-list">
+        {/* 씬 자체 항목 */}
+        <div
+          className={`ui-editor-window-item${sceneSelected ? ' selected' : ''}`}
+          onClick={() => setUiEditorSelectedWindowId(null)}
+        >
+          <div className={`ui-editor-window-badge${hasSceneFont ? ' has-override' : ''}`} />
+          <div>
+            <div>{uiEditorScene.replace(/^Scene_/, '')}</div>
+            <div className="window-class">{uiEditorScene}</div>
+          </div>
+        </div>
+
+        <div className="ui-window-list-divider" />
+
         {uiEditorWindows.length === 0 ? (
           <div className="ui-editor-no-windows">
             {uiEditorIframeReady ? '창이 없습니다' : '씬 로딩 중...'}
