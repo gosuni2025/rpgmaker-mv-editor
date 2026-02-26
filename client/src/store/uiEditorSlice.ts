@@ -588,8 +588,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
 
       // 2. targetId 위치에 삽입
       function insert(widget: WidgetDef): WidgetDef {
-        if (widget.type === 'panel') {
-          const ch = (widget as WidgetDef_Panel).children || [];
+        if (widget.type === 'panel' || widget.type === 'button') {
+          const ch = ((widget as WidgetDef_Panel | WidgetDef_Button).children as WidgetDef[] | undefined) || [];
           if (position === 'inside' && widget.id === targetId) {
             return { ...widget, children: [...ch, dragged!] } as WidgetDef;
           }

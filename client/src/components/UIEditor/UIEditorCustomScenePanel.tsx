@@ -6,8 +6,10 @@ import type {
   CommandActionType, WidgetDef, WidgetType, WidgetDef_Panel, WidgetDef_Label,
   WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge, WidgetDef_Button,
   WidgetDef_List, WidgetDef_ActorList, WidgetDef_Options, OptionItemDef,
-  WidgetDef_ConfigValue, NavigationConfig, CustomSceneDef, CustomSceneDefV2
+  WidgetDef_ConfigValue, NavigationConfig, CustomSceneDef, CustomSceneDefV2,
+  ImageRenderMode,
 } from '../../store/uiEditorTypes';
+import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import './UIEditor.css';
 
 const inputStyle: React.CSSProperties = {
@@ -350,7 +352,7 @@ function WidgetTreeNode({
     }
   }, [isSelected]);
 
-  const isPanel = widget.type === 'panel';
+  const canContain = widget.type === 'panel' || widget.type === 'button';
   const canDrag = widget.id !== 'root';
 
   return (
@@ -389,7 +391,7 @@ function WidgetTreeNode({
           // 노드 높이 내에서 상단 30%=before, 나머지=inside(패널) 또는 before
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           const relY = e.clientY - rect.top;
-          if (isPanel && relY > rect.height * 0.35) {
+          if (canContain && relY > rect.height * 0.35) {
             setDropPos('inside');
           } else {
             setDropPos('before');
@@ -611,6 +613,112 @@ function ActionHandlerEditor({ handler, onChange }: {
           onChange={(e) => onChange({ code: e.target.value })}
         />
       )}
+    </div>
+  );
+}
+
+// ── V2: PanelWidgetInspector ────────────────────────────────
+
+function PanelWidgetInspector({ widget, update }: {
+  widget: WidgetDef_Panel; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const windowed = widget.windowed !== false;
+  const windowStyle = widget.windowStyle ?? 'default';
+
+  const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
+    update({ windowStyle: style === 'default' ? undefined : style } as any);
+  };
+
+  return (
+    <div>
+      <FramePickerDialog
+        open={pickerOpen}
+        current={widget.skinId ?? ''}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(skinName, skinFile) => {
+          update({ windowskinName: skinFile, skinId: skinName } as any);
+        }}
+      />
+      <ImagePickerDialog
+        open={imagePickerOpen}
+        current={widget.imageFile ?? ''}
+        onClose={() => setImagePickerOpen(false)}
+        onSelect={(filename) => update({ imageFile: filename } as any)}
+      />
+      <div style={rowStyle}>
+        <label style={{ fontSize: 11, color: '#aaa' }}>
+          <input type="checkbox" checked={windowed}
+            onChange={(e) => update({ windowed: e.target.checked } as any)} /> 창 배경
+        </label>
+      </div>
+      {windowed && (
+        <>
+          <div className="ui-window-style-radios" style={{ margin: '4px 0' }}>
+            {(['default', 'frame', 'image'] as const).map((style) => (
+              <label key={style} className={`ui-radio-label${windowStyle === style ? ' active' : ''}`}>
+                <input
+                  type="radio"
+                  name={`panel-style-${widget.id}`}
+                  value={style}
+                  checked={windowStyle === style}
+                  onChange={() => handleStyleChange(style)}
+                />
+                {style === 'default' ? '기본' : style === 'frame' ? '프레임 변경' : '이미지로 변경'}
+              </label>
+            ))}
+          </div>
+          {windowStyle === 'frame' && (
+            <div style={{ marginBottom: 4 }}>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>선택 프레임</span>
+                <span style={{ fontSize: 11, color: '#ccc', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {widget.skinId ?? widget.windowskinName ?? '(없음)'}
+                </span>
+              </div>
+              <div style={rowStyle}>
+                <button style={smallBtnStyle} onClick={() => setPickerOpen(true)}>프레임 선택…</button>
+              </div>
+            </div>
+          )}
+          {windowStyle === 'image' && (
+            <div style={{ marginBottom: 4 }}>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>선택 파일</span>
+                <span style={{ fontSize: 11, color: '#ccc', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {widget.imageFile ?? '(없음)'}
+                </span>
+              </div>
+              <div style={rowStyle}>
+                <button style={smallBtnStyle} onClick={() => setImagePickerOpen(true)}>파일 선택…</button>
+              </div>
+              <div style={{ ...rowStyle, flexWrap: 'wrap', gap: 2 }}>
+                {([['center', '원본'], ['stretch', '늘림'], ['tile', '타일'], ['fit', '비율맞춤'], ['cover', '비율채움']] as [ImageRenderMode, string][]).map(([mode, label]) => {
+                  const cur = widget.imageRenderMode ?? 'center';
+                  return (
+                    <label key={mode} className={`ui-radio-label${cur === mode ? ' active' : ''}`} style={{ fontSize: 10 }}>
+                      <input type="radio" name={`panel-imgmode-${widget.id}`} value={mode} checked={cur === mode}
+                        onChange={() => update({ imageRenderMode: mode } as any)} />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
+        <input style={{ ...inputStyle, width: 60 }} type="number"
+          value={widget.padding ?? ''}
+          placeholder="기본"
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
+          }} />
+      </div>
     </div>
   );
 }
@@ -887,24 +995,7 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
       <div style={sectionStyle}>
         <label style={labelStyle}>타입 속성 ({widget.type})</label>
         {widget.type === 'panel' && (
-          <div>
-            <div style={rowStyle}>
-              <label style={{ fontSize: 11, color: '#aaa' }}>
-                <input type="checkbox" checked={(widget as WidgetDef_Panel).windowed !== false}
-                  onChange={(e) => update({ windowed: e.target.checked } as any)} /> 창 배경
-              </label>
-            </div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
-              <input style={{ ...inputStyle, width: 60 }} type="number"
-                value={(widget as WidgetDef_Panel).padding ?? ''}
-                placeholder="기본"
-                onChange={(e) => {
-                  const v = e.target.value.trim();
-                  update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
-                }} />
-            </div>
-          </div>
+          <PanelWidgetInspector widget={widget as WidgetDef_Panel} update={update} />
         )}
         {widget.type === 'label' && (
           <div>
