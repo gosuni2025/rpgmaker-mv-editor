@@ -180,17 +180,9 @@
         } : null;
     }
 
-    // ── SceneManager.snapForBackground: blur 없는 스냅샷 ─────────────────────
-    // PostProcess가 런타임에 transition blur를 적용하므로 원본 스냅샷만 필요
-
-    var _origSnapForBg = SceneManager.snapForBackground;
-    SceneManager.snapForBackground = function () {
-        if (_phase === 2) {
-            this._backgroundBitmap = this.snap();
-            return;
-        }
-        _origSnapForBg.call(this);
-    };
+    // ── SceneManager.snapForBackground ────────────────────────────────────────
+    // PostProcess.js가 이미 _captureCanvas 기반으로 blur 없는 스냅샷을 올바르게 처리함.
+    // this.snap()은 preserveDrawingBuffer=false로 검은 화면을 반환하므로 사용 금지.
 
     // ── SceneManager.push: 즉시 push + PostProcess blur 애니메이션 시작 ──────
 
