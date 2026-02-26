@@ -130,7 +130,9 @@
     var w = elem.width || 200;
     var h = elem.height || this.lineHeight();
 
+    var align = elem.align || 'left';
     switch (elem.type) {
+      case 'label':
       case 'text':
         this.drawTextEx(elem.content || '', x, y);
         break;
@@ -163,6 +165,19 @@
           this.drawCurrencyValue($gameParty.gold(), TextManager.currencyUnit, x, y, w);
         }
         break;
+      case 'variable': {
+        var varVal = typeof $gameVariables !== 'undefined' ? $gameVariables.value(elem.varId || 0) : 0;
+        this.drawText(String(varVal) + (elem.suffix || ''), x, y, w, align);
+        break;
+      }
+      case 'configValue': {
+        var cfgVal = typeof ConfigManager !== 'undefined' && elem.configKey ? ConfigManager[elem.configKey] : 0;
+        if (cfgVal === undefined) cfgVal = 0;
+        // boolean 값은 on/off로 표시
+        var cfgStr = typeof cfgVal === 'boolean' ? (cfgVal ? 'ON' : 'OFF') : String(cfgVal) + (elem.suffix || '');
+        this.drawText(cfgStr, x, y, w, align);
+        break;
+      }
       case 'image':
         if (typeof ImageManager !== 'undefined' && elem.imageName) {
           var folder = elem.imageFolder || 'img/system/';
@@ -335,6 +350,32 @@
           this._customWindows[targetWinId].select(0);
         }
         break;
+      }
+      case 'script': {
+        if (handler.code) {
+          try {
+            var fn = new Function(handler.code);
+            fn.call(this);
+          } catch (e) {
+            console.error('[CustomScene] script error:', e);
+          }
+          // display 창 갱신 후 커맨드 창 재활성화
+          this._refreshDisplayWindows();
+          if (cmdWin) cmdWin.activate();
+        }
+        break;
+      }
+    }
+  };
+
+  Scene_CustomUI.prototype._refreshDisplayWindows = function () {
+    var sceneDef = this._getSceneDef();
+    if (!sceneDef) return;
+    var windows = sceneDef.windows || [];
+    for (var i = 0; i < windows.length; i++) {
+      if (windows[i].windowType === 'display') {
+        var win = this._customWindows[windows[i].id];
+        if (win && win.refresh) win.refresh();
       }
     }
   };

@@ -105,7 +105,7 @@ export interface UIWindowOverride {
 }
 
 // ── 커스텀 씬 타입 ──────────────────────────────────────
-export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow';
+export type CommandActionType = 'gotoScene' | 'popScene' | 'callCommonEvent' | 'customScene' | 'activateWindow' | 'script';
 
 export interface CustomCommandDef {
   name: string;
@@ -117,6 +117,7 @@ export interface CustomCommandHandler {
   action: CommandActionType;
   target?: string;
   eventId?: number;
+  code?: string; // script 액션용 JS 코드
 }
 
 export interface CustomElementDef {
@@ -125,8 +126,12 @@ export interface CustomElementDef {
   y: number;
   width: number;
   height: number;
-  content?: string;
-  file?: string;
+  content?: string;   // text/label용
+  file?: string;      // image용
+  varId?: number;     // variable 요소용
+  configKey?: string; // configValue 요소용
+  suffix?: string;    // variable/configValue 뒤에 붙는 단위 (예: "%")
+  align?: string;     // 텍스트 정렬 ('left'|'center'|'right')
 }
 
 export interface CustomWindowDef {

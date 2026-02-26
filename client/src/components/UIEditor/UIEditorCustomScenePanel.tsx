@@ -75,6 +75,7 @@ function CommandEditor({ sceneId, win }: { sceneId: string; win: CustomWindowDef
               <option value="customScene">커스텀 씬 이동</option>
               <option value="callCommonEvent">커먼 이벤트 호출</option>
               <option value="activateWindow">Window 활성화</option>
+              <option value="script">JS 스크립트 실행</option>
             </select>
             {(win.handlers?.[cmd.symbol]?.action === 'gotoScene' || win.handlers?.[cmd.symbol]?.action === 'customScene' || win.handlers?.[cmd.symbol]?.action === 'activateWindow') && (
               <input style={{ ...inputStyle, flex: 1 }} placeholder="대상"
@@ -87,6 +88,16 @@ function CommandEditor({ sceneId, win }: { sceneId: string; win: CustomWindowDef
                 onChange={(e) => updateHandler(cmd.symbol, { eventId: parseInt(e.target.value) || 0 })} />
             )}
           </div>
+          {win.handlers?.[cmd.symbol]?.action === 'script' && (
+            <div style={{ marginTop: 4 }}>
+              <textarea
+                style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+                placeholder="// JS 코드 (ConfigManager, $gameVariables 등 사용 가능)&#10;// 실행 후 display 창 자동 갱신됨"
+                value={win.handlers?.[cmd.symbol]?.code || ''}
+                onChange={(e) => updateHandler(cmd.symbol, { code: e.target.value })}
+              />
+            </div>
+          )}
         </div>
       ))}
       <button style={{ ...smallBtnStyle, width: '100%', marginTop: 4 }} onClick={addCommand}>+ 커맨드</button>
