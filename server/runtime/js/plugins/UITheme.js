@@ -454,6 +454,84 @@
   }
   window._uiSetWindowLayer = _setWindowLayer;
 
+  /**
+   * Perspective 카메라로 렌더링되는 창의 화면 좌표를 창 로컬 좌표로 역변환.
+   * rotationX/Y가 있는 창의 마우스/터치 히트 테스트에 사용.
+   */
+  function _uiPerspScreenToLocal(win, sx, sy) {
+    var threeObj = win && win._threeObj;
+    var cam = window.Mode3D && Mode3D._uiPerspCamera;
+    if (!threeObj || !cam || typeof THREE === 'undefined') return null;
+
+    var w = Graphics.width || 816;
+    var h = Graphics.height || 624;
+
+    // Y-down NDC: 화면 위쪽(sy=0) → ndc_y=-1, 아래쪽(sy=h) → ndc_y=+1
+    var ndcX = (sx / w) * 2 - 1;
+    var ndcY = (sy / h) * 2 - 1;
+
+    // 재사용 가능한 Three.js 객체
+    if (!_uiPerspScreenToLocal._rc) {
+      _uiPerspScreenToLocal._rc  = new THREE.Raycaster();
+      _uiPerspScreenToLocal._pl  = new THREE.Plane();
+      _uiPerspScreenToLocal._n   = new THREE.Vector3();
+      _uiPerspScreenToLocal._pt  = new THREE.Vector3();
+      _uiPerspScreenToLocal._hit = new THREE.Vector3();
+    }
+    var rc  = _uiPerspScreenToLocal._rc;
+    var pl  = _uiPerspScreenToLocal._pl;
+    var n   = _uiPerspScreenToLocal._n;
+    var pt  = _uiPerspScreenToLocal._pt;
+    var hit = _uiPerspScreenToLocal._hit;
+
+    rc.setFromCamera({ x: ndcX, y: ndcY }, cam);
+
+    // 창의 world matrix 갱신
+    threeObj.updateMatrixWorld(true);
+
+    // 창 로컬 z=0 평면의 법선 벡터 (로컬 Z축 → world 방향)
+    n.set(0, 0, 1).transformDirection(threeObj.matrixWorld);
+    // 평면 위의 한 점 (창의 world position)
+    threeObj.getWorldPosition(pt);
+    pl.setFromNormalAndCoplanarPoint(n, pt);
+
+    // ray-plane 교점
+    if (!rc.ray.intersectPlane(pl, hit)) return null;
+
+    // world → 창 로컬
+    threeObj.worldToLocal(hit);
+
+    // pivot 보정: ThreeContainer.syncTransform에서 T(-px,-py,0)가 적용되어 있으므로
+    // worldToLocal 결과에 pivot을 더해야 PIXI 로컬 좌표가 됨
+    var pivotX = win._pivotX || 0;
+    var pivotY = win._pivotY || 0;
+
+    return { x: hit.x + pivotX, y: hit.y + pivotY };
+  }
+
+  /**
+   * rotationX/Y가 있는 창에 Perspective 역변환 기반 히트 테스트를 적용.
+   * isTouchedInsideFrame에서 로컬 좌표를 계산·캐시하고,
+   * canvasToLocalX/Y에서 캐시를 소비하여 hitTest에 전달.
+   */
+  function _applyPerspHitTest(win) {
+    win.isTouchedInsideFrame = function() {
+      var local = _uiPerspScreenToLocal(this, TouchInput.x, TouchInput.y);
+      if (!local) return false;
+      this._uiPerspTouchLocal = local;
+      return local.x >= 0 && local.y >= 0 && local.x < this.width && local.y < this.height;
+    };
+    win.canvasToLocalX = function(x) {
+      return this._uiPerspTouchLocal ? this._uiPerspTouchLocal.x
+        : Window_Base.prototype.canvasToLocalX.call(this, x);
+    };
+    win.canvasToLocalY = function(y) {
+      var loc = this._uiPerspTouchLocal;
+      this._uiPerspTouchLocal = null;  // X, Y 쌍 처리 후 캐시 소비
+      return loc ? loc.y : Window_Base.prototype.canvasToLocalY.call(this, y);
+    };
+  }
+
   /** _ov 항목 읽기 (preview.ts의 applyPropToWindow에서 사용) */
   window._uiGetOv = function(className) {
     return _ov[className] || {};
@@ -677,6 +755,11 @@
     if (!renderCam && (ov.rotationX || ov.rotationY)) renderCam = 'perspective';
     renderCam = renderCam || 'orthographic';
     _setWindowLayer(win, renderCam === 'perspective' ? 1 : 0);
+
+    // rotationX/Y가 있는 창에 대해 퍼스펙티브 역변환 기반 히트 테스트 적용
+    if (ov.rotationX || ov.rotationY) {
+      _applyPerspHitTest(win);
+    }
 
     // 등장 효과 시작
     if (Array.isArray(ov.entrances) && ov.entrances.length > 0) {
