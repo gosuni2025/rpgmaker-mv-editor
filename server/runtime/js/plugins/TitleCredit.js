@@ -29,6 +29,8 @@
  *   ↑↓ 방향키 : 줄 이동
  *   결정 (Z/Enter) : 링크 열기 (링크 줄에서만)
  *   취소 (X/Esc)   : 돌아가기
+ *   터치 드래그    : 스크롤
+ *   터치 탭        : 링크 열기 / 커서 이동
  */
 
 (function() {
@@ -88,6 +90,111 @@
         Scene_MenuBase.prototype.create.call(this);
         this._creditWindow = new Window_Credit();
         this.addWindow(this._creditWindow);
+        this._setupTouchHandlers();
+    };
+
+    Scene_Credit.prototype.terminate = function() {
+        Scene_MenuBase.prototype.terminate.call(this);
+        this._removeTouchHandlers();
+    };
+
+    Scene_Credit.prototype._setupTouchHandlers = function() {
+        var self = this;
+        var canvas = document.getElementById('GameCanvas') || document.querySelector('canvas');
+        if (!canvas) return;
+        this._touchCanvas = canvas;
+        this._onTouchStart = function(e) { self._handleTouchStart(e); };
+        this._onTouchMove  = function(e) { self._handleTouchMove(e); };
+        this._onTouchEnd   = function(e) { self._handleTouchEnd(e); };
+        canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
+        canvas.addEventListener('touchmove',  this._onTouchMove,  { passive: false });
+        canvas.addEventListener('touchend',   this._onTouchEnd,   { passive: false });
+    };
+
+    Scene_Credit.prototype._removeTouchHandlers = function() {
+        var canvas = this._touchCanvas;
+        if (!canvas) return;
+        canvas.removeEventListener('touchstart', this._onTouchStart);
+        canvas.removeEventListener('touchmove',  this._onTouchMove);
+        canvas.removeEventListener('touchend',   this._onTouchEnd);
+    };
+
+    // 터치 좌표 → 게임 캔버스 좌표 변환
+    Scene_Credit.prototype._touchToCanvas = function(touch) {
+        var canvas = this._touchCanvas;
+        var rect = canvas.getBoundingClientRect();
+        var scaleX = Graphics.width  / rect.width;
+        var scaleY = Graphics.height / rect.height;
+        return {
+            x: (touch.clientX - rect.left) * scaleX,
+            y: (touch.clientY - rect.top)  * scaleY
+        };
+    };
+
+    Scene_Credit.prototype._handleTouchStart = function(e) {
+        var w = this._creditWindow;
+        if (!w._loaded) return;
+        e.preventDefault();
+        var touch = e.touches[0];
+        var pos = this._touchToCanvas(touch);
+        this._touchStartY = pos.y;
+        this._touchLastY  = pos.y;
+        this._touchMoved  = false;
+    };
+
+    Scene_Credit.prototype._handleTouchMove = function(e) {
+        var w = this._creditWindow;
+        if (!w._loaded) return;
+        e.preventDefault();
+        var touch = e.touches[0];
+        var pos = this._touchToCanvas(touch);
+        var dy = pos.y - this._touchLastY;
+        this._touchLastY = pos.y;
+
+        if (Math.abs(pos.y - this._touchStartY) > 8) {
+            this._touchMoved = true;
+        }
+
+        if (this._touchMoved) {
+            var maxScroll = Math.max(0, w._footerY + w.lineHeight() - w.contentsHeight());
+            w.origin.y = Math.max(0, Math.min(maxScroll, w.origin.y - dy));
+            w.refresh();
+        }
+    };
+
+    Scene_Credit.prototype._handleTouchEnd = function(e) {
+        var w = this._creditWindow;
+        if (!w._loaded) return;
+        e.preventDefault();
+        if (!this._touchMoved) {
+            var touch = e.changedTouches[0];
+            var pos = this._touchToCanvas(touch);
+            this._handleTap(pos.x, pos.y);
+        }
+    };
+
+    // 탭: 링크면 URL 열기, 일반 줄이면 커서 이동
+    Scene_Credit.prototype._handleTap = function(cx, cy) {
+        var w = this._creditWindow;
+        if (cx < w.x || cx > w.x + w.width || cy < w.y || cy > w.y + w.height) return;
+        var contentY = cy - w.y - w.padding + w.origin.y;
+        var lh = w.lineHeight();
+        var data = w._lineData;
+        for (var i = 0; i < data.length; i++) {
+            if (contentY >= data[i].y && contentY < data[i].y + lh) {
+                if (data[i].type === 'link') {
+                    w._cursorIndex = i;
+                    w.refresh();
+                    SoundManager.playOk();
+                    openURL(data[i].url);
+                } else {
+                    w._cursorIndex = i;
+                    SoundManager.playCursor();
+                    w.refresh();
+                }
+                return;
+            }
+        }
     };
 
     Scene_Credit.prototype.update = function() {
@@ -252,7 +359,7 @@
 
         // 조작 안내 (커서 이동 범위 밖)
         this.changeTextColor(this.textColor(8));
-        this.drawText('↑↓: 이동   결정: 링크 열기   취소: 뒤로', 0, this._footerY, cw, 'center');
+        this.drawText('↑↓/드래그: 이동   결정/탭: 링크 열기   취소: 뒤로', 0, this._footerY, cw, 'center');
     };
 
     Window_Credit.prototype.moveCursorDown = function() {
