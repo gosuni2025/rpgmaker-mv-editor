@@ -91,6 +91,8 @@
           var v = ConfigManager[cfgMatch[1]];
           return typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : String(v !== undefined ? v : '');
         }
+        // 임의 JS 표현식 폴백
+        return String(new Function('return (' + expr + ')')());
       } catch (e) {}
       return match;
     });
@@ -683,14 +685,15 @@
   };
   Widget_Label.prototype.refresh = function() {
     if (!this._bitmap) return;
-    this._bitmap.clear();
     var text = resolveTemplate(this._template);
+    if (text === this._lastText) return;
+    this._lastText = text;
+    this._bitmap.clear();
     this._bitmap.drawText(text, 0, 0, this._width, this._height, this._align);
     Widget_Base.prototype.refresh.call(this);
   };
   Widget_Label.prototype.update = function() {
-    if (this._updateCount === undefined) this._updateCount = 0;
-    if (++this._updateCount % 60 === 0) this.refresh();
+    this.refresh();
     Widget_Base.prototype.update.call(this);
   };
   window.Widget_Label = Widget_Label;
