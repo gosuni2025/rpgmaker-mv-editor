@@ -4,8 +4,9 @@ import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CustomElementDef, CustomWindowDef,
   CommandActionType, WidgetDef, WidgetType, WidgetDef_Panel, WidgetDef_Label,
-  WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge, WidgetDef_Button,
+  WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge,
   WidgetDef_List, WidgetDef_ActorList, WidgetDef_Options, OptionItemDef,
+  WidgetDef_Button,
   NavigationConfig, CustomSceneDef, CustomSceneDefV2,
   ImageRenderMode,
 } from '../../store/uiEditorTypes';
@@ -310,10 +311,7 @@ const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
 };
 
 function hasDescendantWithId(w: WidgetDef, id: string): boolean {
-  const ch: WidgetDef[] =
-    w.type === 'panel' ? ((w as WidgetDef_Panel).children || []) :
-    w.type === 'button' ? ((w as WidgetDef_Button).children || []) : [];
-  return ch.some((c) => c.id === id || hasDescendantWithId(c, id));
+  return (w.children || []).some((c) => c.id === id || hasDescendantWithId(c, id));
 }
 
 // 드래그 중인 widgetId를 모듈 레벨 ref로 관리 (컴포넌트 간 공유)
@@ -329,10 +327,7 @@ function WidgetTreeNode({
   onReorder: (dragId: string, targetId: string, pos: 'before' | 'inside') => void;
 }) {
   const isSelected = widget.id === selectedId;
-  const children: WidgetDef[] =
-    widget.type === 'panel' ? ((widget as WidgetDef_Panel).children || []) :
-    widget.type === 'button' ? ((widget as WidgetDef_Button).children || []) :
-    [];
+  const children: WidgetDef[] = widget.children || [];
   const hasChildren = children.length > 0;
   const [expanded, setExpanded] = React.useState(true);
   const rowRef = React.useRef<HTMLDivElement>(null);
@@ -352,7 +347,7 @@ function WidgetTreeNode({
     }
   }, [isSelected]);
 
-  const canContain = widget.type === 'panel' || widget.type === 'button';
+  const canContain = true; // 모든 위젯이 자식을 가질 수 있음
   const canDrag = widget.id !== 'root';
 
   return (
@@ -625,9 +620,19 @@ function PanelWidgetInspector({ widget, update }: {
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const windowed = widget.windowed !== false;
   const windowStyle = widget.windowStyle ?? 'default';
+  const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
+
+  const reloadPreview = async () => {
+    await saveCustomScenes();
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+    iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: uiEditorScene }, '*');
+  };
 
   const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
     update({ windowStyle: style === 'default' ? undefined : style } as any);
+    reloadPreview();
   };
 
   return (
@@ -638,13 +643,14 @@ function PanelWidgetInspector({ widget, update }: {
         onClose={() => setPickerOpen(false)}
         onSelect={(skinName, skinFile) => {
           update({ windowskinName: skinFile, skinId: skinName } as any);
+          reloadPreview();
         }}
       />
       <ImagePickerDialog
         open={imagePickerOpen}
         current={widget.imageFile ?? ''}
         onClose={() => setImagePickerOpen(false)}
-        onSelect={(filename) => update({ imageFile: filename } as any)}
+        onSelect={(filename) => { update({ imageFile: filename } as any); reloadPreview(); }}
       />
       <div style={rowStyle}>
         <label style={{ fontSize: 11, color: '#aaa' }}>
@@ -698,7 +704,7 @@ function PanelWidgetInspector({ widget, update }: {
                   return (
                     <label key={mode} className={`ui-radio-label${cur === mode ? ' active' : ''}`} style={{ fontSize: 10 }}>
                       <input type="radio" name={`panel-imgmode-${widget.id}`} value={mode} checked={cur === mode}
-                        onChange={() => update({ imageRenderMode: mode } as any)} />
+                        onChange={() => { update({ imageRenderMode: mode } as any); reloadPreview(); }} />
                       {label}
                     </label>
                   );
@@ -1077,17 +1083,9 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
     if (!selectedId || !scene.root) return null;
     function find(w: WidgetDef): WidgetDef | null {
       if (w.id === selectedId) return w;
-      if (w.type === 'panel') {
-        for (const c of (w as WidgetDef_Panel).children || []) {
-          const found = find(c);
-          if (found) return found;
-        }
-      }
-      if (w.type === 'button') {
-        for (const c of (w as WidgetDef_Button).children || []) {
-          const found = find(c);
-          if (found) return found;
-        }
+      for (const c of w.children || []) {
+        const found = find(c);
+        if (found) return found;
       }
       return null;
     }
@@ -1101,28 +1099,8 @@ function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneD
     setUiEditorScene('Scene_Menu');
   };
 
-  const addableParentId = selectedId && scene.root
-    ? (() => {
-        function find(w: WidgetDef): WidgetDef | null {
-          if (w.id === selectedId) return w;
-          if (w.type === 'panel') {
-            for (const c of (w as WidgetDef_Panel).children || []) {
-              const found = find(c);
-              if (found) return found;
-            }
-          }
-          if (w.type === 'button') {
-            for (const c of (w as WidgetDef_Button).children || []) {
-              const found = find(c);
-              if (found) return found;
-            }
-          }
-          return null;
-        }
-        const sel = find(scene.root!);
-        return sel?.type === 'panel' ? selectedId : (scene.root?.id || 'root');
-      })()
-    : (scene.root?.id || 'root');
+  // 선택된 위젯을 새 위젯의 부모로 사용 (모든 위젯이 자식을 가질 수 있음)
+  const addableParentId = selectedId && scene.root ? selectedId : (scene.root?.id || 'root');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', position: 'relative' }}>

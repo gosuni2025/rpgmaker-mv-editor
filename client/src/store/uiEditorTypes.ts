@@ -198,6 +198,7 @@ export interface WidgetDefBase {
   width: number;
   height?: number;
   visible?: boolean;
+  children?: WidgetDef[];
 }
 
 export interface WidgetDef_Panel extends WidgetDefBase {
@@ -211,7 +212,6 @@ export interface WidgetDef_Panel extends WidgetDefBase {
   imageFile?: string;
   imageRenderMode?: ImageRenderMode;
   colorTone?: [number, number, number];
-  children: WidgetDef[];
 }
 
 export interface WidgetDef_Label extends WidgetDefBase {
@@ -248,7 +248,6 @@ export interface WidgetDef_Button extends WidgetDefBase {
   action: CustomCommandHandler;
   leftAction?: CustomCommandHandler;
   rightAction?: CustomCommandHandler;
-  children?: WidgetDef[];
 }
 
 export interface WidgetDef_List extends WidgetDefBase {

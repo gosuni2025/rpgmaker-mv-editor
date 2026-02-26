@@ -1,5 +1,5 @@
 import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from './types';
-import type { CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, WidgetDef_Panel, WidgetDef_Button, NavigationConfig, CustomSceneDefV2 } from './uiEditorTypes';
+import type { CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, NavigationConfig, CustomSceneDefV2 } from './uiEditorTypes';
 import { TOOLBAR_STORAGE_KEY } from './types';
 import apiClient from '../api/client';
 
@@ -435,22 +435,18 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       if (!scene || !scene.root) return {};
 
       function addToParent(widget: WidgetDef): WidgetDef {
-        if (widget.type !== 'panel') return widget;
         if (widget.id === parentId) {
-          return { ...widget, children: [...((widget as WidgetDef_Panel).children || []), def] } as WidgetDef;
+          return { ...widget, children: [...(widget.children || []), def] };
         }
-        return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(addToParent) } as WidgetDef;
+        if (!widget.children?.length) return widget;
+        return { ...widget, children: widget.children.map(addToParent) };
       }
-
-      const newRoot = parentId === scene.root.id
-        ? { ...scene.root as WidgetDef_Panel, children: [...((scene.root as WidgetDef_Panel).children || []), def] }
-        : addToParent(scene.root);
 
       return {
         customScenes: {
           scenes: {
             ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: newRoot as WidgetDef } as any,
+            [sceneId]: { ...scene, root: addToParent(scene.root) } as any,
           },
         },
         customSceneDirty: true,
@@ -465,11 +461,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
 
       function removeFromTree(widget: WidgetDef): WidgetDef | null {
         if (widget.id === widgetId) return null;
-        if (widget.type !== 'panel') return widget;
-        return {
-          ...widget,
-          children: ((widget as WidgetDef_Panel).children || []).map(removeFromTree).filter(Boolean) as WidgetDef[],
-        } as WidgetDef;
+        if (!widget.children?.length) return widget;
+        return { ...widget, children: widget.children.map(removeFromTree).filter(Boolean) as WidgetDef[] };
       }
 
       const newRoot = removeFromTree(scene.root);
@@ -477,10 +470,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
 
       return {
         customScenes: {
-          scenes: {
-            ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: newRoot } as any,
-          },
+          scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: newRoot } as any },
         },
         customSceneDirty: true,
       };
@@ -494,21 +484,13 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
 
       function updateInTree(widget: WidgetDef): WidgetDef {
         if (widget.id === widgetId) return { ...widget, ...updates } as WidgetDef;
-        if (widget.type === 'panel') {
-          return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(updateInTree) } as WidgetDef;
-        }
-        if (widget.type === 'button' && (widget as WidgetDef_Button).children?.length) {
-          return { ...widget, children: ((widget as WidgetDef_Button).children || []).map(updateInTree) } as WidgetDef;
-        }
-        return widget;
+        if (!widget.children?.length) return widget;
+        return { ...widget, children: widget.children.map(updateInTree) };
       }
 
       return {
         customScenes: {
-          scenes: {
-            ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: updateInTree(scene.root) } as any,
-          },
+          scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: updateInTree(scene.root) } as any },
         },
         customSceneDirty: true,
       };
@@ -520,35 +502,22 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
 
-      // panel의 자식들은 절대 좌표 → delta만큼 함께 이동
-      // button의 자식들은 상대 좌표 → 이동 불필요
+      // 자식들은 절대 좌표 → delta만큼 함께 이동
       function applyDelta(widget: WidgetDef, dx: number, dy: number): WidgetDef {
-        const moved = { ...widget, x: widget.x + dx, y: widget.y + dy } as WidgetDef;
-        if (moved.type === 'panel') {
-          return { ...moved, children: ((moved as WidgetDef_Panel).children || []).map(c => applyDelta(c, dx, dy)) } as WidgetDef;
-        }
-        return moved;
+        const moved = { ...widget, x: widget.x + dx, y: widget.y + dy };
+        if (!moved.children?.length) return moved;
+        return { ...moved, children: moved.children.map(c => applyDelta(c, dx, dy)) };
       }
 
       function moveInTree(widget: WidgetDef): WidgetDef {
-        if (widget.id === widgetId) {
-          return applyDelta(widget, x - widget.x, y - widget.y);
-        }
-        if (widget.type === 'panel') {
-          return { ...widget, children: ((widget as WidgetDef_Panel).children || []).map(moveInTree) } as WidgetDef;
-        }
-        if (widget.type === 'button' && (widget as WidgetDef_Button).children?.length) {
-          return { ...widget, children: ((widget as WidgetDef_Button).children || []).map(moveInTree) } as WidgetDef;
-        }
-        return widget;
+        if (widget.id === widgetId) return applyDelta(widget, x - widget.x, y - widget.y);
+        if (!widget.children?.length) return widget;
+        return { ...widget, children: widget.children.map(moveInTree) };
       }
 
       return {
         customScenes: {
-          scenes: {
-            ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: moveInTree(scene.root) } as any,
-          },
+          scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: moveInTree(scene.root) } as any },
         },
         customSceneDirty: true,
       };
@@ -563,45 +532,31 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       // 1. dragId 위젯을 트리에서 추출
       let dragged: WidgetDef | null = null;
       function extract(widget: WidgetDef): WidgetDef {
-        if (widget.type === 'panel') {
-          const ch = (widget as WidgetDef_Panel).children || [];
-          const idx = ch.findIndex((c) => c.id === dragId);
-          if (idx >= 0) {
-            dragged = ch[idx];
-            return { ...widget, children: ch.filter((_, i) => i !== idx) } as WidgetDef;
-          }
-          return { ...widget, children: ch.map(extract) } as WidgetDef;
+        if (!widget.children?.length) return widget;
+        const idx = widget.children.findIndex((c) => c.id === dragId);
+        if (idx >= 0) {
+          dragged = widget.children[idx];
+          return { ...widget, children: widget.children.filter((_, i) => i !== idx) };
         }
-        if (widget.type === 'button' && (widget as WidgetDef_Button).children?.length) {
-          const ch = (widget as WidgetDef_Button).children!;
-          const idx = ch.findIndex((c) => c.id === dragId);
-          if (idx >= 0) {
-            dragged = ch[idx];
-            return { ...widget, children: ch.filter((_, i) => i !== idx) } as WidgetDef;
-          }
-          return { ...widget, children: ch.map(extract) } as WidgetDef;
-        }
-        return widget;
+        return { ...widget, children: widget.children.map(extract) };
       }
       const rootAfterExtract = extract(scene.root);
       if (!dragged) return {};
 
       // 2. targetId 위치에 삽입
       function insert(widget: WidgetDef): WidgetDef {
-        if (widget.type === 'panel' || widget.type === 'button') {
-          const ch = ((widget as WidgetDef_Panel | WidgetDef_Button).children as WidgetDef[] | undefined) || [];
-          if (position === 'inside' && widget.id === targetId) {
-            return { ...widget, children: [...ch, dragged!] } as WidgetDef;
-          }
-          const idx = ch.findIndex((c) => c.id === targetId);
-          if (idx >= 0 && position === 'before') {
-            const next = [...ch];
-            next.splice(idx, 0, dragged!);
-            return { ...widget, children: next } as WidgetDef;
-          }
-          return { ...widget, children: ch.map(insert) } as WidgetDef;
+        const ch = widget.children || [];
+        if (position === 'inside' && widget.id === targetId) {
+          return { ...widget, children: [...ch, dragged!] };
         }
-        return widget;
+        const idx = ch.findIndex((c) => c.id === targetId);
+        if (idx >= 0 && position === 'before') {
+          const next = [...ch];
+          next.splice(idx, 0, dragged!);
+          return { ...widget, children: next };
+        }
+        if (!ch.length) return widget;
+        return { ...widget, children: ch.map(insert) };
       }
       const newRoot = insert(rootAfterExtract);
 
