@@ -935,6 +935,18 @@
       // 버튼은 UPDATE_INTERVAL 무관하게 매 프레임 체크
       this._updateButtons();
 
+      // 화면 페이드에 맞춰 미니맵 투명도 동기화
+      // (이벤트 커맨드 221/222로 인한 $gameScreen 페이드는 Spriteset 안에서만 처리되므로
+      //  Scene 레벨에 직접 추가된 미니맵은 별도로 brightness를 반영해야 함)
+      // _updateButtons() 이후에 적용해야 hover opacity 값이 덮이지 않음
+      if ($gameScreen) {
+        var brightness = $gameScreen.brightness();
+        var fadeFactor = brightness / 255;
+        this._sprite.opacity = Math.round(CFG.opacity * fadeFactor);
+        if (this._btnPlus)  this._btnPlus.opacity  = Math.round(this._btnPlus.opacity  * fadeFactor);
+        if (this._btnMinus) this._btnMinus.opacity = Math.round(this._btnMinus.opacity * fadeFactor);
+      }
+
       if (this._pendingExplore) {
         this._pendingExplore = false;
         this.explore($gamePlayer.x, $gamePlayer.y);
