@@ -197,6 +197,9 @@ export default function PassageInspector() {
             <div className="light-inspector-title" style={{ fontSize: 11 }}>
               {t('passage.layerMode', '레이어 렌더링')}
             </div>
+            <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
+              ※ 2D 모드에서만 적용됩니다
+            </div>
             <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
               {[
                 { value: 0, label: t('passage.layerDefault', '기본'), title: '타일셋 설정 따름' },
