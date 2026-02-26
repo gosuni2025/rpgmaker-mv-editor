@@ -85,6 +85,7 @@ export interface EditorState {
   uiFontSelectedFamily: string; // 폰트 에디터: 현재 선택된 font-family
   uiFontDefaultFace: string;    // 폰트 에디터: 저장된 기본 폰트
   uiFontList: Array<{ name: string; file: string; family: string }>; // 프로젝트 폰트 목록
+  uiFontSceneFonts: Record<string, string>; // 씬별 기본 폰트 (sceneName → fontFamily)
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -263,6 +264,7 @@ export interface EditorState {
   setUiFontSelectedFamily: (family: string) => void;
   setUiFontDefaultFace: (face: string) => void;
   setUiFontList: (list: Array<{ name: string; file: string; family: string }>) => void;
+  setUiFontSceneFonts: (sceneFonts: Record<string, string>) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

@@ -511,8 +511,12 @@
     return G('backOpacity', 192);
   };
 
+  // 현재 씬에 지정된 폰트 (Scene.create 시점에 설정)
+  var _sceneFontFace = null;
+
   var _origStandardFontFace = Window_Base.prototype.standardFontFace;
   Window_Base.prototype.standardFontFace = function () {
+    if (_sceneFontFace) return _sceneFontFace;
     if (_fonts.defaultFontFace) return _fonts.defaultFontFace;
     return _origStandardFontFace.call(this);
   };
@@ -521,7 +525,16 @@
   var _origBitmapInit = Bitmap.prototype.initialize;
   Bitmap.prototype.initialize = function (width, height) {
     _origBitmapInit.call(this, width, height);
-    if (_fonts.defaultFontFace) this.fontFace = _fonts.defaultFontFace;
+    var face = _sceneFontFace || _fonts.defaultFontFace;
+    if (face) this.fontFace = face;
+  };
+
+  // 씬 시작 전(create) 씬별 폰트 설정 — Window들이 initialize되기 전에 적용해야 함
+  var _origSceneBaseCreate = Scene_Base.prototype.create;
+  Scene_Base.prototype.create = function () {
+    var sceneName = this.constructor.name;
+    _sceneFontFace = (_fonts.sceneFonts && _fonts.sceneFonts[sceneName]) || null;
+    _origSceneBaseCreate.call(this);
   };
 
   Window_Base.prototype.loadWindowskin = function () {

@@ -15,6 +15,7 @@ export function useFontEditorData() {
   const setUiFontList = useEditorStore((s) => s.setUiFontList);
   const setUiFontDefaultFace = useEditorStore((s) => s.setUiFontDefaultFace);
   const setUiFontSelectedFamily = useEditorStore((s) => s.setUiFontSelectedFamily);
+  const setUiFontSceneFonts = useEditorStore((s) => s.setUiFontSceneFonts);
   const uiFontSelectedFamily = useEditorStore((s) => s.uiFontSelectedFamily);
 
   const reload = useCallback(() => {
@@ -24,6 +25,7 @@ export function useFontEditorData() {
       .then((data) => {
         setUiFontList(data.fonts ?? []);
         setUiFontDefaultFace(data.defaultFontFace ?? '');
+        setUiFontSceneFonts(data.sceneFonts ?? {});
         if (!uiFontSelectedFamily || uiFontSelectedFamily === 'GameFont') {
           setUiFontSelectedFamily(data.defaultFontFace || 'GameFont');
         }

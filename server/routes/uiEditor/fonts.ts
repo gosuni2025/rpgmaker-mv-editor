@@ -12,7 +12,7 @@ function getFontsConfigPath(): string | null {
   return path.join(projectManager.currentPath!, 'data', 'UIEditorFonts.json');
 }
 
-function loadFontsConfig(): { defaultFontFace: string } {
+function loadFontsConfig(): { defaultFontFace: string; sceneFonts?: Record<string, string> } {
   const p = getFontsConfigPath();
   if (!p || !fs.existsSync(p)) return { defaultFontFace: '' };
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return { defaultFontFace: '' }; }
