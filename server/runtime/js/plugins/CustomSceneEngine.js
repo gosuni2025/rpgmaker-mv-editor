@@ -231,14 +231,6 @@
         this.drawText(String(varVal) + (elem.suffix || ''), x, y, w, align);
         break;
       }
-      case 'configValue': {
-        var cfgVal = typeof ConfigManager !== 'undefined' && elem.configKey ? ConfigManager[elem.configKey] : 0;
-        if (cfgVal === undefined) cfgVal = 0;
-        // boolean 값은 on/off로 표시
-        var cfgStr = typeof cfgVal === 'boolean' ? (cfgVal ? 'ON' : 'OFF') : String(cfgVal) + (elem.suffix || '');
-        this.drawText(cfgStr, x, y, w, align);
-        break;
-      }
       case 'image':
         if (typeof ImageManager !== 'undefined' && elem.imageName) {
           var folder = elem.imageFolder || 'img/system/';
@@ -631,6 +623,24 @@
       if (padding !== undefined) win._padding = padding;
       if (def.backOpacity !== undefined) win.backOpacity = def.backOpacity;
       win._customClassName = 'Window_CS_' + this._id;
+      // 프레임 스타일 처리 (기본 이외)
+      if (def.windowStyle && def.windowStyle !== 'default') {
+        var csOv = { windowStyle: def.windowStyle };
+        if (def.windowStyle === 'frame') {
+          if (def.windowskinName) csOv.windowskinName = def.windowskinName;
+          if (def.skinId) csOv.skinId = def.skinId;
+          if (def.colorTone) csOv.colorTone = def.colorTone;
+        } else if (def.windowStyle === 'image') {
+          if (def.imageFile) {
+            csOv.imageFile = def.imageFile;
+            win._themeSkin = ImageManager.loadSystem(def.imageFile);
+          }
+          if (def.imageRenderMode) csOv.imageRenderMode = def.imageRenderMode;
+        }
+        if (typeof window._uiThemeSetWindowOverride === 'function') {
+          window._uiThemeSetWindowOverride(win._customClassName, csOv);
+        }
+      }
       this._displayObject = win;
       this._padding = win._padding;
     } else {
@@ -697,60 +707,6 @@
     Widget_Base.prototype.update.call(this);
   };
   window.Widget_Label = Widget_Label;
-
-  //===========================================================================
-  // Widget_ConfigValue — ConfigManager 값 표시 라벨 (Sprite 기반, 투명)
-  //===========================================================================
-  function Widget_ConfigValue() {}
-  Widget_ConfigValue.prototype = Object.create(Widget_Base.prototype);
-  Widget_ConfigValue.prototype.constructor = Widget_ConfigValue;
-  Widget_ConfigValue.prototype.initialize = function(def, parentWidget) {
-    Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._configKey = def.configKey || '';
-    this._align = def.align || 'right';
-    this._fontSize = def.fontSize || 28;
-    this._configType = def.configType || 'auto'; // 'bool' | 'volume' | 'auto'
-    var h = def.height || this._fontSize + 8;
-    var sprite = new Sprite();
-    sprite.x = this._x;
-    sprite.y = this._y;
-    var bitmap = new Bitmap(this._width, h);
-    bitmap.fontSize = this._fontSize;
-    sprite.bitmap = bitmap;
-    this._sprite = sprite;
-    this._bitmap = bitmap;
-    this._displayObject = sprite;
-    this._lastValue = undefined;
-    this.refresh();
-  };
-  Widget_ConfigValue.prototype._formatValue = function(val) {
-    var type = this._configType;
-    if (type === 'auto') {
-      if (typeof val === 'boolean') type = 'bool';
-      else if (typeof val === 'number') type = 'volume';
-    }
-    if (type === 'bool') return val ? 'ON' : 'OFF';
-    if (type === 'volume') return (val === undefined ? 100 : val) + '%';
-    return String(val !== undefined ? val : '');
-  };
-  Widget_ConfigValue.prototype.refresh = function() {
-    if (!this._bitmap || !this._configKey) return;
-    var val = (typeof ConfigManager !== 'undefined') ? ConfigManager[this._configKey] : undefined;
-    if (val === this._lastValue) return;
-    this._lastValue = val;
-    this._bitmap.clear();
-    this._bitmap.textColor = '#ffffff';
-    this._bitmap.drawText(this._formatValue(val), 0, 0, this._width, this._bitmap.height, this._align);
-  };
-  Widget_ConfigValue.prototype.update = function() {
-    this.refresh();
-    Widget_Base.prototype.update.call(this);
-  };
-  Widget_ConfigValue.prototype.forceRefresh = function() {
-    this._lastValue = undefined;
-    this.refresh();
-  };
-  window.Widget_ConfigValue = Widget_ConfigValue;
 
   //===========================================================================
   // Widget_Image — 이미지 표시
@@ -1332,7 +1288,6 @@
       case 'list':        widget = new Widget_List();        break;
       case 'actorList':   widget = new Widget_ActorList();   break;
       case 'options':     widget = new Widget_Options();     break;
-      case 'configValue': widget = new Widget_ConfigValue(); break;
       default:          return null;
     }
     widget.initialize(def, parentWidget);
@@ -1492,7 +1447,7 @@
         if (cfgKey !== undefined && typeof ConfigManager !== 'undefined') {
           var prev = ConfigManager[cfgKey];
           ConfigManager[cfgKey] = !prev;
-          this._refreshConfigValues();
+
           if (prev !== ConfigManager[cfgKey] && typeof SoundManager !== 'undefined') SoundManager.playCursor();
         }
         if (widget && widget.activate) widget.activate();
@@ -1506,7 +1461,7 @@
           var next = cur + step > 100 ? 0 : cur + step;
           if (cur !== next) {
             ConfigManager[cfgKey2] = next;
-            this._refreshConfigValues();
+  
             if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
           }
         }
@@ -1521,7 +1476,7 @@
           var next2 = Math.max(0, cur2 - step2);
           if (cur2 !== next2) {
             ConfigManager[cfgKey3] = next2;
-            this._refreshConfigValues();
+  
             if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
           }
         }
@@ -1573,18 +1528,6 @@
         this._executeWidgetHandler(action, widget);
       }
     }
-  };
-
-  Scene_CustomUI.prototype._refreshConfigValues = function() {
-    function traverse(widget) {
-      if (widget instanceof Widget_ConfigValue) {
-        widget.forceRefresh();
-      }
-      for (var i = 0; i < widget._children.length; i++) {
-        traverse(widget._children[i]);
-      }
-    }
-    if (this._rootWidget) traverse(this._rootWidget);
   };
 
   Scene_CustomUI.prototype.terminate = function() {

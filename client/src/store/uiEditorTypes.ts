@@ -188,7 +188,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList' | 'options' | 'configValue';
+export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList' | 'options';
 
 export interface WidgetDefBase {
   id: string;
@@ -205,6 +205,12 @@ export interface WidgetDef_Panel extends WidgetDefBase {
   windowed?: boolean;
   padding?: number;
   backOpacity?: number;
+  windowStyle?: 'default' | 'frame' | 'image';
+  windowskinName?: string;
+  skinId?: string;
+  imageFile?: string;
+  imageRenderMode?: ImageRenderMode;
+  colorTone?: [number, number, number];
   children: WidgetDef[];
 }
 

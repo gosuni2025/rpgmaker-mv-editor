@@ -124,7 +124,7 @@
   // 커스텀 스킨 이미지는 _themeSkin에 분리 저장하여 렌더링에만 사용한다.
   //===========================================================================
   function getThemeSkinEntry(win) {
-    var className = win.constructor && win.constructor.name;
+    var className = win._customClassName || (win.constructor && win.constructor.name);
     var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
     if (skinId) return findSkinEntryById(skinId);
     var themeSkinName = skinNameFromBitmap(win._themeSkin);
@@ -133,7 +133,7 @@
 
   /** 커서 전용 스킨 항목 취득 — defaultCursorSkin 폴백 */
   function getThemeCursorEntry(win) {
-    var className = win.constructor && win.constructor.name;
+    var className = win._customClassName || (win.constructor && win.constructor.name);
     var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
     if (skinId) return findSkinEntryById(skinId);
     var themeSkinName = skinNameFromBitmap(win._themeSkin);
@@ -193,7 +193,7 @@
   //===========================================================================
   var _Window_refreshBack = Window.prototype._refreshBack;
   Window.prototype._refreshBack = function () {
-    var className = this.constructor && this.constructor.name;
+    var className = this._customClassName || (this.constructor && this.constructor.name);
     var ov = (_config.overrides || {})[className];
     // 이미지 모드 처리
     if (ov && ov.windowStyle === 'image') {
@@ -270,7 +270,7 @@
   //===========================================================================
   var _Window_refreshFrame = Window.prototype._refreshFrame;
   Window.prototype._refreshFrame = function () {
-    var className = this.constructor && this.constructor.name;
+    var className = this._customClassName || (this.constructor && this.constructor.name);
     var ov = (_config.overrides || {})[className];
     // 이미지 모드: 프레임 그리지 않음 (빈 비트맵)
     if (ov && ov.windowStyle === 'image') {
@@ -723,6 +723,16 @@
   // 에디터 프리뷰에서 동적으로 폰트 설정 갱신 (refreshScene 전에 호출)
   window._uiThemeUpdateFonts = function(config) {
     if (config) _fonts = config;
+  };
+
+  // CustomSceneEngine 등에서 동적으로 창별 override 등록 (_customClassName key 사용)
+  window._uiThemeSetWindowOverride = function(className, override) {
+    if (!_config.overrides) _config.overrides = {};
+    if (override !== null && override !== undefined) {
+      _config.overrides[className] = override;
+    } else {
+      delete _config.overrides[className];
+    }
   };
 
   Window_Base.prototype.loadWindowskin = function () {
