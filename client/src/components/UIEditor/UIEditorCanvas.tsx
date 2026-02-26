@@ -513,7 +513,7 @@ export default function UIEditorCanvas() {
                   </div>
                 );
               })}
-            {uiEditorWindows.map((win) => {
+            {!customSceneId && uiEditorWindows.map((win) => {
               const isSelected = win.id === uiEditorSelectedWindowId;
               const windowOverride = uiEditorOverrides[win.className];
               const padding = win.padding ?? 18;
