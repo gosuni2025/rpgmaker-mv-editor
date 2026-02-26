@@ -90,6 +90,7 @@ export interface EditorState {
   // Custom scenes
   customScenes: CustomScenesData;
   customSceneDirty: boolean;
+  sceneRedirects: Record<string, string>; // 씬 이름 → 대체할 커스텀 씬 이름
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -279,6 +280,7 @@ export interface EditorState {
   addCustomWindow: (sceneId: string, def: CustomWindowDef) => void;
   removeCustomWindow: (sceneId: string, winId: string) => void;
   updateCustomWindow: (sceneId: string, winId: string, updates: Partial<CustomWindowDef>) => void;
+  setSceneRedirects: (redirects: Record<string, string>) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

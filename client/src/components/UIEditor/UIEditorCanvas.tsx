@@ -70,6 +70,7 @@ export default function UIEditorCanvas() {
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
   const loadUiEditorOverrides = useEditorStore((s) => s.loadUiEditorOverrides);
+  const setSceneRedirects = useEditorStore((s) => s.setSceneRedirects);
   const setUiEditorSelectedElementType = useEditorStore((s) => s.setUiEditorSelectedElementType);
   const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
   const undoUiOverride = useEditorStore((s) => s.undoUiOverride);
@@ -100,14 +101,17 @@ export default function UIEditorCanvas() {
   useEffect(() => {
     if (!projectPath) return;
     if (Object.keys(useEditorStore.getState().uiEditorOverrides).length > 0) return;
-    apiClient.get<{ overrides?: Record<string, UIWindowOverride> }>('/ui-editor/config')
+    apiClient.get<{ overrides?: Record<string, UIWindowOverride>; sceneRedirects?: Record<string, string> }>('/ui-editor/config')
       .then((data) => {
         if (data.overrides && Object.keys(data.overrides).length > 0) {
           loadUiEditorOverrides(data.overrides);
         }
+        if (data.sceneRedirects) {
+          setSceneRedirects(data.sceneRedirects);
+        }
       })
       .catch(() => {});
-  }, [projectPath, loadUiEditorOverrides]);
+  }, [projectPath, loadUiEditorOverrides, setSceneRedirects]);
 
   // postMessage 수신
   useEffect(() => {
@@ -143,7 +147,7 @@ export default function UIEditorCanvas() {
         setUiEditorSelectedWindowId(e.data.windowId ?? null);
       } else if (type === 'cmdSave') {
         const s = useEditorStore.getState();
-        apiClient.put('/ui-editor/config', { overrides: s.uiEditorOverrides })
+        apiClient.put('/ui-editor/config', { overrides: s.uiEditorOverrides, sceneRedirects: s.sceneRedirects })
         .then(() => {
           s.setUiEditorDirty(false);
           s.showToast('UI 테마 저장 완료');

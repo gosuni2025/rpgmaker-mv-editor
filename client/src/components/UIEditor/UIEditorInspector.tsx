@@ -17,6 +17,81 @@ const ALL_FONTS = [
   { family: 'Georgia, serif', label: 'Georgia' },
 ];
 
+function SceneRedirectSection({ scene }: { scene: string }) {
+  const sceneRedirects = useEditorStore((s) => s.sceneRedirects);
+  const setSceneRedirects = useEditorStore((s) => s.setSceneRedirects);
+  const customScenes = useEditorStore((s) => s.customScenes);
+  const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
+
+  const currentRedirect = sceneRedirects[scene] ?? '';
+  const customSceneList = Object.values(customScenes.scenes);
+
+  const handleChange = async (target: string) => {
+    const next = { ...sceneRedirects };
+    if (target) {
+      next[scene] = target;
+    } else {
+      delete next[scene];
+    }
+    setSceneRedirects(next);
+    setUiEditorDirty(true);
+    // iframe에 즉시 반영
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    iframe?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: next }, '*');
+  };
+
+  return (
+    <div className="ui-inspector-section">
+      <div className="ui-inspector-section-title">씬 교체</div>
+      <div style={{ padding: '4px 12px 8px' }}>
+        <label className="ui-radio-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <input
+            type="radio"
+            name={`redirect-${scene}`}
+            checked={!currentRedirect}
+            onChange={() => handleChange('')}
+          />
+          인 게임 기본 씬 사용
+        </label>
+        <label className="ui-radio-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, opacity: customSceneList.length === 0 ? 0.5 : 1 }}>
+          <input
+            type="radio"
+            name={`redirect-${scene}`}
+            checked={!!currentRedirect}
+            disabled={customSceneList.length === 0}
+            onChange={() => customSceneList.length > 0 && handleChange(`Scene_CS_${customSceneList[0].id}`)}
+          />
+          커스텀 씬으로 교체
+        </label>
+        {currentRedirect && (
+          <select
+            style={{ width: '100%', background: '#3c3c3c', border: '1px solid #555', color: '#ddd', padding: '4px 6px', borderRadius: 2, fontSize: 12, marginTop: 2 }}
+            value={currentRedirect}
+            onChange={(e) => handleChange(e.target.value)}
+          >
+            {customSceneList.map((s) => (
+              <option key={s.id} value={`Scene_CS_${s.id}`}>
+                {s.displayName} (Scene_CS_{s.id})
+              </option>
+            ))}
+          </select>
+        )}
+        {customSceneList.length === 0 && (
+          <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+            커스텀 씬이 없습니다. 사이드바에서 새 씬을 만드세요.
+          </div>
+        )}
+        {currentRedirect && (
+          <div style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
+            게임에서 <strong style={{ color: '#ddd' }}>{scene}</strong>을 열면<br />
+            <strong style={{ color: '#2675bf' }}>{currentRedirect}</strong>으로 대체됩니다.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SceneInspector() {
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiFontSceneFonts = useEditorStore((s) => s.uiFontSceneFonts);
@@ -70,6 +145,8 @@ function SceneInspector() {
             창을 선택하면 해당 창의 설정을 편집합니다
           </div>
         </div>
+
+        <SceneRedirectSection scene={uiEditorScene} />
 
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">이 씬의 기본 폰트 설정</div>

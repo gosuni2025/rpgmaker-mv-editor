@@ -92,11 +92,10 @@ export default function UIEditorToolbar() {
     if (!projectPath) return;
     try {
       const s = useEditorStore.getState();
-      const config = s.uiEditorOverrides;
       await fetch('/api/ui-editor/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides: config }),
+        body: JSON.stringify({ overrides: s.uiEditorOverrides, sceneRedirects: s.sceneRedirects }),
       });
       // 커스텀 씬도 함께 저장
       if (s.customSceneDirty) {
@@ -115,11 +114,11 @@ export default function UIEditorToolbar() {
     const classNames = [...new Set(uiEditorWindows.map((w) => w.className))];
     classNames.forEach((cls) => s.resetUiEditorOverride(cls));
     // 서버에 저장
-    const overrides = useEditorStore.getState().uiEditorOverrides;
+    const s2 = useEditorStore.getState();
     await fetch('/api/ui-editor/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overrides }),
+      body: JSON.stringify({ overrides: s2.uiEditorOverrides, sceneRedirects: s2.sceneRedirects }),
     });
     s.setUiEditorDirty(false);
     // iframe의 _ov에서 해당 클래스 삭제 후 씬 재로드

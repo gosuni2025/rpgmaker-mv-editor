@@ -39,7 +39,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiFontSelectedFamily' | 'uiFontDefaultFace' | 'uiFontList' | 'uiFontSceneFonts' |
   'uiEditorSelectedElementType' |
-  'customScenes' | 'customSceneDirty' |
+  'customScenes' | 'customSceneDirty' | 'sceneRedirects' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
@@ -48,7 +48,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'setUiEditorSelectedElementType' | 'setUiElementOverride' |
   'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride' |
   'loadCustomScenes' | 'saveCustomScenes' | 'addCustomScene' | 'removeCustomScene' | 'updateCustomScene' |
-  'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow'
+  'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects'
 >> = (set, get) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -98,6 +98,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiEditorSelectedElementType: null,
   customScenes: { scenes: {} },
   customSceneDirty: false,
+  sceneRedirects: {},
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
   setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorOriginalWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
@@ -359,4 +360,5 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       };
     });
   },
+  setSceneRedirects: (redirects: Record<string, string>) => set({ sceneRedirects: redirects }),
 });

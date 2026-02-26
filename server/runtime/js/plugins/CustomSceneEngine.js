@@ -377,17 +377,60 @@
     }
   }
 
+  //===========================================================================
+  // 씬 리다이렉트 — SceneManager.goto/push 후킹
+  //===========================================================================
+  function installSceneRedirects(redirects) {
+    // 기존 패치 제거
+    if (SceneManager._csOrigGoto) {
+      SceneManager.goto = SceneManager._csOrigGoto;
+      delete SceneManager._csOrigGoto;
+    }
+    if (SceneManager._csOrigPush) {
+      SceneManager.push = SceneManager._csOrigPush;
+      delete SceneManager._csOrigPush;
+    }
+
+    if (!redirects || Object.keys(redirects).length === 0) return;
+
+    SceneManager._csOrigGoto = SceneManager.goto;
+    SceneManager._csOrigPush = SceneManager.push;
+
+    function resolve(SceneCtor) {
+      if (!SceneCtor) return SceneCtor;
+      var name = SceneCtor.name || '';
+      var target = redirects[name];
+      if (target) {
+        var RedirCtor = window[target];
+        if (RedirCtor) return RedirCtor;
+      }
+      return SceneCtor;
+    }
+
+    SceneManager.goto = function (SceneCtor) {
+      return SceneManager._csOrigGoto.call(this, resolve(SceneCtor));
+    };
+    SceneManager.push = function (SceneCtor) {
+      return SceneManager._csOrigPush.call(this, resolve(SceneCtor));
+    };
+  }
+
   function reloadCustomScenes() {
     _scenesData = loadJSON('data/UIEditorScenes.json');
     _configData = loadJSON('data/UIEditorConfig.json');
     registerCustomScenes();
+    installSceneRedirects(_configData.sceneRedirects || {});
   }
 
   // 초기 등록
   registerCustomScenes();
+  installSceneRedirects(_configData.sceneRedirects || {});
 
   // 외부 인터페이스
   window.__customSceneEngine = {
     reloadCustomScenes: reloadCustomScenes,
+    updateSceneRedirects: function (redirects) {
+      installSceneRedirects(redirects || {});
+    },
   };
 })();

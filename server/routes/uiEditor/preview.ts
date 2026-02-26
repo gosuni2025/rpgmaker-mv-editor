@@ -701,6 +701,11 @@ function buildPreviewHTML(useWebp: boolean): string {
               loadScene(_targetScene);
             }
             break;
+          case 'updateSceneRedirects':
+            if (window.__customSceneEngine) {
+              window.__customSceneEngine.updateSceneRedirects(data.redirects);
+            }
+            break;
           case 'reloadWindowskin': {
             if (typeof ImageManager === 'undefined' || typeof SceneManager === 'undefined') break;
             var fname = data.filename;
