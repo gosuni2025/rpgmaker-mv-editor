@@ -20,4 +20,5 @@ const useEditorStore = create<EditorState>((...a) => ({
 // Debug: expose store globally
 (window as unknown as Record<string, unknown>).__editorStore = useEditorStore;
 
+export { useEditorStore };
 export default useEditorStore;
