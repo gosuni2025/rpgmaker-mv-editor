@@ -272,7 +272,7 @@
      * @param {Number} [parentAlpha=1]
      * @private
      */
-    ThreeRendererStrategy._syncHierarchy = function(rendererObj, node, parentAlpha) {
+    ThreeRendererStrategy._syncHierarchy = function(rendererObj, node, parentAlpha, forceOrder) {
         if (parentAlpha === undefined) parentAlpha = 1;
 
         // Compute world alpha
@@ -321,11 +321,8 @@
             }
             // THREE.Mesh objects get renderOrder for depth-independent sorting
             if (node._threeObj.isMesh) {
-                // ScreenSprite(fade/flash)는 씬 계층 위치와 무관하게 항상 최상위 renderOrder
-                // (미니맵 등 Scene 레벨 UI가 Spriteset 안의 fade보다 높은 인덱스에 있어도
-                //  fade가 반드시 위에 그려지도록 보장)
-                if (typeof ScreenSprite !== 'undefined' && node instanceof ScreenSprite) {
-                    node._threeObj.renderOrder = 999998;
+                if (forceOrder !== undefined) {
+                    node._threeObj.renderOrder = forceOrder;
                 } else {
                     // 오브젝트 물 메시는 container보다 먼저 렌더링 (물 → 일반 타일 순서)
                     var meshChildren = node._threeObj.children;
@@ -369,6 +366,10 @@
         }
 
         // Recurse into wrapper children
+        // ScreenSprite(fade/flash)는 _threeObj가 Group이라 isMesh 블록을 거치지 않음.
+        // 자식(_graphics 등)에 forceOrder를 전달해 항상 최상위 renderOrder 보장.
+        var childForceOrder = (typeof ScreenSprite !== 'undefined' && node instanceof ScreenSprite)
+            ? 999998 : forceOrder;
         var children = node.children;
         if (children) {
             for (var i = 0; i < children.length; i++) {
@@ -377,7 +378,7 @@
                     // visible 자식은 _threeObj.visible을 명시적으로 true 복원
                     // (이전 프레임에서 visibility management가 false로 설정했을 수 있음)
                     if (child._threeObj) child._threeObj.visible = true;
-                    this._syncHierarchy(rendererObj, child, worldAlpha);
+                    this._syncHierarchy(rendererObj, child, worldAlpha, childForceOrder);
                 } else if (child._threeObj) {
                     child._threeObj.visible = false;
                 }
