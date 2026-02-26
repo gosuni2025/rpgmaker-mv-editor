@@ -324,6 +324,10 @@ function buildPreviewHTML(useWebp: boolean): string {
               if (win.contents) win.contents.fontSize = value;
               if (win.refresh) win.refresh();
               break;
+            case 'fontFace':
+              if (win.contents) win.contents.fontFace = value;
+              if (win.refresh) win.refresh();
+              break;
             case 'colorTone':
               if (win.setTone) win.setTone(value[0], value[1], value[2]);
               break;

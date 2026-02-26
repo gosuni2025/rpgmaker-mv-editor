@@ -47,8 +47,8 @@ export interface EditorState {
   uiEditorSelectedWindowId: string | null;
   uiEditorOverrides: Record<string, UIWindowOverride>;
   uiEditorDirty: boolean;
-  // UI Editor 서브모드: 창 배치 편집 vs 프레임(스킨) 편집 vs 커서 편집
-  uiEditSubMode: 'window' | 'frame' | 'cursor';
+  // UI Editor 서브모드: 창 배치 편집 vs 프레임(스킨) 편집 vs 커서 편집 vs 폰트 설정
+  uiEditSubMode: 'window' | 'frame' | 'cursor' | 'font';
   uiSelectedSkin: string;      // 선택된 스킨 ID (name 필드)
   uiSelectedSkinFile: string;  // 선택된 스킨의 이미지 파일 경로 (확장자 제외)
   uiSkinCornerSize: number;    // 9-slice 코너 크기 px
@@ -231,7 +231,7 @@ export interface EditorState {
   resetUiEditorOverride: (className: string) => void;
   loadUiEditorOverrides: (overrides: Record<string, UIWindowOverride>) => void;
   setUiEditorDirty: (dirty: boolean) => void;
-  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor') => void;
+  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor' | 'font') => void;
   setUiSelectedSkin: (skin: string) => void;
   setUiSelectedSkinFile: (file: string) => void;
   setUiSkinCornerSize: (size: number) => void;

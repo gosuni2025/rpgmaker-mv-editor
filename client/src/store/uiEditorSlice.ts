@@ -124,7 +124,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   },
   loadUiEditorOverrides: (overrides) => set({ uiEditorOverrides: overrides, uiEditorDirty: false }),
   setUiEditorDirty: (dirty) => set({ uiEditorDirty: dirty }),
-  setUiEditSubMode: (mode) => { saveToolbarKeys({ uiEditSubMode: mode }); set({ uiEditSubMode: mode }); },
+  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor' | 'font') => { saveToolbarKeys({ uiEditSubMode: mode }); set({ uiEditSubMode: mode }); },
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
   setUiSelectedSkinFile: (file) => set({ uiSelectedSkinFile: file }),
   setUiSkinCornerSize: (size) => set((state) => ({

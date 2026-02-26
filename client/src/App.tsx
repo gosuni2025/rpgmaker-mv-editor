@@ -50,6 +50,7 @@ import UIEditorFrameCanvas from './components/UIEditor/UIEditorFrameCanvas';
 import UIEditorFrameInspector from './components/UIEditor/UIEditorFrameInspector';
 import UIEditorCursorInspector from './components/UIEditor/UIEditorCursorInspector';
 import UIEditorSkinPreview from './components/UIEditor/UIEditorSkinPreview';
+import UIEditorFontEditor from './components/UIEditor/UIEditorFontEditor';
 
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
@@ -200,16 +201,20 @@ export default function App() {
 
       {editorMode === 'ui' ? (
         <>
-          <div className="sidebar">
-            <ResizablePanel defaultWidth={220} minWidth={150} maxWidth={400}>
-              <UIEditorSidebar />
-            </ResizablePanel>
-          </div>
+          {uiEditSubMode !== 'font' && (
+            <div className="sidebar">
+              <ResizablePanel defaultWidth={220} minWidth={150} maxWidth={400}>
+                <UIEditorSidebar />
+              </ResizablePanel>
+            </div>
+          )}
           <div className="toolbar-area">
             <UIEditorToolbar />
           </div>
-          <div className="main-area" style={(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor') ? { flexDirection: 'row' } : undefined}>
-            {(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor') ? (
+          <div className="main-area" style={(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor' || uiEditSubMode === 'font') ? { flexDirection: 'row' } : undefined}>
+            {uiEditSubMode === 'font' ? (
+              <UIEditorFontEditor />
+            ) : (uiEditSubMode === 'frame' || uiEditSubMode === 'cursor') ? (
               <>
                 <UIEditorFrameCanvas />
                 <ResizablePanel defaultWidth={240} minWidth={160} maxWidth={420} side="left">
@@ -218,13 +223,15 @@ export default function App() {
               </>
             ) : <UIEditorCanvas />}
           </div>
-          <div className="inspector-area">
-            <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
-              {uiEditSubMode === 'frame' ? <UIEditorFrameInspector /> :
-               uiEditSubMode === 'cursor' ? <UIEditorCursorInspector /> :
-               <UIEditorInspector />}
-            </ResizablePanel>
-          </div>
+          {uiEditSubMode !== 'font' && (
+            <div className="inspector-area">
+              <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
+                {uiEditSubMode === 'frame' ? <UIEditorFrameInspector /> :
+                 uiEditSubMode === 'cursor' ? <UIEditorCursorInspector /> :
+                 <UIEditorInspector />}
+              </ResizablePanel>
+            </div>
+          )}
         </>
       ) : (
         <>

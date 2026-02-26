@@ -132,6 +132,12 @@ export default function UIEditorToolbar() {
           >
             커서 편집
           </button>
+          <button
+            className={`draw-toolbar-btn${uiEditSubMode === 'font' ? ' active' : ''}`}
+            onClick={() => setUiEditSubMode('font')}
+          >
+            폰트 설정
+          </button>
         </div>
 
         {/* 창 편집 전용 옵션 */}
@@ -185,14 +191,16 @@ export default function UIEditorToolbar() {
         <div className="draw-toolbar-spacer" />
 
         {/* 저장 / 플레이테스트 — 오른쪽 */}
-        <button
-          className={`draw-toolbar-save-btn${uiEditorDirty ? ' dirty' : ''}`}
-          onClick={handleSave}
-          disabled={!projectPath}
-          title="UI 테마 저장 (Ctrl+S)"
-        >
-          저장{uiEditorDirty ? ' *' : ''}
-        </button>
+        {uiEditSubMode !== 'font' && (
+          <button
+            className={`draw-toolbar-save-btn${uiEditorDirty ? ' dirty' : ''}`}
+            onClick={handleSave}
+            disabled={!projectPath}
+            title="UI 테마 저장 (Ctrl+S)"
+          >
+            저장{uiEditorDirty ? ' *' : ''}
+          </button>
+        )}
 
         <button
           className="draw-toolbar-play-btn"

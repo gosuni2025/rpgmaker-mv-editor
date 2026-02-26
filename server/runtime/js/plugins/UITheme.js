@@ -53,6 +53,20 @@
     }
   })();
 
+  var _fonts = {};
+  (function () {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'data/UIEditorFonts.json?_=' + Date.now(), false);
+      xhr.send();
+      if (xhr.status === 200 || xhr.status === 0) {
+        _fonts = JSON.parse(xhr.responseText);
+      }
+    } catch (e) {
+      // 파일 없음 → 기본값 사용
+    }
+  })();
+
   /** 스킨 bitmap URL에서 스킨 이름 추출 (img/system/ 이후 경로, 확장자 제거) */
   function skinNameFromBitmap(bitmap) {
     if (!bitmap || !bitmap.url) return null;
@@ -497,6 +511,12 @@
     return G('backOpacity', 192);
   };
 
+  var _origStandardFontFace = Window_Base.prototype.standardFontFace;
+  Window_Base.prototype.standardFontFace = function () {
+    if (_fonts.defaultFontFace) return _fonts.defaultFontFace;
+    return _origStandardFontFace.call(this);
+  };
+
   Window_Base.prototype.loadWindowskin = function () {
     var skinId = _skins.defaultSkin || G('windowskin', 'Window');
     var entry = findSkinEntryById(skinId) || findSkinEntry(skinId);
@@ -538,6 +558,9 @@
     }
     if (ov.fontSize !== undefined) {
       cls.prototype.standardFontSize = function () { return ov.fontSize; };
+    }
+    if (ov.fontFace !== undefined) {
+      cls.prototype.standardFontFace = function () { return ov.fontFace; };
     }
     if (ov.backOpacity !== undefined) {
       cls.prototype.standardBackOpacity = function () { return ov.backOpacity; };
