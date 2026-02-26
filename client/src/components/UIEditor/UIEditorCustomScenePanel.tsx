@@ -277,6 +277,16 @@ function NavigationConfigSection({ sceneId, nav }: { sceneId: string; nav: Navig
           placeholder="widget id"
           onChange={(e) => updateNavigation(sceneId, { cancelWidget: e.target.value || undefined })} />
       </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>포커스 순서</span>
+        <input style={{ ...inputStyle, flex: 1 }}
+          placeholder="쉼표로 구분 (id1, id2, ...)"
+          value={(nav.focusOrder || []).join(', ')}
+          onChange={(e) => {
+            const order = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+            updateNavigation(sceneId, { focusOrder: order.length > 0 ? order : undefined });
+          }} />
+      </div>
     </div>
   );
 }
@@ -406,6 +416,138 @@ function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string; parent
           {typeLabels[t]}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── V2: ActionHandlerEditor (핸들러 동작 편집) ────────────
+
+function ActionHandlerEditor({ handler, onChange }: {
+  handler: CustomCommandHandler;
+  onChange: (updates: Partial<CustomCommandHandler>) => void;
+}) {
+  const action = handler.action || 'popScene';
+  return (
+    <div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>동작:</span>
+        <select style={{ ...selectStyle, flex: 1 }} value={action}
+          onChange={(e) => onChange({ action: e.target.value as CommandActionType })}>
+          <option value="popScene">씬 닫기</option>
+          <option value="gotoScene">씬 이동</option>
+          <option value="customScene">커스텀 씬 이동</option>
+          <option value="callCommonEvent">커먼 이벤트 호출</option>
+          <option value="focusWidget">위젯 포커스</option>
+          <option value="refreshWidgets">위젯 갱신</option>
+          <option value="script">JS 스크립트 실행</option>
+        </select>
+      </div>
+      {(action === 'gotoScene' || action === 'customScene' || action === 'focusWidget') && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>대상:</span>
+          <input style={{ ...inputStyle, flex: 1 }}
+            placeholder={action === 'focusWidget' ? '위젯 ID' : '씬 이름'}
+            value={handler.target || ''}
+            onChange={(e) => onChange({ target: e.target.value })} />
+        </div>
+      )}
+      {action === 'callCommonEvent' && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>이벤트 ID:</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number"
+            value={handler.eventId || ''}
+            onChange={(e) => onChange({ eventId: parseInt(e.target.value) || 0 })} />
+        </div>
+      )}
+      {action === 'script' && (
+        <textarea
+          style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+          placeholder="// JS 코드"
+          value={handler.code || ''}
+          onChange={(e) => onChange({ code: e.target.value })}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── V2: ButtonWidgetInspector ──────────────────────────────
+
+function ButtonWidgetInspector({ sceneId, widget, update }: {
+  sceneId: string; widget: WidgetDef_Button; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const currentAction = widget.action || { action: 'popScene' as CommandActionType };
+  return (
+    <div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>레이블</span>
+        <input style={{ ...inputStyle, flex: 1 }}
+          value={widget.label}
+          onChange={(e) => update({ label: e.target.value } as any)} />
+      </div>
+      <label style={{ ...labelStyle, marginTop: 6 }}>버튼 동작</label>
+      <ActionHandlerEditor handler={currentAction}
+        onChange={(updates) => update({ action: { ...currentAction, ...updates } } as any)} />
+    </div>
+  );
+}
+
+// ── V2: ListWidgetInspector ────────────────────────────────
+
+function ListWidgetInspector({ sceneId, widget, update }: {
+  sceneId: string; widget: WidgetDef_List; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const items = widget.items || [];
+  const handlers = widget.handlers || {};
+
+  const addItem = () => {
+    const newItems = [...items, { name: `항목${items.length + 1}`, symbol: `cmd${Date.now()}`, enabled: true }];
+    update({ items: newItems } as any);
+  };
+
+  const updateItem = (idx: number, updates: Partial<CustomCommandDef>) => {
+    const newItems = items.map((c, i) => i === idx ? { ...c, ...updates } : c);
+    update({ items: newItems } as any);
+  };
+
+  const removeItem = (idx: number) => {
+    const newItems = items.filter((_, i) => i !== idx);
+    update({ items: newItems } as any);
+  };
+
+  const updateHandler = (symbol: string, updates: Partial<CustomCommandHandler>) => {
+    const newHandlers = { ...handlers, [symbol]: { ...(handlers[symbol] || { action: 'popScene' as CommandActionType }), ...updates } };
+    update({ handlers: newHandlers } as any);
+  };
+
+  return (
+    <div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>열 수</span>
+        <input style={{ ...inputStyle, width: 55 }} type="number" value={widget.maxCols || 1}
+          onChange={(e) => update({ maxCols: parseInt(e.target.value) || 1 } as any)} />
+      </div>
+      <label style={{ ...labelStyle, marginTop: 6 }}>커맨드 목록</label>
+      {items.map((item, idx) => (
+        <div key={idx} style={{ marginBottom: 8, padding: 6, background: '#2a2a2a', borderRadius: 3 }}>
+          <div style={rowStyle}>
+            <input style={{ ...inputStyle, flex: 1 }} value={item.name} placeholder="표시 이름"
+              onChange={(e) => updateItem(idx, { name: e.target.value })} />
+            <input style={{ ...inputStyle, flex: 1 }} value={item.symbol} placeholder="심볼"
+              onChange={(e) => updateItem(idx, { symbol: e.target.value })} />
+            <label style={{ fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={item.enabled}
+                onChange={(e) => updateItem(idx, { enabled: e.target.checked })} /> 활성
+            </label>
+            <button style={deleteBtnStyle} onClick={() => removeItem(idx)}>×</button>
+          </div>
+          <ActionHandlerEditor
+            handler={handlers[item.symbol] || { action: 'popScene' }}
+            onChange={(updates) => updateHandler(item.symbol, updates)}
+          />
+        </div>
+      ))}
+      <button style={{ ...smallBtnStyle, width: '100%', marginTop: 4 }} onClick={addItem}>+ 항목</button>
     </div>
   );
 }
@@ -544,41 +686,8 @@ function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetD
             </div>
           </div>
         )}
-        {widget.type === 'button' && (
-          <div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 50 }}>레이블</span>
-              <input style={{ ...inputStyle, flex: 1 }}
-                value={(widget as WidgetDef_Button).label}
-                onChange={(e) => update({ label: e.target.value } as any)} />
-            </div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 50 }}>동작</span>
-              <select style={{ ...selectStyle, flex: 1 }}
-                value={(widget as WidgetDef_Button).action?.action || 'popScene'}
-                onChange={(e) => update({ action: { action: e.target.value as CommandActionType } } as any)}>
-                <option value="popScene">씬 닫기</option>
-                <option value="gotoScene">씬 이동</option>
-                <option value="customScene">커스텀 씬</option>
-                <option value="focusWidget">위젯 포커스</option>
-                <option value="callCommonEvent">커먼 이벤트</option>
-                <option value="script">스크립트</option>
-              </select>
-            </div>
-          </div>
-        )}
-        {widget.type === 'list' && (
-          <CommandEditor
-            sceneId={sceneId}
-            win={{
-              id: widget.id, displayName: widget.id, windowType: 'command',
-              x: widget.x, y: widget.y, width: widget.width, height: widget.height ?? null,
-              commands: (widget as WidgetDef_List).items,
-              handlers: (widget as WidgetDef_List).handlers,
-              maxCols: (widget as WidgetDef_List).maxCols,
-            }}
-          />
-        )}
+        {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
+        {widget.type === 'list' && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
       </div>
     </div>
   );
