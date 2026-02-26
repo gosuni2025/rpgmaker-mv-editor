@@ -18,6 +18,7 @@ export default function StatusBar() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const currentMap = useEditorStore((s) => s.currentMap);
   const demoMode = useEditorStore((s) => s.demoMode);
+  const editorMode = useEditorStore((s) => s.editorMode);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const cursorTileX = useEditorStore((s) => s.cursorTileX);
@@ -47,7 +48,12 @@ export default function StatusBar() {
   const hasMemory = !!perf.memory;
 
   const w = window as any;
-  const gpuInfo = w._editorRendererObj?.renderer?.info;
+  const uiIframeWin = editorMode === 'ui'
+    ? (document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null)?.contentWindow as any
+    : null;
+  const gpuInfo = uiIframeWin
+    ? uiIframeWin.Graphics?._renderer?.renderer?.info
+    : w._editorRendererObj?.renderer?.info;
   const gpuLabel = gpuInfo
     ? `GPU: tex ${gpuInfo.memory?.textures ?? '-'} / geo ${gpuInfo.memory?.geometries ?? '-'} / dc ${gpuInfo.render?.calls ?? '-'}`
     : null;
