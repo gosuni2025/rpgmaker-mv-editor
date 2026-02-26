@@ -314,7 +314,11 @@ function WidgetTreeNode({
   selectedId: string | null; onSelect: (id: string) => void; onRemove: (id: string) => void;
 }) {
   const isSelected = widget.id === selectedId;
-  const isPanel = widget.type === 'panel';
+  const children: WidgetDef[] =
+    widget.type === 'panel' ? ((widget as WidgetDef_Panel).children || []) :
+    widget.type === 'button' ? ((widget as WidgetDef_Button).children || []) :
+    [];
+  const hasChildren = children.length > 0;
   const [expanded, setExpanded] = React.useState(true);
 
   return (
@@ -329,15 +333,16 @@ function WidgetTreeNode({
         }}
         onClick={() => onSelect(widget.id)}
       >
-        {isPanel && (
+        {hasChildren ? (
           <span
             style={{ fontSize: 10, color: '#888', cursor: 'pointer', width: 12, textAlign: 'center' }}
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
           >
             {expanded ? '\u25BE' : '\u25B8'}
           </span>
+        ) : (
+          <span style={{ width: 12 }} />
         )}
-        {!isPanel && <span style={{ width: 12 }} />}
         <span style={{
           fontSize: 9, padding: '1px 3px', borderRadius: 2,
           background: WIDGET_TYPE_COLORS[widget.type] || '#555', color: '#fff',
@@ -358,7 +363,7 @@ function WidgetTreeNode({
           </button>
         )}
       </div>
-      {isPanel && expanded && (widget as WidgetDef_Panel).children?.map((child) => (
+      {hasChildren && expanded && children.map((child) => (
         <WidgetTreeNode
           key={child.id} widget={child} depth={depth + 1}
           sceneId={sceneId} selectedId={selectedId}
