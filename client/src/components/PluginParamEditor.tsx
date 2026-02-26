@@ -3,6 +3,18 @@ import CreditTextEditor from './CreditTextEditor';
 import {
   PluginEntry, PluginParamMeta, PluginMetadata,
 } from './PluginManagerHelpers';
+import { useEditorStore } from '../store/useEditorStore';
+
+const SYSTEM_FONTS = [
+  { family: '',           label: '(게임 기본 폰트)' },
+  { family: 'GameFont',   label: 'GameFont' },
+  { family: 'sans-serif', label: 'sans-serif' },
+  { family: 'serif',      label: 'serif' },
+  { family: 'monospace',  label: 'monospace' },
+  { family: 'Dotum, AppleGothic, sans-serif', label: 'Dotum (한국어)' },
+  { family: 'Arial, sans-serif',  label: 'Arial' },
+  { family: 'Georgia, serif',     label: 'Georgia' },
+];
 
 /** Parse a CSS color string to hex (#rrggbb) for <input type="color"> */
 export function colorToHex(color: string): string {
@@ -131,6 +143,32 @@ export function PluginParamInput({
     );
   }
 
+  if (paramMeta?.type === 'font') {
+    const projectFonts = useEditorStore((s) => s.uiFontList);
+    return (
+      <select
+        value={value}
+        onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
+      >
+        {SYSTEM_FONTS.map((f) => (
+          <option key={f.family} value={f.family}>{f.label}</option>
+        ))}
+        {projectFonts.length > 0 && (
+          <optgroup label="── 프로젝트 폰트 ──">
+            {projectFonts.map((f) => (
+              <option key={f.family + f.file} value={f.family}>
+                {f.family}{f.family !== f.file.replace(/\.[^.]+$/, '') ? ` (${f.file})` : ''}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {value && !SYSTEM_FONTS.some(f => f.family === value) && !projectFonts.some(f => f.family === value) && (
+          <option value={value}>{value}</option>
+        )}
+      </select>
+    );
+  }
+
   if (paramMeta?.type === 'number') {
     return (
       <input
@@ -183,6 +221,7 @@ export function PluginParamRow({
     paramMeta.type === 'select' ||
     paramMeta.type === 'combo' ||
     paramMeta.type === 'color' ||
+    paramMeta.type === 'font' ||
     paramMeta.options.length > 0
   );
   const showPicker = hasPickerButton(paramMeta);

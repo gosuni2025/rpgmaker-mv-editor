@@ -141,8 +141,8 @@
  *
  * @param mapNameFont
  * @text 맵 이름 폰트
- * @desc 폰트 이름. 비워두면 게임 기본 폰트(GameFont)를 사용합니다. 예: sans-serif, Arial, 'Noto Serif KR'
- * @type string
+ * @desc 비워두면 게임 기본 폰트를 사용합니다.
+ * @type font
  * @default
  *
  * @param mapNameColor
