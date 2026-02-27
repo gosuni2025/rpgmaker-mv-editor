@@ -1202,6 +1202,7 @@
 
   Scene_CustomUI.prototype.create = function () {
     Scene_Base.prototype.create.call(this);
+    this.createWindowLayer();
     var sceneDef = this._getSceneDef();
     if (!sceneDef) return;
 
