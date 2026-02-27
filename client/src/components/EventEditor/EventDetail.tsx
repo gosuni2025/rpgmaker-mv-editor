@@ -27,6 +27,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
   useEscClose(onClose);
   const currentMap = useEditorStore(s => s.currentMap);
   const currentMapId = useEditorStore(s => s.currentMapId);
+  const projectPath = useEditorStore(s => s.projectPath);
   const isNew = pendingEvent != null;
   const event = isNew
     ? pendingEvent
@@ -46,6 +47,12 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
     handleOk, handleApply,
     isExternal, setIsExternal,
   } = useEventEditor(event!, isNew, resolvedEventId, npcName, showNpcName, minimapMarker, onClose);
+
+  const handleOpenInVSCode = useCallback(() => {
+    if (!editEvent.__ref || !projectPath) return;
+    const filePath = `${projectPath}/data/${editEvent.__ref}`;
+    window.open(`vscode://file${filePath}`);
+  }, [editEvent.__ref, projectPath]);
 
   const MOVE_TYPES = useMemo(() => [0, 1, 2, 3].map(i => t(`eventDetail.moveTypes.${i}`)), [t]);
   const MOVE_SPEEDS = useMemo(() => [0, 1, 2, 3, 4, 5].map(i => t(`eventDetail.moveSpeeds.${i}`)), [t]);
@@ -91,9 +98,11 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
       <div className="event-editor-dialog" ref={dialogRef} style={dialogStyle}>
         <div className="event-editor-titlebar" onMouseDown={handleTitleMouseDown} style={{ cursor: 'move' }}>
           <span>ID:{String(editEvent.id).padStart(3, '0')} - {t('eventDetail.title', '이벤트 에디터')}</span>
-          <label className="event-editor-external-check" onMouseDown={e => e.stopPropagation()} title="외부 파일로 분리하면 data/MapXXX/ 폴더에 이벤트 JSON을 저장합니다">
+          <label className="event-editor-external-check" onMouseDown={e => e.stopPropagation()}>
             <input type="checkbox" checked={isExternal} onChange={e => setIsExternal(e.target.checked)} />
-            외부 파일로 분리
+            <span className={`event-editor-storage-badge ${isExternal ? 'external' : 'inline'}`}>
+              {isExternal ? '📄 외부 파일' : '📦 내장'}
+            </span>
             <ExtBadge inline />
           </label>
         </div>
@@ -160,6 +169,23 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                   onChange={idx => setMinimapMarker(prev => prev ? { ...prev, iconIndex: idx } : null)} />
               )}
             </>)}
+          </div>
+          <div className="event-editor-name-label event-editor-extfile-area">
+            {isExternal && editEvent.__ref && (
+              <button className="event-editor-vscode-btn" onClick={handleOpenInVSCode} title={`VSCode로 열기: data/${editEvent.__ref}`}>
+                VSCode로 열기
+              </button>
+            )}
+            <HelpButton>
+              <strong>외부 파일 분리란?</strong><br /><br />
+              이벤트 데이터를 맵 JSON 내부가 아닌 별도 파일로 저장하는 기능입니다.<br /><br />
+              <strong>저장 위치:</strong> <code>data/MapXXX/NNN-이름.json</code><br /><br />
+              <strong>장점:</strong><br />
+              · Git으로 이벤트를 개별 파일 단위로 추적 가능<br />
+              · VSCode 등 외부 에디터에서 이벤트 JSON을 직접 편집 가능<br />
+              · 대규모 맵에서 이벤트 파일을 독립적으로 관리 가능<br /><br />
+              <strong>주의:</strong> RPG Maker MV 원본 에디터에서는 이벤트 내용이 빈 상태로 표시됩니다. 에디터 전용 기능입니다.
+            </HelpButton>
           </div>
         </div>
 
