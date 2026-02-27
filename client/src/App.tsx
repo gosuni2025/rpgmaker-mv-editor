@@ -52,6 +52,7 @@ import UIEditorCursorInspector from './components/UIEditor/UIEditorCursorInspect
 import UIEditorSkinPreview from './components/UIEditor/UIEditorSkinPreview';
 import UIEditorFontEditor from './components/UIEditor/UIEditorFontEditor';
 import UIEditorFontInspector from './components/UIEditor/UIEditorFontInspector';
+import UIEditorGaugeInspector from './components/UIEditor/UIEditorGaugeInspector';
 
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
@@ -210,8 +211,8 @@ export default function App() {
           <div className="toolbar-area">
             <UIEditorToolbar />
           </div>
-          <div className="main-area" style={(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor' || uiEditSubMode === 'font') ? { flexDirection: 'row' } : undefined}>
-            {(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor') ? (
+          <div className="main-area" style={(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor' || uiEditSubMode === 'gauge' || uiEditSubMode === 'font') ? { flexDirection: 'row' } : undefined}>
+            {(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor' || uiEditSubMode === 'gauge') ? (
               <>
                 <UIEditorFrameCanvas />
                 <ResizablePanel defaultWidth={240} minWidth={160} maxWidth={420} side="left">
@@ -226,6 +227,7 @@ export default function App() {
             <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
               {uiEditSubMode === 'frame' ? <UIEditorFrameInspector /> :
                uiEditSubMode === 'cursor' ? <UIEditorCursorInspector /> :
+               uiEditSubMode === 'gauge' ? <UIEditorGaugeInspector /> :
                uiEditSubMode === 'font' ? <UIEditorFontInspector /> :
                <UIEditorInspector />}
             </ResizablePanel>

@@ -185,6 +185,12 @@ export default function UIEditorToolbar() {
             커서 편집
           </button>
           <button
+            className={`draw-toolbar-btn${uiEditSubMode === 'gauge' ? ' active' : ''}`}
+            onClick={() => setUiEditSubMode('gauge')}
+          >
+            게이지 편집
+          </button>
+          <button
             className={`draw-toolbar-btn${uiEditSubMode === 'font' ? ' active' : ''}`}
             onClick={() => setUiEditSubMode('font')}
           >
@@ -229,8 +235,8 @@ export default function UIEditorToolbar() {
           </div>
         )}
 
-        {/* 프레임/커서 편집 공통 옵션 */}
-        {(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor') && (
+        {/* 프레임/커서/게이지 편집 공통 옵션 */}
+        {(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor' || uiEditSubMode === 'gauge') && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label className="draw-toolbar-checkbox-label" title="투명 영역을 체크무늬로 표시">
               <input

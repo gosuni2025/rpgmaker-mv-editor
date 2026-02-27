@@ -47,8 +47,8 @@ export interface EditorState {
   uiEditorSelectedWindowId: string | null;
   uiEditorOverrides: Record<string, UIWindowOverride>;
   uiEditorDirty: boolean;
-  // UI Editor 서브모드: 창 배치 편집 vs 프레임(스킨) 편집 vs 커서 편집 vs 폰트 설정
-  uiEditSubMode: 'window' | 'frame' | 'cursor' | 'font';
+  // UI Editor 서브모드: 창 배치 편집 vs 프레임(스킨) 편집 vs 커서 편집 vs 게이지 편집 vs 폰트 설정
+  uiEditSubMode: 'window' | 'frame' | 'cursor' | 'gauge' | 'font';
   uiSelectedSkin: string;      // 선택된 스킨 ID (name 필드)
   uiSelectedSkinFile: string;  // 선택된 스킨의 이미지 파일 경로 (확장자 제외)
   uiSkinCornerSize: number;    // 9-slice 코너 크기 px
@@ -74,6 +74,15 @@ export interface EditorState {
   uiSkinCursorToneR: number;     // 색조 R (-255~255)
   uiSkinCursorToneG: number;     // 색조 G (-255~255)
   uiSkinCursorToneB: number;     // 색조 B (-255~255)
+  uiSkinGaugeBgX: number;       // 게이지 배경 소스 X
+  uiSkinGaugeBgY: number;       // 게이지 배경 소스 Y
+  uiSkinGaugeBgW: number;       // 게이지 배경 소스 너비
+  uiSkinGaugeBgH: number;       // 게이지 배경 소스 높이
+  uiSkinGaugeFillX: number;     // 게이지 채움 소스 X
+  uiSkinGaugeFillY: number;     // 게이지 채움 소스 Y
+  uiSkinGaugeFillW: number;     // 게이지 채움 소스 너비
+  uiSkinGaugeFillH: number;     // 게이지 채움 소스 높이
+  uiSkinGaugeFillDir: 'horizontal' | 'vertical'; // 게이지 채우기 방향
   uiSkinsReloadToken: number;  // 증가하면 스킨 목록 강제 리로드
   uiSkinUndoStack: UiSkinUndoEntry[];
   uiOverrideUndoStack: Record<string, UIWindowOverride>[];
@@ -243,7 +252,7 @@ export interface EditorState {
   resetUiEditorOverride: (className: string) => void;
   loadUiEditorOverrides: (overrides: Record<string, UIWindowOverride>) => void;
   setUiEditorDirty: (dirty: boolean) => void;
-  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor' | 'font') => void;
+  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor' | 'gauge' | 'font') => void;
   setUiSelectedSkin: (skin: string) => void;
   setUiSelectedSkinFile: (file: string) => void;
   setUiSkinCornerSize: (size: number) => void;
@@ -258,6 +267,9 @@ export interface EditorState {
   setUiSkinCursorBlink: (v: boolean) => void;
   setUiSkinCursorPadding: (v: number) => void;
   setUiSkinCursorTone: (r: number, g: number, b: number) => void;
+  setUiSkinGaugeBg: (x: number, y: number, w: number, h: number) => void;
+  setUiSkinGaugeFill: (x: number, y: number, w: number, h: number) => void;
+  setUiSkinGaugeFillDir: (dir: 'horizontal' | 'vertical') => void;
   triggerSkinsReload: () => void;
   pushUiSkinUndo: () => void;
   undoUiSkin: () => void;

@@ -890,6 +890,11 @@
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._gaugeType = def.gaugeType || 'hp';
     this._actorIndex = def.actorIndex || 0;
+    this._gaugeSkinId = def.gaugeSkinId || null;
+    this._showLabel = def.showLabel !== false;
+    this._showValue = def.showValue !== false;
+    this._skinData = null;
+    this._skinBitmap = null;
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
@@ -898,6 +903,14 @@
     this._sprite = sprite;
     this._bitmap = bitmap;
     this._displayObject = sprite;
+    // 스킨 ID가 있으면 스킨 이미지 로드
+    if (this._gaugeSkinId && typeof UIEditorSkins !== 'undefined') {
+      var skinEntry = UIEditorSkins.find(function(s) { return s.name === this._gaugeSkinId; }.bind(this));
+      if (skinEntry) {
+        this._skinData = skinEntry;
+        this._skinBitmap = ImageManager.loadSystem(skinEntry.file || skinEntry.name);
+      }
+    }
     this.refresh();
   };
   Widget_Gauge.prototype.refresh = function() {
@@ -917,15 +930,55 @@
         case 'tp': label='TP'; cur=actor.tp; max=actor.maxTp(); break;
       }
       var rate = max > 0 ? cur / max : 0;
-      var gaugeH = 6;
-      var gaugeY = h - gaugeH - 2;
-      this._bitmap.fillRect(0, gaugeY, w, gaugeH, '#202020');
-      var color = this._gaugeType === 'hp' ? '#20c020' : (this._gaugeType === 'mp' ? '#2040c0' : '#c08020');
-      this._bitmap.fillRect(0, gaugeY, Math.floor(w * rate), gaugeH, color);
-      this._bitmap.fontSize = 20;
-      this._bitmap.textColor = '#ffffff';
-      this._bitmap.drawText(label, 0, 0, 60, h - gaugeH - 4, 'left');
-      this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h - gaugeH - 4, 'right');
+      // 이미지 기반 게이지 렌더링
+      if (this._skinData && this._skinBitmap && this._skinBitmap.isReady()) {
+        var sd = this._skinData;
+        var bgX = sd.gaugeBgX || 0, bgY = sd.gaugeBgY || 0;
+        var bgW = sd.gaugeBgW || 0, bgH = sd.gaugeBgH || 0;
+        var fX = sd.gaugeFillX || 0, fY = sd.gaugeFillY || 0;
+        var fW = sd.gaugeFillW || 0, fH = sd.gaugeFillH || 0;
+        var fillDir = sd.gaugeFillDir || 'horizontal';
+        // 배경
+        if (bgW > 0 && bgH > 0) {
+          this._bitmap.blt(this._skinBitmap, bgX, bgY, bgW, bgH, 0, 0, w, h);
+        }
+        // 채움 (rate에 따라 클리핑)
+        if (fW > 0 && fH > 0) {
+          if (fillDir === 'horizontal') {
+            var fillW = Math.floor(w * rate);
+            var srcFillW = Math.floor(fW * rate);
+            if (fillW > 0) this._bitmap.blt(this._skinBitmap, fX, fY, srcFillW, fH, 0, 0, fillW, h);
+          } else {
+            var fillH = Math.floor(h * rate);
+            var srcFillH = Math.floor(fH * rate);
+            if (fillH > 0) this._bitmap.blt(this._skinBitmap, fX, fY + fH - srcFillH, fW, srcFillH, 0, h - fillH, w, fillH);
+          }
+        }
+        // 레이블 / 수치
+        this._bitmap.fontSize = 20;
+        this._bitmap.textColor = '#ffffff';
+        if (this._showLabel) {
+          this._bitmap.drawText(label, 0, 0, 60, h, 'left');
+        }
+        if (this._showValue) {
+          this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h, 'right');
+        }
+      } else {
+        // 색상 바 렌더링 (기존 방식, 하위 호환)
+        var gaugeH = 6;
+        var gaugeY = h - gaugeH - 2;
+        this._bitmap.fillRect(0, gaugeY, w, gaugeH, '#202020');
+        var color = this._gaugeType === 'hp' ? '#20c020' : (this._gaugeType === 'mp' ? '#2040c0' : '#c08020');
+        this._bitmap.fillRect(0, gaugeY, Math.floor(w * rate), gaugeH, color);
+        this._bitmap.fontSize = 20;
+        this._bitmap.textColor = '#ffffff';
+        if (this._showLabel) {
+          this._bitmap.drawText(label, 0, 0, 60, h - gaugeH - 4, 'left');
+        }
+        if (this._showValue) {
+          this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h - gaugeH - 4, 'right');
+        }
+      }
     }
     Widget_Base.prototype.refresh.call(this);
   };

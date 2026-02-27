@@ -36,14 +36,14 @@ function calcCenterFill(frameX: number, frameY: number, frameW: number, frameH: 
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' | 'uiEditorOriginalWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinGaugeBgX' | 'uiSkinGaugeBgY' | 'uiSkinGaugeBgW' | 'uiSkinGaugeBgH' | 'uiSkinGaugeFillX' | 'uiSkinGaugeFillY' | 'uiSkinGaugeFillW' | 'uiSkinGaugeFillH' | 'uiSkinGaugeFillDir' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiFontSelectedFamily' | 'uiFontDefaultFace' | 'uiFontList' | 'uiFontSceneFonts' |
   'uiEditorSelectedElementType' |
   'customScenes' | 'customSceneDirty' | 'sceneRedirects' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'setUiSkinCursorRenderMode' | 'setUiSkinCursorBlendMode' | 'setUiSkinCursorOpacity' | 'setUiSkinCursorBlink' | 'setUiSkinCursorPadding' | 'setUiSkinCursorTone' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'setUiSkinCursorRenderMode' | 'setUiSkinCursorBlendMode' | 'setUiSkinCursorOpacity' | 'setUiSkinCursorBlink' | 'setUiSkinCursorPadding' | 'setUiSkinCursorTone' | 'setUiSkinGaugeBg' | 'setUiSkinGaugeFill' | 'setUiSkinGaugeFillDir' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
   'setUiFontSelectedFamily' | 'setUiFontDefaultFace' | 'setUiFontList' | 'setUiFontSceneFonts' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride' |
   'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride' |
@@ -87,6 +87,15 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiSkinCursorToneR: 0,
   uiSkinCursorToneG: 0,
   uiSkinCursorToneB: 0,
+  uiSkinGaugeBgX: 0,
+  uiSkinGaugeBgY: 0,
+  uiSkinGaugeBgW: 0,
+  uiSkinGaugeBgH: 0,
+  uiSkinGaugeFillX: 0,
+  uiSkinGaugeFillY: 0,
+  uiSkinGaugeFillW: 0,
+  uiSkinGaugeFillH: 0,
+  uiSkinGaugeFillDir: 'horizontal' as const,
   uiSkinsReloadToken: 0,
   uiSkinUndoStack: [],
   uiOverrideUndoStack: [],
@@ -144,7 +153,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   },
   loadUiEditorOverrides: (overrides) => set({ uiEditorOverrides: overrides, uiEditorDirty: false }),
   setUiEditorDirty: (dirty) => set({ uiEditorDirty: dirty }),
-  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor' | 'font') => { saveToolbarKeys({ uiEditSubMode: mode }); set({ uiEditSubMode: mode }); },
+  setUiEditSubMode: (mode: 'window' | 'frame' | 'cursor' | 'gauge' | 'font') => { saveToolbarKeys({ uiEditSubMode: mode }); set({ uiEditSubMode: mode }); },
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
   setUiSelectedSkinFile: (file) => set({ uiSelectedSkinFile: file }),
   setUiSkinCornerSize: (size) => set((state) => ({
@@ -173,6 +182,9 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiSkinCursorBlink: (v: boolean) => set({ uiSkinCursorBlink: v }),
   setUiSkinCursorPadding: (v: number) => set({ uiSkinCursorPadding: v }),
   setUiSkinCursorTone: (r: number, g: number, b: number) => set({ uiSkinCursorToneR: r, uiSkinCursorToneG: g, uiSkinCursorToneB: b }),
+  setUiSkinGaugeBg: (x: number, y: number, w: number, h: number) => set({ uiSkinGaugeBgX: x, uiSkinGaugeBgY: y, uiSkinGaugeBgW: w, uiSkinGaugeBgH: h }),
+  setUiSkinGaugeFill: (x: number, y: number, w: number, h: number) => set({ uiSkinGaugeFillX: x, uiSkinGaugeFillY: y, uiSkinGaugeFillW: w, uiSkinGaugeFillH: h }),
+  setUiSkinGaugeFillDir: (dir: 'horizontal' | 'vertical') => set({ uiSkinGaugeFillDir: dir }),
   pushUiSkinUndo: () => set((state) => ({
     uiSkinUndoStack: [...state.uiSkinUndoStack, {
       frameX: state.uiSkinFrameX, frameY: state.uiSkinFrameY,
@@ -191,6 +203,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       cursorToneR: state.uiSkinCursorToneR,
       cursorToneG: state.uiSkinCursorToneG,
       cursorToneB: state.uiSkinCursorToneB,
+      gaugeBgX: state.uiSkinGaugeBgX, gaugeBgY: state.uiSkinGaugeBgY,
+      gaugeBgW: state.uiSkinGaugeBgW, gaugeBgH: state.uiSkinGaugeBgH,
+      gaugeFillX: state.uiSkinGaugeFillX, gaugeFillY: state.uiSkinGaugeFillY,
+      gaugeFillW: state.uiSkinGaugeFillW, gaugeFillH: state.uiSkinGaugeFillH,
+      gaugeFillDir: state.uiSkinGaugeFillDir,
     }].slice(-50),
   })),
   undoUiSkin: () => set((state) => {
@@ -215,6 +232,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       uiSkinCursorToneR: prev.cursorToneR ?? 0,
       uiSkinCursorToneG: prev.cursorToneG ?? 0,
       uiSkinCursorToneB: prev.cursorToneB ?? 0,
+      uiSkinGaugeBgX: prev.gaugeBgX ?? 0, uiSkinGaugeBgY: prev.gaugeBgY ?? 0,
+      uiSkinGaugeBgW: prev.gaugeBgW ?? 0, uiSkinGaugeBgH: prev.gaugeBgH ?? 0,
+      uiSkinGaugeFillX: prev.gaugeFillX ?? 0, uiSkinGaugeFillY: prev.gaugeFillY ?? 0,
+      uiSkinGaugeFillW: prev.gaugeFillW ?? 0, uiSkinGaugeFillH: prev.gaugeFillH ?? 0,
+      uiSkinGaugeFillDir: prev.gaugeFillDir ?? 'horizontal',
       uiEditorDirty: true,
     };
   }),

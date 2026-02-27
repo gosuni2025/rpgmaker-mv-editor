@@ -16,6 +16,9 @@ interface SkinEntry {
   cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen';
   cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number;
   cursorToneR?: number; cursorToneG?: number; cursorToneB?: number;
+  gaugeBgX?: number; gaugeBgY?: number; gaugeBgW?: number; gaugeBgH?: number;
+  gaugeFillX?: number; gaugeFillY?: number; gaugeFillW?: number; gaugeFillH?: number;
+  gaugeFillDir?: 'horizontal' | 'vertical';
 }
 interface SkinsData { defaultSkin: string; defaultFrameSkin?: string; defaultCursorSkin?: string; skins: SkinEntry[]; }
 
@@ -100,6 +103,8 @@ router.put('/:name', (req, res) => {
     'cursorX', 'cursorY', 'cursorW', 'cursorH', 'cursorCornerSize',
     'cursorRenderMode', 'cursorBlendMode', 'cursorOpacity', 'cursorBlink',
     'cursorPadding', 'cursorToneR', 'cursorToneG', 'cursorToneB',
+    'gaugeBgX', 'gaugeBgY', 'gaugeBgW', 'gaugeBgH',
+    'gaugeFillX', 'gaugeFillY', 'gaugeFillW', 'gaugeFillH', 'gaugeFillDir',
   ];
   for (const f of fields) {
     if (updates[f] !== undefined) (skin as any)[f] = updates[f];

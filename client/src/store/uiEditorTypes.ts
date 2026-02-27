@@ -183,6 +183,9 @@ export type UiSkinUndoEntry = {
   cursorBlink: boolean;
   cursorPadding: number;
   cursorToneR: number; cursorToneG: number; cursorToneB: number;
+  gaugeBgX: number; gaugeBgY: number; gaugeBgW: number; gaugeBgH: number;
+  gaugeFillX: number; gaugeFillY: number; gaugeFillW: number; gaugeFillH: number;
+  gaugeFillDir: 'horizontal' | 'vertical';
 };
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
@@ -242,6 +245,9 @@ export interface WidgetDef_Gauge extends WidgetDefBase {
   type: 'gauge';
   gaugeType: 'hp' | 'mp' | 'tp';
   actorIndex: number;
+  gaugeSkinId?: string;
+  showLabel?: boolean;
+  showValue?: boolean;
 }
 
 export interface WidgetDef_Background extends WidgetDefBase {

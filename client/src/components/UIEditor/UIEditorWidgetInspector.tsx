@@ -508,6 +508,31 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                 value={(widget as WidgetDef_Gauge).actorIndex}
                 onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
             </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 스킨 ID</span>
+              <input style={{ ...inputStyle, flex: 1 }}
+                placeholder="(없으면 색상 바)"
+                value={(widget as WidgetDef_Gauge).gaugeSkinId || ''}
+                onChange={(e) => update({ gaugeSkinId: e.target.value || undefined } as any)} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={(widget as WidgetDef_Gauge).showLabel !== false}
+                onChange={(e) => update({ showLabel: e.target.checked } as any)}
+                style={{ accentColor: '#4af', cursor: 'pointer' }}
+              />
+              레이블 표시 (HP/MP/TP)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={(widget as WidgetDef_Gauge).showValue !== false}
+                onChange={(e) => update({ showValue: e.target.checked } as any)}
+                style={{ accentColor: '#4af', cursor: 'pointer' }}
+              />
+              수치 표시 (현재/최대)
+            </label>
           </div>
         )}
         {widget.type === 'image' && (() => {

@@ -6,7 +6,7 @@ import UIEditorNewSceneDialog from './UIEditorNewSceneDialog';
 import UIEditorCustomScenePanel from './UIEditorCustomScenePanel';
 import './UIEditor.css';
 
-interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; }
+interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; gaugeBgX?: number; gaugeBgY?: number; gaugeBgW?: number; gaugeBgH?: number; gaugeFillX?: number; gaugeFillY?: number; gaugeFillW?: number; gaugeFillH?: number; gaugeFillDir?: 'horizontal' | 'vertical'; }
 
 const AVAILABLE_SCENES = [
   { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
@@ -150,6 +150,9 @@ function SkinList() {
   const setUiSkinCursorBlink = useEditorStore((s) => s.setUiSkinCursorBlink);
   const setUiSkinCursorPadding = useEditorStore((s) => s.setUiSkinCursorPadding);
   const setUiSkinCursorTone = useEditorStore((s) => s.setUiSkinCursorTone);
+  const setUiSkinGaugeBg = useEditorStore((s) => s.setUiSkinGaugeBg);
+  const setUiSkinGaugeFill = useEditorStore((s) => s.setUiSkinGaugeFill);
+  const setUiSkinGaugeFillDir = useEditorStore((s) => s.setUiSkinGaugeFillDir);
   const [skins, setSkins] = useState<SkinEntry[]>([]);
   const [defaultSkin, setDefaultSkin] = useState<string>('');
   const [defaultFrameSkin, setDefaultFrameSkin] = useState<string>('');
@@ -204,6 +207,9 @@ function SkinList() {
     setUiSkinCursorBlink(skin.cursorBlink ?? true);
     setUiSkinCursorPadding(skin.cursorPadding ?? 2);
     setUiSkinCursorTone(skin.cursorToneR ?? 0, skin.cursorToneG ?? 0, skin.cursorToneB ?? 0);
+    setUiSkinGaugeBg(skin.gaugeBgX ?? 0, skin.gaugeBgY ?? 0, skin.gaugeBgW ?? 0, skin.gaugeBgH ?? 0);
+    setUiSkinGaugeFill(skin.gaugeFillX ?? 0, skin.gaugeFillY ?? 0, skin.gaugeFillW ?? 0, skin.gaugeFillH ?? 0);
+    setUiSkinGaugeFillDir(skin.gaugeFillDir ?? 'horizontal');
   };
 
   const handleDelete = async (name: string, e: React.MouseEvent) => {

@@ -19,6 +19,10 @@ export type DragState =
   | { type: 'fill_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startFX: number; startFY: number; startFW: number; startFH: number }
   | { type: 'cursor_move'; ox: number; oy: number; startCX: number; startCY: number }
   | { type: 'cursor_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startCX: number; startCY: number; startCW: number; startCH: number }
+  | { type: 'gauge_bg_move'; ox: number; oy: number; startX: number; startY: number }
+  | { type: 'gauge_bg_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startX: number; startY: number; startW: number; startH: number }
+  | { type: 'gauge_fill_move'; ox: number; oy: number; startX: number; startY: number }
+  | { type: 'gauge_fill_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startX: number; startY: number; startW: number; startH: number }
   | null;
 
 export function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -36,7 +40,9 @@ export function drawSkin(
   showCheckerboard: boolean,
   showRegionOverlay: boolean,
   hoverHit: DragState,
-  activeTab: 'frame' | 'cursor',
+  activeTab: 'frame' | 'cursor' | 'gauge',
+  gaugeBgX?: number, gaugeBgY?: number, gaugeBgW?: number, gaugeBgH?: number,
+  gaugeFillX?: number, gaugeFillY?: number, gaugeFillW?: number, gaugeFillH?: number,
 ) {
   const S = DISPLAY_SCALE;
   const cw = imgW * S;
@@ -75,6 +81,41 @@ export function drawSkin(
     ctx.moveTo(96 * S + 0.5, 0); ctx.lineTo(96 * S + 0.5, ch);
     ctx.moveTo(0, 96 * S + 0.5); ctx.lineTo(cw, 96 * S + 0.5);
     ctx.stroke();
+  }
+
+  // 게이지 탭 전용 드로잉
+  if (activeTab === 'gauge') {
+    const bgX = (gaugeBgX ?? 0) * S, bgY = (gaugeBgY ?? 0) * S;
+    const bgW = (gaugeBgW ?? 0) * S, bgH = (gaugeBgH ?? 0) * S;
+    const fX = (gaugeFillX ?? 0) * S, fY = (gaugeFillY ?? 0) * S;
+    const fW = (gaugeFillW ?? 0) * S, fH = (gaugeFillH ?? 0) * S;
+
+    if (bgW > 0 && bgH > 0) {
+      ctx.fillStyle = 'rgba(50,120,255,0.18)';
+      ctx.fillRect(bgX, bgY, bgW, bgH);
+      ctx.strokeStyle = 'rgba(80,160,255,0.9)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(bgX + 0.5, bgY + 0.5, bgW - 1, bgH - 1);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(80,160,255,0.9)';
+      ctx.font = `bold ${7 * S}px sans-serif`;
+      ctx.fillText('gauge bg', bgX + 2 * S, bgY + 9 * S);
+    }
+
+    if (fW > 0 && fH > 0) {
+      ctx.fillStyle = 'rgba(255,120,30,0.18)';
+      ctx.fillRect(fX, fY, fW, fH);
+      ctx.strokeStyle = 'rgba(255,160,30,0.9)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(fX + 0.5, fY + 0.5, fW - 1, fH - 1);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,160,30,0.9)';
+      ctx.font = `bold ${7 * S}px sans-serif`;
+      ctx.fillText('gauge fill', fX + 2 * S, fY + 9 * S);
+    }
+    return;
   }
 
   // 비활성 탭 영역: 커서 모드에서는 프레임/fill 숨김, 프레임 모드에서는 커서 흐리게
@@ -218,11 +259,50 @@ export function getHit(
   fillX: number, fillY: number, fillW: number, fillH: number,
   cursorX: number, cursorY: number, cursorW: number, cursorH: number,
   cs: number,
-  activeTab: 'frame' | 'cursor',
+  activeTab: 'frame' | 'cursor' | 'gauge',
+  gaugeBgX?: number, gaugeBgY?: number, gaugeBgW?: number, gaugeBgH?: number,
+  gaugeFillX?: number, gaugeFillY?: number, gaugeFillW?: number, gaugeFillH?: number,
 ): DragState {
   const csC = clamp(cs, 1, Math.floor(Math.min(frameW, frameH) / 2) - 1);
   const inFX = ix >= frameX && ix <= frameX + frameW;
   const inFY = iy >= frameY && iy <= frameY + frameH;
+
+  // 게이지 탭: 배경/채움 영역만 처리
+  if (activeTab === 'gauge') {
+    const gbX = gaugeBgX ?? 0, gbY = gaugeBgY ?? 0, gbW = gaugeBgW ?? 0, gbH = gaugeBgH ?? 0;
+    const gfX = gaugeFillX ?? 0, gfY = gaugeFillY ?? 0, gfW = gaugeFillW ?? 0, gfH = gaugeFillH ?? 0;
+
+    const inGbX = ix >= gbX && ix <= gbX + gbW;
+    const inGbY = iy >= gbY && iy <= gbY + gbH;
+    if (gbW > 0 && gbH > 0) {
+      const onLeft   = inGbY && Math.abs(ix - gbX) <= EDGE_HIT;
+      const onRight  = inGbY && Math.abs(ix - (gbX + gbW)) <= EDGE_HIT;
+      const onTop    = inGbX && Math.abs(iy - gbY) <= EDGE_HIT;
+      const onBottom = inGbX && Math.abs(iy - (gbY + gbH)) <= EDGE_HIT;
+      if (onLeft)   return { type: 'gauge_bg_resize', edge: 'left',   startX: gbX, startY: gbY, startW: gbW, startH: gbH };
+      if (onRight)  return { type: 'gauge_bg_resize', edge: 'right',  startX: gbX, startY: gbY, startW: gbW, startH: gbH };
+      if (onTop)    return { type: 'gauge_bg_resize', edge: 'top',    startX: gbX, startY: gbY, startW: gbW, startH: gbH };
+      if (onBottom) return { type: 'gauge_bg_resize', edge: 'bottom', startX: gbX, startY: gbY, startW: gbW, startH: gbH };
+      if (inGbX && inGbY) return { type: 'gauge_bg_move', ox: ix - gbX, oy: iy - gbY, startX: gbX, startY: gbY };
+    }
+
+    const inGfX = ix >= gfX && ix <= gfX + gfW;
+    const inGfY = iy >= gfY && iy <= gfY + gfH;
+    if (gfW > 0 && gfH > 0) {
+      const onLeft   = inGfY && Math.abs(ix - gfX) <= EDGE_HIT;
+      const onRight  = inGfY && Math.abs(ix - (gfX + gfW)) <= EDGE_HIT;
+      const onTop    = inGfX && Math.abs(iy - gfY) <= EDGE_HIT;
+      const onBottom = inGfX && Math.abs(iy - (gfY + gfH)) <= EDGE_HIT;
+      if (onLeft)   return { type: 'gauge_fill_resize', edge: 'left',   startX: gfX, startY: gfY, startW: gfW, startH: gfH };
+      if (onRight)  return { type: 'gauge_fill_resize', edge: 'right',  startX: gfX, startY: gfY, startW: gfW, startH: gfH };
+      if (onTop)    return { type: 'gauge_fill_resize', edge: 'top',    startX: gfX, startY: gfY, startW: gfW, startH: gfH };
+      if (onBottom) return { type: 'gauge_fill_resize', edge: 'bottom', startX: gfX, startY: gfY, startW: gfW, startH: gfH };
+      if (inGfX && inGfY) return { type: 'gauge_fill_move', ox: ix - gfX, oy: iy - gfY, startX: gfX, startY: gfY };
+    }
+
+    // 게이지 탭: 배경이 없으면 드래그로 새 배경 영역 생성 가능하도록 null 반환
+    return null;
+  }
 
   // 커서 탭에서는 프레임/fill 드래그 비활성화
   if (activeTab === 'cursor') {
@@ -297,8 +377,8 @@ export function getHit(
 export function getCursor(hit: DragState): string {
   if (!hit) return 'default';
   if (hit.type === 'slice') return hit.axis === 'x' ? 'ew-resize' : 'ns-resize';
-  if (hit.type === 'frame_move' || hit.type === 'fill_move' || hit.type === 'cursor_move') return 'move';
-  if (hit.type === 'frame_resize' || hit.type === 'fill_resize' || hit.type === 'cursor_resize') {
+  if (hit.type === 'frame_move' || hit.type === 'fill_move' || hit.type === 'cursor_move' || hit.type === 'gauge_bg_move' || hit.type === 'gauge_fill_move') return 'move';
+  if (hit.type === 'frame_resize' || hit.type === 'fill_resize' || hit.type === 'cursor_resize' || hit.type === 'gauge_bg_resize' || hit.type === 'gauge_fill_resize') {
     if (hit.edge === 'left' || hit.edge === 'right') return 'ew-resize';
     return 'ns-resize';
   }
