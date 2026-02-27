@@ -94,6 +94,14 @@
     // Mode3D가 없는 환경에서는 실행하지 않음
     if (typeof Mode3D === 'undefined') return;
 
+    // touch-action: none — 브라우저 기본 pan/scroll을 비활성화하여 touchcancel 방지
+    // itch.io 등 iframe 환경에서 브라우저가 pan을 감지해 touchcancel을 발생시키는 문제 해결
+    (function() {
+        var style = document.createElement('style');
+        style.textContent = 'canvas { touch-action: none; }';
+        document.head.appendChild(style);
+    })();
+
     var parameters = PluginManager.parameters('TouchCameraControl');
     var DRAG_THRESHOLD = Number(parameters['Drag Threshold'] || 12);
     var ROTATION_SPEED = Number(parameters['Rotation Speed'] || 0.3);
