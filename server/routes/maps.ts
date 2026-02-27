@@ -191,15 +191,20 @@ router.put('/:id', (req: Request, res: Response) => {
       if (hasRef) {
         const newFilename = projectManager.writeEventFile(mapId, ev.id, ev.name || '', eventData);
         const refPath = `Map${String(mapId).padStart(3, '0')}/${newFilename}`;
+        // 페이지 메타데이터(이미지·조건·이동타입 등)는 유지, 실행 커맨드(list)만 제거
+        const strippedPages = (eventData.pages as any[] || []).map((p: any) => ({
+          ...p,
+          list: [{ code: 0, indent: 0, parameters: [] }],
+        }));
         return {
           id: ev.id,
           name: ev.name || '',
           x: ev.x ?? 0,
           y: ev.y ?? 0,
           note: ev.note || '',
-          pages: [],  // MV 에디터에서 이벤트 위치/이름은 보이고 실행 내용만 비어있음
+          pages: strippedPages,
           __ref: refPath,
-          __note: `실행 내용(pages)은 외부 파일에 저장됩니다. MV 기본 에디터에서는 이벤트 위치/이름은 보이지만 실행 내용은 비어 있습니다. 파일 경로: data/${refPath}`,
+          __note: `실행 내용(pages[].list)은 외부 파일에 저장됩니다. MV 기본 에디터에서는 이벤트 이미지/조건은 보이지만 커맨드는 비어 있습니다. 파일 경로: data/${refPath}`,
         };
       } else {
         // 인라인으로 복귀 → 기존 외부 파일 삭제
@@ -424,15 +429,20 @@ router.post('/migrate-events', (req: Request, res: Response) => {
           const refPath = `Map${idStr}/${newFilename}`;
           migratedEvents++;
           changed = true;
+          // 페이지 메타데이터(이미지·조건·이동타입 등)는 유지, 실행 커맨드(list)만 제거
+          const strippedPages = (eventData.pages as any[] || []).map((p: any) => ({
+            ...p,
+            list: [{ code: 0, indent: 0, parameters: [] }],
+          }));
           return {
             id: ev.id,
             name: ev.name || '',
             x: ev.x ?? 0,
             y: ev.y ?? 0,
             note: ev.note || '',
-            pages: [],  // MV 에디터에서 이벤트 위치/이름은 보이고 실행 내용만 비어있음
+            pages: strippedPages,
             __ref: refPath,
-            __note: `실행 내용(pages)은 외부 파일에 저장됩니다. MV 기본 에디터에서는 이벤트 위치/이름은 보이지만 실행 내용은 비어 있습니다. 파일 경로: data/${refPath}`,
+            __note: `실행 내용(pages[].list)은 외부 파일에 저장됩니다. MV 기본 에디터에서는 이벤트 이미지/조건은 보이지만 커맨드는 비어 있습니다. 파일 경로: data/${refPath}`,
           };
         });
 
@@ -444,6 +454,56 @@ router.post('/migrate-events', (req: Request, res: Response) => {
     }
 
     res.json({ success: true, migratedMaps, migratedEvents });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Unmigrate: 외부 파일 이벤트를 모두 맵 파일 안으로 복구
+router.post('/unmigrate-events', (req: Request, res: Response) => {
+  if (process.env.DEMO_MODE === 'true') {
+    return res.json({ success: true, unmigratedMaps: 0, unmigratedEvents: 0 });
+  }
+  try {
+    const mapInfos = projectManager.readJSON('MapInfos.json') as (null | { id: number })[];
+    let unmigratedMaps = 0;
+    let unmigratedEvents = 0;
+
+    for (let i = 1; i < mapInfos.length; i++) {
+      if (!mapInfos[i]) continue;
+      const idStr = String(i).padStart(3, '0');
+      const mapFile = `Map${idStr}.json`;
+      try {
+        const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+        const events = (data.events as any[]) || [];
+        let changed = false;
+
+        data.events = events.map(ev => {
+          if (!ev || !ev.__ref) return ev;
+          try {
+            const extEvent = projectManager.readEventFile(i, ev.id) as Record<string, unknown>;
+            const { __ref: _r, __note: _n, ...baseEvent } = ev as Record<string, unknown>;
+            projectManager.deleteEventFile(i, ev.id);
+            unmigratedEvents++;
+            changed = true;
+            return { ...baseEvent, pages: extEvent.pages };
+          } catch {
+            // 외부 파일 없으면 마커만 제거
+            const { __ref: _r, __note: _n, ...baseEvent } = ev as Record<string, unknown>;
+            changed = true;
+            return baseEvent;
+          }
+        });
+
+        if (changed) {
+          projectManager.writeJSON(mapFile, data);
+          projectManager.deleteEventFolder(i);
+          unmigratedMaps++;
+        }
+      } catch { /* skip missing maps */ }
+    }
+
+    res.json({ success: true, unmigratedMaps, unmigratedEvents });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

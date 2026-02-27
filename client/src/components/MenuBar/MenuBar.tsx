@@ -24,6 +24,7 @@ export default function MenuBar() {
     setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
     setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog,
     setShowUpdateCheckDialog, setShowMCPStatusDialog, setShowWebpConvertDialog, setShowPngConvertDialog,
+    showToast, currentMapId, selectMap,
   } = useEditorStore(useShallow(s => ({
     projectPath: s.projectPath,
     editMode: s.editMode, editorMode: s.editorMode,
@@ -52,6 +53,9 @@ export default function MenuBar() {
     setShowMCPStatusDialog: s.setShowMCPStatusDialog,
     setShowWebpConvertDialog: s.setShowWebpConvertDialog,
     setShowPngConvertDialog: s.setShowPngConvertDialog,
+    showToast: s.showToast,
+    currentMapId: s.currentMapId,
+    selectMap: s.selectMap,
   })));
 
   const hasProject = !!projectPath;
@@ -211,6 +215,30 @@ export default function MenuBar() {
         break;
       }
       case 'migrate': window.dispatchEvent(new CustomEvent('editor-migrate')); break;
+      case 'migrateEvents': {
+        if (!confirm('전체 맵의 이벤트 실행 내용(commands)을 외부 파일로 분리합니다.\n이미 분리된 이벤트는 건너뜁니다.\n계속하시겠습니까?')) break;
+        saveCurrentMap().then(() =>
+          fetch('/api/maps/migrate-events', { method: 'POST' })
+            .then(r => r.json())
+            .then((result: { migratedMaps: number; migratedEvents: number }) => {
+              showToast(`완료: ${result.migratedMaps}개 맵, ${result.migratedEvents}개 이벤트 외부 파일로 분리`);
+              if (currentMapId) selectMap(currentMapId);
+            })
+        );
+        break;
+      }
+      case 'unmigrateEvents': {
+        if (!confirm('외부 파일로 분리된 이벤트를 모두 맵 파일 안으로 복구합니다.\n계속하시겠습니까?')) break;
+        saveCurrentMap().then(() =>
+          fetch('/api/maps/unmigrate-events', { method: 'POST' })
+            .then(r => r.json())
+            .then((result: { unmigratedMaps: number; unmigratedEvents: number }) => {
+              showToast(`완료: ${result.unmigratedMaps}개 맵, ${result.unmigratedEvents}개 이벤트 인라인으로 복구`);
+              if (currentMapId) selectMap(currentMapId);
+            })
+        );
+        break;
+      }
       case 'fogOfWarTest': window.open('/fogofwar', '_blank'); break;
       case 'fogVolume3dTest': window.open('/fogvolume3d', '_blank'); break;
       case 'silhouetteTest': window.open('/silhouette', '_blank'); break;
@@ -231,7 +259,8 @@ export default function MenuBar() {
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
       setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog,
       setShowUpdateCheckDialog, setShowMCPStatusDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
-      zoomActualSize, undo, redo, openProject, projectPath, showTileIdOverlay]);
+      zoomActualSize, undo, redo, openProject, projectPath, showTileIdOverlay,
+      showToast, currentMapId, selectMap]);
 
   useMenuBarKeyboard(handleAction);
 
