@@ -1,6 +1,107 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 
+// ── 게이지 프리뷰 렌더링 ──────────────────────────────────────────────────
+
+function drawGaugePreview(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  bgX: number, bgY: number, bgW: number, bgH: number,
+  fillX: number, fillY: number, fillW: number, fillH: number,
+  fillDir: 'horizontal' | 'vertical',
+  rate: number,   // 0.0 ~ 1.0
+  tw: number, th: number,
+) {
+  ctx.clearRect(0, 0, tw, th);
+
+  // 체커보드 배경
+  for (let y = 0; y < th; y += 8) {
+    for (let x = 0; x < tw; x += 8) {
+      ctx.fillStyle = (Math.floor(x / 8) + Math.floor(y / 8)) % 2 === 0 ? '#222' : '#1a1a1a';
+      ctx.fillRect(x, y, 8, 8);
+    }
+  }
+
+  ctx.imageSmoothingEnabled = false;
+
+  // 배경 stretch
+  if (bgW > 0 && bgH > 0) {
+    ctx.drawImage(img, bgX, bgY, bgW, bgH, 0, 0, tw, th);
+  }
+
+  // 채움 클리핑
+  if (fillW > 0 && fillH > 0 && rate > 0) {
+    if (fillDir === 'vertical') {
+      const dstH = Math.round(th * rate);
+      const dstY = th - dstH;
+      const srcH = Math.round(fillH * rate);
+      const srcY = fillY + fillH - srcH;
+      ctx.drawImage(img, fillX, srcY, fillW, srcH, 0, dstY, tw, dstH);
+    } else {
+      const dstW = Math.round(tw * rate);
+      const srcW = Math.round(fillW * rate);
+      ctx.drawImage(img, fillX, fillY, srcW, fillH, 0, 0, dstW, th);
+    }
+  }
+}
+
+// ── 게이지 단일 프리뷰 캔버스 ────────────────────────────────────────────
+
+interface GaugePreviewItemProps {
+  label: string;
+  rate: number;
+  gaugeImg: HTMLImageElement | null;
+}
+
+function GaugePreviewItem({ label, rate, gaugeImg }: GaugePreviewItemProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const tw = 200, th = 24;
+
+  const redraw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !gaugeImg) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const s = useEditorStore.getState();
+    drawGaugePreview(ctx, gaugeImg,
+      s.uiSkinGaugeBgX,   s.uiSkinGaugeBgY,   s.uiSkinGaugeBgW,   s.uiSkinGaugeBgH,
+      s.uiSkinGaugeFillX, s.uiSkinGaugeFillY, s.uiSkinGaugeFillW, s.uiSkinGaugeFillH,
+      s.uiSkinGaugeFillDir as 'horizontal' | 'vertical',
+      rate, tw, th);
+  }, [gaugeImg, rate]);
+
+  useEffect(() => { redraw(); }, [redraw]);
+
+  const uiSkinGaugeBgX   = useEditorStore((s) => s.uiSkinGaugeBgX);
+  const uiSkinGaugeBgY   = useEditorStore((s) => s.uiSkinGaugeBgY);
+  const uiSkinGaugeBgW   = useEditorStore((s) => s.uiSkinGaugeBgW);
+  const uiSkinGaugeBgH   = useEditorStore((s) => s.uiSkinGaugeBgH);
+  const uiSkinGaugeFillX = useEditorStore((s) => s.uiSkinGaugeFillX);
+  const uiSkinGaugeFillY = useEditorStore((s) => s.uiSkinGaugeFillY);
+  const uiSkinGaugeFillW = useEditorStore((s) => s.uiSkinGaugeFillW);
+  const uiSkinGaugeFillH = useEditorStore((s) => s.uiSkinGaugeFillH);
+  const uiSkinGaugeFillDir = useEditorStore((s) => s.uiSkinGaugeFillDir);
+
+  useEffect(() => { redraw(); }, [redraw,
+    uiSkinGaugeBgX, uiSkinGaugeBgY, uiSkinGaugeBgW, uiSkinGaugeBgH,
+    uiSkinGaugeFillX, uiSkinGaugeFillY, uiSkinGaugeFillW, uiSkinGaugeFillH,
+    uiSkinGaugeFillDir,
+  ]);
+
+  return (
+    <div className="ui-skin-preview-item">
+      <div className="ui-skin-preview-label">{label} ({Math.round(rate * 100)}%)</div>
+      <canvas
+        ref={canvasRef}
+        width={tw}
+        height={th}
+        className="ui-skin-preview-canvas"
+        style={{ imageRendering: 'pixelated', width: tw, height: th }}
+      />
+    </div>
+  );
+}
+
 // ── 9-slice + fill 렌더링 ──────────────────────────────────────────────────
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -122,12 +223,17 @@ function PreviewItem({ label, width, height, skinImg }: PreviewItemProps) {
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
 export default function UIEditorSkinPreview() {
-  const projectPath  = useEditorStore((s) => s.projectPath);
-  const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const projectPath        = useEditorStore((s) => s.projectPath);
+  const uiSelectedSkin     = useEditorStore((s) => s.uiSelectedSkin);
   const uiSelectedSkinFile = useEditorStore((s) => s.uiSelectedSkinFile);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const uiSkinGaugeFile    = useEditorStore((s) => s.uiSkinGaugeFile);
+  const uiEditSubMode      = useEditorStore((s) => s.uiEditSubMode);
+
+  const imgRef      = useRef<HTMLImageElement | null>(null);
+  const gaugeImgRef = useRef<HTMLImageElement | null>(null);
   const [, forceUpdate] = React.useState(0);
 
+  // 스킨 메인 이미지
   useEffect(() => {
     if (!projectPath || !uiSelectedSkin) { imgRef.current = null; forceUpdate(n => n + 1); return; }
     const file = uiSelectedSkinFile || uiSelectedSkin;
@@ -137,17 +243,41 @@ export default function UIEditorSkinPreview() {
     img.src = `/img/system/${file}.png?v=${Date.now()}`;
   }, [projectPath, uiSelectedSkin, uiSelectedSkinFile]);
 
+  // 게이지 전용 이미지 (gaugeFile이 있으면 그것, 없으면 메인 스킨 이미지 재사용)
+  useEffect(() => {
+    if (!projectPath || !uiSelectedSkin) { gaugeImgRef.current = null; forceUpdate(n => n + 1); return; }
+    const file = uiSkinGaugeFile || uiSelectedSkinFile || uiSelectedSkin;
+    const img = new Image();
+    img.onload = () => { gaugeImgRef.current = img; forceUpdate(n => n + 1); };
+    img.onerror = () => { gaugeImgRef.current = null; forceUpdate(n => n + 1); };
+    img.src = `/img/system/${file}.png?v=${Date.now()}`;
+  }, [projectPath, uiSelectedSkin, uiSelectedSkinFile, uiSkinGaugeFile]);
+
+  const isGaugeMode = uiEditSubMode === 'gauge';
+
   return (
     <div className="ui-skin-preview-panel">
       <div className="ui-skin-preview-header">프리뷰</div>
-      {!imgRef.current ? (
-        <div className="ui-skin-preview-empty">스킨을 선택하세요</div>
+      {isGaugeMode ? (
+        !gaugeImgRef.current ? (
+          <div className="ui-skin-preview-empty">스킨을 선택하세요</div>
+        ) : (
+          <>
+            <GaugePreviewItem label="게이지 100%" rate={1.0}  gaugeImg={gaugeImgRef.current} />
+            <GaugePreviewItem label="게이지 60%"  rate={0.6}  gaugeImg={gaugeImgRef.current} />
+            <GaugePreviewItem label="게이지 20%"  rate={0.2}  gaugeImg={gaugeImgRef.current} />
+          </>
+        )
       ) : (
-        <>
-          <PreviewItem label="정사각형"       width={100} height={100} skinImg={imgRef.current} />
-          <PreviewItem label="가로 직사각형"  width={200} height={72}  skinImg={imgRef.current} />
-          <PreviewItem label="세로 직사각형"  width={72}  height={160} skinImg={imgRef.current} />
-        </>
+        !imgRef.current ? (
+          <div className="ui-skin-preview-empty">스킨을 선택하세요</div>
+        ) : (
+          <>
+            <PreviewItem label="정사각형"       width={100} height={100} skinImg={imgRef.current} />
+            <PreviewItem label="가로 직사각형"  width={200} height={72}  skinImg={imgRef.current} />
+            <PreviewItem label="세로 직사각형"  width={72}  height={160} skinImg={imgRef.current} />
+          </>
+        )
       )}
     </div>
   );
