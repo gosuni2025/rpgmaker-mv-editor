@@ -48,7 +48,7 @@ export function FramePickerDialog({ open, current, onClose, onSelect }: {
                 >
                   <div className="ui-frame-picker-img-wrap">
                     <img
-                      src={`/img/system/${skinFile}.png`}
+                      src={/\.(png|webp)$/i.test(skinFile) ? `/img/system/${skinFile}` : `/img/system/${skinFile}.png`}
                       alt={skinLabel}
                       className="ui-frame-picker-img"
                       onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}

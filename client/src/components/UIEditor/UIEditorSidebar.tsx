@@ -295,7 +295,7 @@ function SkinList() {
               onClick={() => handleSelect(skin)}
             >
               <img
-                src={`/img/system/${skin.file || skin.name}.png`}
+                src={/\.(png|webp)$/i.test(skin.file || skin.name) ? `/img/system/${skin.file || skin.name}` : `/img/system/${skin.file || skin.name}.png`}
                 alt={skin.label || skin.name}
                 className="ui-skin-thumb"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

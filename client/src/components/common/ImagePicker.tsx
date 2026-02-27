@@ -175,7 +175,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     const paths: string[] = [];
     if (!searchQuery && !currentSubDir) paths.push(''); // (None)
     currentFiles.forEach(f => {
-      const name = f.name.replace(/\.png$/i, '');
+      const name = f.name.replace(/\.(png|webp)$/i, '');
       const fullPath = !prefetchSubdirs && currentSubDir && !searchQuery
         ? `${currentSubDir}/${name}`
         : name;
@@ -193,7 +193,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   });
 
   const handleOk = () => {
-    onChange(selected.replace(/\.png$/i, ''), { fetchType });
+    onChange(selected.replace(/\.(png|webp)$/i, ''), { fetchType });
     if (onIndexChange) onIndexChange(selectedIndex);
     if (onDirectionChange) onDirectionChange(selectedDirection);
     if (onPatternChange) onPatternChange(selectedPattern);
@@ -240,7 +240,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
       </div>}
       {isOpen && (
         <div className="modal-overlay">
-          <div className="image-picker-dialog">
+          <div className="image-picker-dialog" onKeyDown={handleSearchKeyDown}>
             <div className="image-picker-header">Select {type}</div>
             <div className="image-picker-toolbar">
               <input
@@ -326,7 +326,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                 ))}
                 {/* 파일 목록 */}
                 {currentFiles.map(f => {
-                  const name = f.name.replace(/\.png$/i, '');
+                  const name = f.name.replace(/\.(png|webp)$/i, '');
                   const prefix = currentSubDir && !searchQuery ? currentSubDir + '/' : '';
                   const displayName = name.startsWith(prefix) ? name.slice(prefix.length) : name;
                   // non-recursive 모드에서 f.name은 파일명만 포함하므로 currentSubDir를 붙여야 함
@@ -376,7 +376,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
               <button className="db-btn" onClick={() => {
                 apiClient.post(`/resources/${type}/open-folder`, {}).catch(() => {});
               }} title="폴더 열기" style={{ marginRight: 'auto' }}>폴더 열기</button>
-              <span style={{ color: '#8bc34a', fontSize: '0.8em', marginRight: 'auto' }}>PNG 파일(.png)만 인식 · 하위 폴더도 자동으로 탐색됩니다</span>
+              <span style={{ color: '#8bc34a', fontSize: '0.8em', marginRight: 'auto' }}>PNG/WebP 파일 인식 · 하위 폴더도 자동으로 탐색됩니다</span>
               <button className="db-btn" onClick={handleOk}>OK</button>
               <button className="db-btn" onClick={closeModal}>Cancel</button>
             </div>
