@@ -293,6 +293,13 @@
         // 항상 preventDefault: touchcancel·pan·zoom 원천 차단
         event.preventDefault();
 
+        // itch.io 등 iframe 환경에서 포커스가 없으면 터치 이벤트가 비정상 동작하므로 강제 취득
+        try { window.focus(); } catch(e) {}
+        var canvas = document.querySelector('canvas');
+        if (canvas && typeof canvas.focus === 'function') {
+            try { canvas.focus(); } catch(e) {}
+        }
+
         for (var i = 0; i < event.changedTouches.length; i++) {
             var t = event.changedTouches[i];
             var p = canvasClamp(
@@ -336,12 +343,36 @@
     TouchInput._onTouchMove = function(event) {
         if (is3DActive()) {
             // 핀치 줌
-            if (_pinchState.active && event.touches.length >= 2) {
+            if (event.touches.length >= 2) {
+                if (!_pinchState.active) {
+                    // touchstart에서 핀치 초기화가 누락된 경우 (itch.io overlay 등) 복구
+                    _dragState.active = false;
+                    _dragState.moved  = true;
+                    _suppressNextDestination = true;
+                    _mapTouchTriggered = false;
+                    _pinchState.active   = true;
+                    _pinchState.lastDist = getTouchDist(event.touches);
+                }
                 var dist  = getTouchDist(event.touches);
                 applyZoom((dist - _pinchState.lastDist) * ZOOM_SPEED);
                 _pinchState.lastDist = dist;
                 event.preventDefault();
                 return;
+            }
+
+            // 1-손가락 드래그
+            if (event.touches.length === 1) {
+                // touchstart가 누락된 경우 (itch.io overlay 등) 드래그 상태 복구
+                if (!_dragState.active) {
+                    var t0 = event.touches[0];
+                    _dragState.active = true;
+                    _dragState.startX = t0.pageX;
+                    _dragState.startY = t0.pageY;
+                    _dragState.lastX  = t0.pageX;
+                    _dragState.lastY  = t0.pageY;
+                    _dragState.moved  = false;
+                    _suppressNextDestination = false;
+                }
             }
 
             // 1-손가락 드래그
@@ -387,10 +418,10 @@
     };
 
     TouchInput._onTouchEnd = function(event) {
-        if (is3DActive()) {
-            if (event.touches.length < 2) _pinchState.active = false;
-            if (event.touches.length === 0) _dragState.active = false;
-        }
+        // is3DActive() 여부와 무관하게 항상 state 정리
+        // (itch.io 등 iframe 환경에서 touchstart가 누락된 경우에도 올바르게 정리)
+        if (event.touches.length < 2) _pinchState.active = false;
+        if (event.touches.length === 0) _dragState.active = false;
         for (var i = 0; i < event.changedTouches.length; i++) {
             var t = event.changedTouches[i];
             var p = canvasClamp(
