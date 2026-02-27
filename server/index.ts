@@ -94,7 +94,8 @@ export function createApp(options: AppOptions = {}) {
           try {
             const extEvent = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
             const { __ref: _r, __note: _n, ...baseEvent } = ev;
-            return { ...baseEvent, pages: extEvent.pages };
+            // 게임 런타임에도 원본 note 복원 (플러그인이 note를 읽는 경우 대비)
+            return { ...baseEvent, note: extEvent.note ?? baseEvent.note, pages: extEvent.pages };
           } catch {
             const { __ref: _r, __note: _n, ...baseEvent } = ev;
             return baseEvent; // 파일 없으면 pages: [] 그대로
