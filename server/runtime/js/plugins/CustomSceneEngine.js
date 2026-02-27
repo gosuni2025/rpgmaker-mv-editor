@@ -665,11 +665,8 @@
     child._parent = this;
     if (child.displayObject()) {
       var childObj = child.displayObject();
-      if (this._windowed) {
-        childObj.x += this._padding;
-        childObj.y += this._padding;
-      }
-      // Window_Base 자식은 씬에서 addWindow로 별도 추가 — 여기서는 위치 오프셋만 적용
+      // Window_Base 자식은 씬에서 addWindow로 별도 추가 — 부모 패널의 화면 절대 위치만 반영
+      // (windowed 여부에 상관없이 padding 오프셋을 추가하지 않아야 위치가 일정함)
       if (childObj instanceof Window_Base) {
         childObj.x += this._x;
         childObj.y += this._y;
