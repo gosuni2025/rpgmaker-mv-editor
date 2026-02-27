@@ -296,8 +296,8 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
               <div style={{ marginTop: 4, fontSize: 11, color: '#6c6' }}>✓ itch.io에서 게임을 찾았습니다</div>
             )}
             {gameExists === false && (
-              <div style={{ marginTop: 4, fontSize: 11, color: '#e77' }}>
-                ✗ itch.io에서 게임을 찾을 수 없습니다. '새 게임 만들기'로 먼저 게임 페이지를 생성하세요.
+              <div style={{ marginTop: 4, fontSize: 11, color: '#e8a040' }}>
+                ⚠ 공개 페이지에서 게임을 찾을 수 없습니다. Draft/비공개 게임은 정상이며 배포 가능합니다. 게임 페이지가 없다면 '새 게임 만들기'로 생성하세요.
               </div>
             )}
           </div>
