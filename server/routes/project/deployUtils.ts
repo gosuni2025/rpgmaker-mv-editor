@@ -235,11 +235,14 @@ async function writeZip(zipPath: string, entries: BundleFileEntry[]): Promise<vo
   });
 }
 
-/** 배포 디렉터리에 SW 번들 파일 생성 */
+/** 배포 디렉터리에 SW 번들 파일 생성
+ * @param extDirs staging에 없는 디렉터리 항목 (img/, audio/ 등 직접 스트리밍용)
+ */
 export async function generateBundleFiles(
   stagingDir: string,
   buildId: string,
   log?: (msg: string) => void,
+  extDirs?: Map<string, BundleFileEntry[]>,
 ): Promise<void> {
   const l = (msg: string) => { if (log) log(msg); };
   l('── SW 번들 ZIP 생성 ──');
@@ -250,10 +253,15 @@ export async function generateBundleFiles(
   const manifestBundles: { file: string; prefix: string }[] = [];
 
   for (const dir of ['img', 'audio', 'data']) {
-    const dirPath = path.join(stagingDir, dir);
-    if (!fs.existsSync(dirPath)) continue;
-
-    const entries = collectBundleEntries(dirPath);
+    let entries: BundleFileEntry[];
+    if (extDirs?.has(dir)) {
+      entries = extDirs.get(dir)!;
+    } else {
+      const dirPath = path.join(stagingDir, dir);
+      if (!fs.existsSync(dirPath)) continue;
+      entries = collectBundleEntries(dirPath);
+    }
+    if (entries.length === 0) continue;
     const prefix = `${dir}/`;
 
     const chunks: BundleFileEntry[][] = [];
@@ -380,6 +388,7 @@ async function zipStagingWithProgress(
   fileTotal: number,
   onProgress: (current: number, total: number, name: string) => void,
   excludeDirs: string[] = [],
+  directEntries: { src: string; name: string }[] = [],
 ): Promise<void> {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   return new Promise<void>((resolve, reject) => {
@@ -393,6 +402,8 @@ async function zipStagingWithProgress(
     archive.on('error', reject);
     output.on('close', resolve);
     archive.pipe(output);
+    // staging에 없는 파일들(img/, audio/)을 원본에서 직접 스트리밍
+    for (const e of directEntries) archive.file(e.src, { name: e.name });
     if (excludeDirs.length > 0) {
       for (const entry of fs.readdirSync(stagingDir, { withFileTypes: true })) {
         if (entry.isDirectory() && excludeDirs.includes(entry.name)) continue;
@@ -438,15 +449,25 @@ export async function buildDeployZipWithProgress(
   onEvent({ type: 'counted', total });
   onEvent({ type: 'log', message: `파일 ${total}개 수집${opts.filterUnused ? ' (미사용 에셋 제외됨)' : ''}` });
 
+  // img/, audio/: 수천 개의 바이너리 파일 — staging 복사 생략, 직접 스트리밍
+  // WebP 변환이 필요한 경우에만 img/를 staging에 복사
+  const LARGE_DIRS = ['img', 'audio'];
+  const stagingFiles: string[] = [];
+  const largeFiles: string[] = [];
+  for (const rel of files) {
+    if (LARGE_DIRS.includes(rel.split('/')[0].toLowerCase())) largeFiles.push(rel);
+    else stagingFiles.push(rel);
+  }
+
   const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpgdeploy-'));
   try {
     let current = 0;
-    for (const rel of files) {
+    for (const rel of stagingFiles) {
       const destFile = path.join(stagingDir, rel);
       fs.mkdirSync(path.dirname(destFile), { recursive: true });
       fs.copyFileSync(path.join(srcPath, rel), destFile);
       current++;
-      if (current % 20 === 0 || current === total) {
+      if (current % 20 === 0 || current === stagingFiles.length) {
         onEvent({ type: 'progress', current, total });
       }
     }
@@ -454,9 +475,10 @@ export async function buildDeployZipWithProgress(
 
     syncRuntimeFiles(stagingDir);
 
-    const stagingImgDir = path.join(stagingDir, 'img');
+    // WebP 여부는 원본 img/ 디렉터리에서 확인
+    const srcImgDir = path.join(srcPath, 'img');
     let projectIsWebp = false;
-    if (fs.existsSync(stagingImgDir)) {
+    if (fs.existsSync(srcImgDir)) {
       function hasPng(dir: string): boolean {
         for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
           if (e.isDirectory()) { if (hasPng(path.join(dir, e.name))) return true; }
@@ -471,15 +493,23 @@ export async function buildDeployZipWithProgress(
         }
         return false;
       }
-      projectIsWebp = !hasPng(stagingImgDir) && hasWebp(stagingImgDir);
+      projectIsWebp = !hasPng(srcImgDir) && hasWebp(srcImgDir);
     }
 
+    // WebP 변환이 필요하면 img/만 staging에 복사 후 변환
+    let imgInStaging = false;
     if (opts.convertWebp && !projectIsWebp) {
       onEvent({ type: 'status', phase: 'patching' });
       onEvent({ type: 'log', message: '── WebP 변환 중 ──' });
+      for (const rel of largeFiles.filter(r => r.startsWith('img/'))) {
+        const dest = path.join(stagingDir, rel);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(path.join(srcPath, rel), dest);
+      }
       const webpCount = await convertImagesToWebP(stagingDir, onEvent);
       onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개)` });
       projectIsWebp = webpCount > 0;
+      imgInStaging = webpCount > 0;
     } else if (projectIsWebp) {
       onEvent({ type: 'log', message: '✓ 이미 WebP로 변환된 프로젝트 — 변환 생략' });
     }
@@ -487,8 +517,21 @@ export async function buildDeployZipWithProgress(
     applyIndexHtmlRename(stagingDir);
     const buildId = makeBuildId();
     applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
+
     if (opts.bundle) {
-      await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
+      // staging에 없는 img/, audio/는 원본에서 직접 읽어 번들 생성
+      const extDirs = new Map<string, BundleFileEntry[]>();
+      if (!imgInStaging) {
+        const imgEntries = largeFiles
+          .filter(r => r.startsWith('img/'))
+          .map(r => ({ absPath: path.join(srcPath, r), zipName: r.slice(4), size: fs.statSync(path.join(srcPath, r)).size }));
+        if (imgEntries.length > 0) extDirs.set('img', imgEntries);
+      }
+      const audioEntries = largeFiles
+        .filter(r => r.startsWith('audio/'))
+        .map(r => ({ absPath: path.join(srcPath, r), zipName: r.slice(6), size: fs.statSync(path.join(srcPath, r)).size }));
+      if (audioEntries.length > 0) extDirs.set('audio', audioEntries);
+      await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }), extDirs.size > 0 ? extDirs : undefined);
     }
 
     onEvent({ type: 'status', phase: 'zipping' });
@@ -496,9 +539,17 @@ export async function buildDeployZipWithProgress(
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
     const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
     const zipExcludeDirs = opts.bundle ? ['img', 'audio', 'data'] : [];
+    // bundle=false이면 img/, audio/를 원본에서 직접 archive에 스트리밍 (staging 복사 없음)
+    const directEntries: { src: string; name: string }[] = [];
+    if (!opts.bundle) {
+      for (const rel of largeFiles) {
+        const inStaging = rel.startsWith('img/') && imgInStaging;
+        directEntries.push({ src: path.join(inStaging ? stagingDir : srcPath, rel), name: rel });
+      }
+    }
     await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot, name) => {
       onEvent({ type: 'zip-progress', current: cur, total: tot, name });
-    }, zipExcludeDirs);
+    }, zipExcludeDirs, directEntries);
     onEvent({ type: 'log', message: '✓ ZIP 완료' });
 
     return zipPath;
