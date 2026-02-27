@@ -1482,6 +1482,7 @@
       "convertWebpHelp": "PNG → WebP 변환이란?",
       "convertWebpDesc1": "배포 시 img/ 폴더의 PNG 파일을 WebP 무손실 형식으로 변환합니다",
       "convertWebpDesc2": "투명도를 완벽하게 보존하면서 PNG 대비 약 25~35% 용량을 절감합니다",
+      "convertWebpDesc3": "같은 폴더에 같은 이름의 WebP 파일이 이미 있으면 변환을 생략합니다",
       "convertWebpNote": "배포 용량 및 네트워크 트래픽을 줄여 로딩 속도를 개선합니다. 원본 프로젝트 파일은 변경되지 않습니다"
     },
     "tabNetlify": "Netlify",

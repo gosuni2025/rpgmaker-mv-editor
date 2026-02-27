@@ -82,6 +82,7 @@ export default function CacheBustSection({ opts, onChange }: Props) {
             <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 4 }}>{t('deploy.cacheBust.convertWebpHelp')}</div>
             <div>· {t('deploy.cacheBust.convertWebpDesc1')}</div>
             <div>· {t('deploy.cacheBust.convertWebpDesc2')}</div>
+            <div>· {t('deploy.cacheBust.convertWebpDesc3')}</div>
             <div style={{ marginTop: 4, color: '#5af' }}>ℹ {t('deploy.cacheBust.convertWebpNote')}</div>
           </HelpButton>
         </div>
