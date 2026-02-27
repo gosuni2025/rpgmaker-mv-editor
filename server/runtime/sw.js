@@ -109,7 +109,8 @@ async function installBundles() {
 
       const totalReceived = Object.values(dlProgress).reduce((s, v) => s + v.received, 0);
       const totalSize = Object.values(dlProgress).reduce((s, v) => s + v.total, 0);
-      await broadcast({ type: 'bundle-download-progress', file, totalReceived, totalSize });
+      const filesSnap = bundles.map(({ file: f }) => ({ file: f, received: dlProgress[f].received, total: dlProgress[f].total }));
+      await broadcast({ type: 'bundle-download-progress', file, totalReceived, totalSize, files: filesSnap });
     }
 
     const totalLen = chunks.reduce((s, c) => s + c.length, 0);

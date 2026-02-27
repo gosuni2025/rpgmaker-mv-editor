@@ -70,7 +70,7 @@
                     '<div id="bo-bar-wrap" style="width:360px;background:#222;border-radius:4px;overflow:hidden;height:8px">',
                     '  <div id="bo-bar" style="height:8px;width:0%;background:linear-gradient(90deg,#2c6fc7,#55aaff);transition:width 0.15s"></div>',
                     '</div>',
-                    '<div id="bo-text" style="font-size:12px;margin-top:10px;color:#888;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center"></div>',
+                    '<div id="bo-files" style="margin-top:12px;width:360px;font-size:12px;color:#888;display:flex;flex-direction:column;gap:4px"></div>',
                 ].join('');
                 document.body.appendChild(overlay);
             }
@@ -79,14 +79,11 @@
                 if (!overlay) return;
                 document.getElementById('bo-bar').style.width = Math.min(100, Math.max(0, pct)) + '%';
             }
-            function setText(t) {
-                if (!overlay) return;
-                document.getElementById('bo-text').textContent = t;
-            }
             function setTitle(t) {
                 if (!overlay) return;
                 document.getElementById('bo-title').textContent = t;
             }
+            function mb(b) { return (b / 1048576).toFixed(1) + ' MB'; }
 
             function removeOverlay() {
                 if (overlay) { overlay.remove(); overlay = null; }
@@ -115,19 +112,32 @@
                 var msg = e.data;
                 if (!msg) return;
                 if (msg.type === 'bundle-downloading') {
-                    setTitle('리소스 다운로드 중...');
-                    setText(msg.file + ' 다운로드 준비 중');
+                    var filesDiv = document.getElementById('bo-files');
+                    if (filesDiv) {
+                        var safeId = 'bo-f-' + msg.file.replace(/[^a-z0-9]/gi, '_');
+                        if (!document.getElementById(safeId)) {
+                            var row = document.createElement('div');
+                            row.id = safeId;
+                            row.style.cssText = 'display:flex;justify-content:space-between';
+                            row.innerHTML = '<span>' + msg.file + '</span><span id="' + safeId + '-sz">...</span>';
+                            filesDiv.appendChild(row);
+                        }
+                    }
                 } else if (msg.type === 'bundle-download-progress') {
                     var dlPct = msg.totalSize > 0 ? msg.totalReceived / msg.totalSize * 50 : 0;
                     setBar(dlPct);
-                    var mb = function(b) { return (b / 1048576).toFixed(1) + ' MB'; };
-                    var sizeStr = msg.totalSize > 0 ? mb(msg.totalReceived) + ' / ' + mb(msg.totalSize) : mb(msg.totalReceived);
-                    setText(msg.file + '  (' + sizeStr + ')');
+                    if (msg.files) {
+                        msg.files.forEach(function(f) {
+                            var szEl = document.getElementById('bo-f-' + f.file.replace(/[^a-z0-9]/gi, '_') + '-sz');
+                            if (szEl) szEl.textContent = f.total > 0 ? mb(f.received) + ' / ' + mb(f.total) : mb(f.received);
+                        });
+                    }
                 } else if (msg.type === 'bundle-progress') {
                     setTitle('압축 해제 중...');
                     var extPct = 50 + (msg.totalFiles > 0 ? msg.loadedFiles / msg.totalFiles * 50 : 0);
                     setBar(extPct);
-                    setText(msg.loadedFiles + ' / ' + msg.totalFiles + ' 파일');
+                    var filesDiv2 = document.getElementById('bo-files');
+                    if (filesDiv2) filesDiv2.textContent = msg.loadedFiles + ' / ' + msg.totalFiles + ' 파일';
                 } else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip' || msg.type === 'bundle-error') {
                     if (msg.type === 'bundle-skip')  console.warn('[SW] bundle-skip (번들 없음 → 직접 네트워크 로드):', msg.reason);
                     if (msg.type === 'bundle-error') console.warn('[SW] bundle error:', msg.file, msg.error);
