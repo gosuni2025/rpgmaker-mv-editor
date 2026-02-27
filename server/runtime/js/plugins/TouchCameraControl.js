@@ -222,33 +222,36 @@
         _orig_onLeftButtonDown.call(this, event);
     };
 
+    // =========================================================================
+    // mousemove / mouseup — document.addEventListener 직접 등록
+    //
+    // TouchInput._onMouseMove = function(...) 교체 방식은 rpg_core가
+    // TouchInput.initialize()에서 this._onMouseMove.bind(this) 로 등록하므로
+    // 플러그인 교체가 반영되지 않음. 직접 addEventListener로 우회.
+    // =========================================================================
+
+    var _mouseMovLogCount = 0;
+
     // iframe 경계 밖으로 드래그해도 mousemove를 계속 받기 위해 pointer capture 설정
     document.addEventListener('pointerdown', function(event) {
-        if (event.button === 0 && is3DActive()) {
-            var x = Graphics.pageToCanvasX(event.pageX);
-            var y = Graphics.pageToCanvasY(event.pageY);
-            if (Graphics.isInsideCanvas(x, y)) {
-                try { event.target.setPointerCapture(event.pointerId); } catch(e) {}
-            }
+        if (event.button === 0) {
+            try { event.target.setPointerCapture(event.pointerId); } catch(e) {}
         }
     });
 
-    var _mouseMovLogCount = 0;
-    var _orig_onMouseMove = TouchInput._onMouseMove;
-    TouchInput._onMouseMove = function(event) {
-        if (_mouseMovLogCount < 5 && (event.buttons & 1)) {
+    document.addEventListener('mousemove', function(event) {
+        if (_mouseMovLogCount < 5) {
             _mouseMovLogCount++;
-            console.log('[TCC] mousemove #' + _mouseMovLogCount +
+            console.log('[TCC] direct-mousemove #' + _mouseMovLogCount +
+                ' buttons=' + event.buttons +
                 ' is3D=' + is3DActive() +
-                ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
-                ' _active=' + Mode3D._active +
-                ' _perspCamera=' + !!Mode3D._perspCamera +
-                ' drag.active=' + _dragState.active);
+                ' drag.active=' + _dragState.active +
+                ' drag.moved=' + _dragState.moved);
         }
-        // event.buttons & 1: 현재 왼쪽 버튼이 눌려있는지 직접 확인
-        // (iframe 환경에서 _mousePressed가 설정되지 않는 경우 대응)
-        // mousedown이 mode3d=false 시점에 발생해 _dragState.active=false인 경우 복구
-        if (is3DActive() && (event.buttons & 1) && !_dragState.active) {
+        if (!is3DActive()) return;
+
+        // dragState 복구 (mousedown이 mode3d=false 시점에 발생한 경우)
+        if ((event.buttons & 1) && !_dragState.active) {
             _dragState.active = true;
             _dragState.startX = event.pageX;
             _dragState.startY = event.pageY;
@@ -257,23 +260,27 @@
             _dragState.moved  = false;
             _suppressNextDestination = false;
         }
-        if (is3DActive() && _dragState.active && (event.buttons & 1)) {
+
+        if (!(event.buttons & 1)) {
+            _dragState.active = false;
+            return;
+        }
+
+        if (_dragState.active) {
             var dx = event.pageX - _dragState.lastX;
             var dy = event.pageY - _dragState.lastY;
 
-            // 카메라 존 밖에서만 드래그 회전 처리
             if (!isCameraZoneActive()) {
-                // threshold 체크
-                var totalDx = event.pageX - _dragState.startX;
-                var totalDy = event.pageY - _dragState.startY;
                 if (!_dragState.moved) {
-                    if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > DRAG_THRESHOLD) {
+                    var tdx = event.pageX - _dragState.startX;
+                    var tdy = event.pageY - _dragState.startY;
+                    if (Math.sqrt(tdx * tdx + tdy * tdy) > DRAG_THRESHOLD) {
                         _dragState.moved = true;
                         _suppressNextDestination = true;
                     }
                 }
-
                 if (_dragState.moved) {
+                    console.log('[TCC] applyYaw dx=' + dx.toFixed(1) + ' dy=' + dy.toFixed(1));
                     applyYaw(-dx * ROTATION_SPEED);
                     applyTilt(dy * ROTATION_SPEED);
                 }
@@ -282,22 +289,13 @@
             _dragState.lastX = event.pageX;
             _dragState.lastY = event.pageY;
         }
+    });
 
-        // 드래그 중이면 원본 _onMove 호출 억제 (이동 좌표 갱신 방지)
-        if (is3DActive() && _dragState.moved) {
-            // 원본 호출하지 않음 → TouchInput._onMove() 실행 안함
-            return;
-        }
-        _orig_onMouseMove.call(this, event);
-    };
-
-    var _orig_onMouseUp = TouchInput._onMouseUp;
-    TouchInput._onMouseUp = function(event) {
+    document.addEventListener('mouseup', function(event) {
         if (event.button === 0) {
             _dragState.active = false;
         }
-        _orig_onMouseUp.call(this, event);
-    };
+    });
 
     //=========================================================================
     // 터치 이벤트 처리 (모바일 기기 대응)
@@ -377,140 +375,135 @@
         }
     };
 
+    // =========================================================================
+    // touchmove / touchend / touchcancel — document.addEventListener 직접 등록
+    //
+    // TouchInput._onTouchMove = function(...) 교체 방식과 동일한 이유로
+    // bind 시점 이후 교체가 반영되지 않을 수 있으므로 직접 등록.
+    // passive: false 필수 (event.preventDefault() 호출을 위해)
+    // =========================================================================
+
     var _touchMoveLogCount = 0;
-    TouchInput._onTouchMove = function(event) {
-        // 처음 5번만 상세 로그 (스팸 방지)
+
+    document.addEventListener('touchmove', function(event) {
+        event.preventDefault(); // pan/scroll 원천 차단
+
         if (_touchMoveLogCount < 5) {
             _touchMoveLogCount++;
-            console.log('[TCC] touchmove #' + _touchMoveLogCount +
+            console.log('[TCC] direct-touchmove #' + _touchMoveLogCount +
                 ' cnt=' + event.touches.length +
                 ' is3D=' + is3DActive() +
-                ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
-                ' _active=' + Mode3D._active +
-                ' _perspCamera=' + !!Mode3D._perspCamera +
                 ' drag.active=' + _dragState.active +
                 ' drag.moved=' + _dragState.moved);
         }
-        if (is3DActive()) {
-            // 핀치 줌
-            if (event.touches.length >= 2) {
-                if (!_pinchState.active) {
-                    // touchstart에서 핀치 초기화가 누락된 경우 (itch.io overlay 등) 복구
-                    _dragState.active = false;
-                    _dragState.moved  = true;
-                    _suppressNextDestination = true;
-                    _mapTouchTriggered = false;
-                    _pinchState.active   = true;
-                    _pinchState.lastDist = getTouchDist(event.touches);
-                }
-                var dist  = getTouchDist(event.touches);
-                applyZoom((dist - _pinchState.lastDist) * ZOOM_SPEED);
-                _pinchState.lastDist = dist;
-                event.preventDefault();
-                return;
+
+        if (!is3DActive()) {
+            // 이동 좌표 갱신
+            for (var i = 0; i < event.changedTouches.length; i++) {
+                var t = event.changedTouches[i];
+                var p = canvasClamp(
+                    Graphics.pageToCanvasX(t.pageX),
+                    Graphics.pageToCanvasY(t.pageY)
+                );
+                TouchInput._onMove(p.x, p.y);
+            }
+            return;
+        }
+
+        // 핀치 줌
+        if (event.touches.length >= 2) {
+            if (!_pinchState.active) {
+                _dragState.active = false;
+                _dragState.moved  = true;
+                _suppressNextDestination = true;
+                _mapTouchTriggered = false;
+                _pinchState.active   = true;
+                _pinchState.lastDist = getTouchDist(event.touches);
+            }
+            var dist = getTouchDist(event.touches);
+            applyZoom((dist - _pinchState.lastDist) * ZOOM_SPEED);
+            _pinchState.lastDist = dist;
+            return;
+        }
+
+        // 1-손가락 드래그
+        if (event.touches.length === 1) {
+            // touchstart 누락 복구
+            if (!_dragState.active) {
+                var t0 = event.touches[0];
+                _dragState.active = true;
+                _dragState.startX = t0.pageX;
+                _dragState.startY = t0.pageY;
+                _dragState.lastX  = t0.pageX;
+                _dragState.lastY  = t0.pageY;
+                _dragState.moved  = false;
+                _suppressNextDestination = false;
             }
 
-            // 1-손가락 드래그
-            if (event.touches.length === 1) {
-                // touchstart가 누락된 경우 (itch.io overlay 등) 드래그 상태 복구
-                if (!_dragState.active) {
-                    var t0 = event.touches[0];
-                    _dragState.active = true;
-                    _dragState.startX = t0.pageX;
-                    _dragState.startY = t0.pageY;
-                    _dragState.lastX  = t0.pageX;
-                    _dragState.lastY  = t0.pageY;
-                    _dragState.moved  = false;
-                    _suppressNextDestination = false;
-                }
-            }
+            var touch = event.touches[0];
+            var dx = touch.pageX - _dragState.lastX;
+            var dy = touch.pageY - _dragState.lastY;
 
-            // 1-손가락 드래그
-            if (_dragState.active && event.touches.length === 1) {
-                var touch = event.touches[0];
-                event.preventDefault();
-
-                var dx = touch.pageX - _dragState.lastX;
-                var dy = touch.pageY - _dragState.lastY;
-
-                if (!isCameraZoneActive()) {
-                    if (!_dragState.moved) {
-                        var tdx = touch.pageX - _dragState.startX;
-                        var tdy = touch.pageY - _dragState.startY;
-                        if (Math.sqrt(tdx * tdx + tdy * tdy) > DRAG_THRESHOLD) {
-                            _dragState.moved = true;
-                            _suppressNextDestination = true;
-                        }
-                    }
-                    if (_dragState.moved) {
-                        if (_touchMoveLogCount <= 5) {
-                            console.log('[TCC] applyYaw dx=' + dx.toFixed(1) + ' dy=' + dy.toFixed(1));
-                        }
-                        applyYaw(-dx * ROTATION_SPEED);
-                        applyTilt(dy * ROTATION_SPEED);
-                        _dragState.lastX = touch.pageX;
-                        _dragState.lastY = touch.pageY;
-                        return;
+            if (!isCameraZoneActive()) {
+                if (!_dragState.moved) {
+                    var tdx = touch.pageX - _dragState.startX;
+                    var tdy = touch.pageY - _dragState.startY;
+                    if (Math.sqrt(tdx * tdx + tdy * tdy) > DRAG_THRESHOLD) {
+                        _dragState.moved = true;
+                        _suppressNextDestination = true;
                     }
                 }
-
-                _dragState.lastX = touch.pageX;
-                _dragState.lastY = touch.pageY;
+                if (_dragState.moved) {
+                    console.log('[TCC] touch-applyYaw dx=' + dx.toFixed(1) + ' dy=' + dy.toFixed(1));
+                    applyYaw(-dx * ROTATION_SPEED);
+                    applyTilt(dy * ROTATION_SPEED);
+                    _dragState.lastX = touch.pageX;
+                    _dragState.lastY = touch.pageY;
+                    return;
+                }
             }
+
+            _dragState.lastX = touch.pageX;
+            _dragState.lastY = touch.pageY;
         }
 
         // 이동 좌표 갱신 (클램프 적용)
-        for (var i = 0; i < event.changedTouches.length; i++) {
-            var t = event.changedTouches[i];
-            var p = canvasClamp(
-                Graphics.pageToCanvasX(t.pageX),
-                Graphics.pageToCanvasY(t.pageY)
+        for (var j = 0; j < event.changedTouches.length; j++) {
+            var ct = event.changedTouches[j];
+            var cp = canvasClamp(
+                Graphics.pageToCanvasX(ct.pageX),
+                Graphics.pageToCanvasY(ct.pageY)
             );
-            this._onMove(p.x, p.y);
+            TouchInput._onMove(cp.x, cp.y);
         }
-    };
+    }, { passive: false });
 
-    TouchInput._onTouchEnd = function(event) {
-        // is3DActive() 여부와 무관하게 항상 state 정리
-        // (itch.io 등 iframe 환경에서 touchstart가 누락된 경우에도 올바르게 정리)
+    document.addEventListener('touchend', function(event) {
         if (event.touches.length < 2) _pinchState.active = false;
         if (event.touches.length === 0) _dragState.active = false;
-        for (var i = 0; i < event.changedTouches.length; i++) {
-            var t = event.changedTouches[i];
-            var p = canvasClamp(
-                Graphics.pageToCanvasX(t.pageX),
-                Graphics.pageToCanvasY(t.pageY)
-            );
-            this._screenPressed = false;
-            this._onRelease(p.x, p.y);
-        }
-    };
+    });
 
-    TouchInput._onTouchCancel = function(/*event*/) {
-        console.warn('[TCC] touchcancel! drag.active=' + _dragState.active + ' drag.moved=' + _dragState.moved);
-        _dragState.active    = false;
-        _dragState.moved     = false;
-        _pinchState.active   = false;
+    document.addEventListener('touchcancel', function() {
+        console.warn('[TCC] touchcancel! drag.active=' + _dragState.active);
+        _dragState.active  = false;
+        _dragState.moved   = false;
+        _pinchState.active = false;
         _suppressNextDestination = false;
-        _mapTouchTriggered   = false;
-        this._screenPressed  = false;
-    };
+        _mapTouchTriggered = false;
+    });
 
     //=========================================================================
-    // 마우스 휠 줌
+    // 마우스 휠 줌 — document.addEventListener 직접 등록
     //=========================================================================
 
     if (MOUSE_WHEEL_ZOOM) {
-        var _orig_onWheel = TouchInput._onWheel;
-        TouchInput._onWheel = function(event) {
+        document.addEventListener('wheel', function(event) {
             if (is3DActive()) {
                 var delta = -event.deltaY * WHEEL_ZOOM_SPEED * 0.01;
                 applyZoom(delta);
                 event.preventDefault();
-                return; // 원본 휠 이벤트 소비
             }
-            _orig_onWheel.call(this, event);
-        };
+        }, { passive: false });
     }
 
     //=========================================================================
