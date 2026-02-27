@@ -7,6 +7,7 @@ import type {
 } from '../../store/uiEditorTypes';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
+import HelpButton from '../common/HelpButton';
 
 // ── ActionHandlerEditor ────────────────────────────────────
 
@@ -446,13 +447,26 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
           ))}
         </div>
         <div style={rowStyle}>
-          <label style={{ fontSize: 11, color: '#aaa' }}>
+          <label style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 3 }}>
             <input type="checkbox" checked={widget.visible !== false}
-              onChange={(e) => update({ visible: e.target.checked } as any)} /> 표시
+              onChange={(e) => update({ visible: e.target.checked } as any)} />
+            표시
+            <HelpButton text={
+              '런타임(게임)에서 이 위젯을 표시할지 여부입니다.\n\n' +
+              '체크 해제 시 위젯이 화면에 보이지 않습니다.\n' +
+              '스크립트로 나중에 동적으로 보이게 할 위젯에 사용합니다.'
+            } />
           </label>
-          <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12 }}>
+          <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
             <input type="checkbox" checked={widget.previewSelectable !== false}
-              onChange={(e) => update({ previewSelectable: e.target.checked ? undefined : false } as any)} /> preview 선택
+              onChange={(e) => update({ previewSelectable: e.target.checked ? undefined : false } as any)} />
+            preview 선택
+            <HelpButton text={
+              '에디터 preview에서 클릭으로 이 위젯을 선택할 수 있는지 여부입니다.\n\n' +
+              '체크 해제 시 preview에서 클릭해도 이 위젯이 선택되지 않아,\n' +
+              '뒤에 있는 다른 위젯을 쉽게 선택할 수 있습니다.\n\n' +
+              '배경(background) 위젯처럼 클릭을 통해 실수로 선택될 경우에 유용합니다.'
+            } />
           </label>
         </div>
       </div>
