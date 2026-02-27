@@ -2043,13 +2043,6 @@
   var OverlayManager = {
     _instances: {}, // sceneId -> { container, scene }
 
-    _getStage: function () {
-      if (typeof Graphics === 'undefined') return null;
-      if (Graphics._app && Graphics._app.stage) return Graphics._app.stage;
-      if (Graphics._renderer && Graphics._renderer.stage) return Graphics._renderer.stage;
-      return null;
-    },
-
     show: function (sceneId, args) {
       var inst = this._instances[sceneId];
       if (!inst) {
@@ -2079,17 +2072,21 @@
     destroy: function (sceneId) {
       var inst = this._instances[sceneId];
       if (inst) {
-        var stage = this._getStage();
-        if (stage && inst.container.parent === stage) stage.removeChild(inst.container);
+        if (inst.container.parent) inst.container.parent.removeChild(inst.container);
         delete this._instances[sceneId];
       }
     },
 
     update: function () {
+      // 씬 전환 감지 — overlay container를 항상 현재 씬에 부착
+      var currentScene = SceneManager._scene;
       for (var id in this._instances) {
         var inst = this._instances[id];
+        if (currentScene && inst.container.parent !== currentScene) {
+          currentScene.addChild(inst.container);
+        }
         if (inst.container.visible) {
-          if (inst.scene.update) inst.scene.update();
+          if (inst.scene && inst.scene.update) inst.scene.update();
         }
       }
     },
@@ -2103,14 +2100,14 @@
     _create: function (sceneId, args) {
       if (!this._isOverlaySce(sceneId)) return null;
 
-      var stage = this._getStage();
-      if (!stage) return null;
+      var currentScene = SceneManager._scene;
+      if (!currentScene) return null;
 
       var PIXI = window.PIXI;
       if (!PIXI || !PIXI.Container) return null;
 
       var container = new PIXI.Container();
-      stage.addChild(container);
+      currentScene.addChild(container);
 
       var scene = new Scene_OverlayUI();
       scene._sceneId = sceneId;
