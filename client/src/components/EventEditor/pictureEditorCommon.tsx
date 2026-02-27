@@ -1,6 +1,6 @@
 import React from 'react';
 import ExtBadge from '../common/ExtBadge';
-import { selectStyle } from './messageEditors';
+import { selectStyle, radioStyle, labelStyle, inputStyle } from '../../styles/editorStyles';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import type { ShaderEntry } from './shaderEditor';
 
@@ -22,10 +22,8 @@ export interface PictureTransform {
 
 export const DEFAULT_TRANSFORM: PictureTransform = { flipH: false, flipV: false, rotX: 0, rotY: 0, rotZ: 0 };
 
-// ─── 공통 스타일 ───
-export const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
-export const labelStyle: React.CSSProperties = { fontSize: 12, color: '#aaa' };
-export const inputStyle: React.CSSProperties = { ...selectStyle, width: 80 };
+// ─── 공통 스타일 (editorStyles.ts에서 re-export) ───
+export { radioStyle, labelStyle, inputStyle } from '../../styles/editorStyles';
 
 // ─── 공통 컴포넌트 ───
 

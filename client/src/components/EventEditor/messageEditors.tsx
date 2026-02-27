@@ -9,7 +9,8 @@ import { buildTextExtra } from './messageEditorUtils';
 export { ShowTextEditorDialog } from './ShowTextEditorDialog';
 export { ShowChoicesEditor } from './ShowChoicesEditorComponent';
 
-export const selectStyle = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 } as const;
+import { selectStyle } from '../../styles/editorStyles';
+export { selectStyle } from '../../styles/editorStyles';
 
 // ─── 기존 호환용 (인라인 embed 형태) ───
 export function ShowTextEditor({ p, onOk, onCancel, existingLines }: {

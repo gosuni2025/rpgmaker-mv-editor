@@ -1,0 +1,543 @@
+import React, { useState } from 'react';
+import useEditorStore from '../../store/useEditorStore';
+import type {
+  CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType,
+  WidgetDef_Panel, WidgetDef_Label, WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge,
+  WidgetDef_List, WidgetDef_Options, OptionItemDef, WidgetDef_Button, ImageRenderMode,
+} from '../../store/uiEditorTypes';
+import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
+import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
+
+// ── ActionHandlerEditor ────────────────────────────────────
+
+export function ActionHandlerEditor({ handler, onChange }: {
+  handler: CustomCommandHandler;
+  onChange: (updates: Partial<CustomCommandHandler>) => void;
+}) {
+  const action = handler.action || 'popScene';
+  return (
+    <div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>동작:</span>
+        <select style={{ ...selectStyle, flex: 1 }} value={action}
+          onChange={(e) => onChange({ action: e.target.value as CommandActionType })}>
+          <option value="popScene">씬 닫기</option>
+          <option value="gotoScene">씬 이동</option>
+          <option value="customScene">커스텀 씬 이동</option>
+          <option value="callCommonEvent">커먼 이벤트 호출</option>
+          <option value="focusWidget">위젯 포커스</option>
+          <option value="refreshWidgets">위젯 갱신</option>
+          <option value="selectActor">액터 선택 → 씬 이동</option>
+          <option value="formation">대형 (파티 순서 교체)</option>
+          <option value="toggleConfig">설정 토글 (bool)</option>
+          <option value="incrementConfig">설정 증가 (볼륨)</option>
+          <option value="decrementConfig">설정 감소 (볼륨)</option>
+          <option value="saveConfig">설정 저장</option>
+          <option value="script">JS 스크립트 실행</option>
+        </select>
+      </div>
+      {(action === 'gotoScene' || action === 'customScene' || action === 'focusWidget') && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>대상:</span>
+          <input style={{ ...inputStyle, flex: 1 }}
+            placeholder={action === 'focusWidget' ? '위젯 ID' : '씬 이름'}
+            value={handler.target || ''}
+            onChange={(e) => onChange({ target: e.target.value })} />
+        </div>
+      )}
+      {(action === 'selectActor' || action === 'formation') && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>actorList ID:</span>
+          <input style={{ ...inputStyle, flex: 1 }}
+            placeholder="actor_list"
+            value={handler.widget || ''}
+            onChange={(e) => onChange({ widget: e.target.value })} />
+        </div>
+      )}
+      {action === 'selectActor' && (
+        <div>
+          <label style={{ ...labelStyle, marginTop: 4 }}>액터 선택 후 이동할 씬</label>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>씬:</span>
+            <input style={{ ...inputStyle, flex: 1 }}
+              placeholder="Scene_Skill"
+              value={handler.thenAction?.target || ''}
+              onChange={(e) => onChange({ thenAction: { action: 'gotoScene', target: e.target.value } })} />
+          </div>
+        </div>
+      )}
+      {(action === 'toggleConfig' || action === 'incrementConfig' || action === 'decrementConfig') && (
+        <div>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>configKey:</span>
+            <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
+              placeholder="alwaysDash / bgmVolume …"
+              value={handler.configKey || ''}
+              onChange={(e) => onChange({ configKey: e.target.value })} />
+          </div>
+          {(action === 'incrementConfig' || action === 'decrementConfig') && (
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>step:</span>
+              <input style={{ ...inputStyle, width: 60 }} type="number"
+                placeholder="20"
+                value={handler.step ?? ''}
+                onChange={(e) => onChange({ step: parseInt(e.target.value) || undefined })} />
+            </div>
+          )}
+        </div>
+      )}
+      {action === 'callCommonEvent' && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>이벤트 ID:</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number"
+            value={handler.eventId || ''}
+            onChange={(e) => onChange({ eventId: parseInt(e.target.value) || 0 })} />
+        </div>
+      )}
+      {action === 'script' && (
+        <textarea
+          style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+          placeholder="// JS 코드"
+          value={handler.code || ''}
+          onChange={(e) => onChange({ code: e.target.value })}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── PanelWidgetInspector ────────────────────────────────────
+
+function PanelWidgetInspector({ widget, update }: {
+  widget: WidgetDef_Panel; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const windowed = widget.windowed !== false;
+  const windowStyle = widget.windowStyle ?? 'default';
+  const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
+
+  const reloadPreview = async () => {
+    await saveCustomScenes();
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+    iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: uiEditorScene }, '*');
+  };
+
+  const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
+    update({ windowStyle: style === 'default' ? undefined : style } as any);
+    reloadPreview();
+  };
+
+  return (
+    <div>
+      <FramePickerDialog
+        open={pickerOpen}
+        current={widget.skinId ?? ''}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(skinName, skinFile) => {
+          update({ windowskinName: skinFile, skinId: skinName } as any);
+          reloadPreview();
+        }}
+      />
+      <ImagePickerDialog
+        open={imagePickerOpen}
+        current={widget.imageFile ?? ''}
+        onClose={() => setImagePickerOpen(false)}
+        onSelect={(filename) => { update({ imageFile: filename } as any); reloadPreview(); }}
+      />
+      <div style={rowStyle}>
+        <label style={{ fontSize: 11, color: '#aaa' }}>
+          <input type="checkbox" checked={windowed}
+            onChange={(e) => update({ windowed: e.target.checked } as any)} /> 창 배경
+        </label>
+      </div>
+      {windowed && (
+        <>
+          <div className="ui-window-style-radios" style={{ margin: '4px 0' }}>
+            {(['default', 'frame', 'image'] as const).map((style) => (
+              <label key={style} className={`ui-radio-label${windowStyle === style ? ' active' : ''}`}>
+                <input
+                  type="radio"
+                  name={`panel-style-${widget.id}`}
+                  value={style}
+                  checked={windowStyle === style}
+                  onChange={() => handleStyleChange(style)}
+                />
+                {style === 'default' ? '기본' : style === 'frame' ? '프레임 변경' : '이미지로 변경'}
+              </label>
+            ))}
+          </div>
+          {windowStyle === 'frame' && (
+            <div style={{ marginBottom: 4 }}>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>선택 프레임</span>
+                <span style={{ fontSize: 11, color: '#ccc', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {widget.skinId ?? widget.windowskinName ?? '(없음)'}
+                </span>
+              </div>
+              <div style={rowStyle}>
+                <button style={smallBtnStyle} onClick={() => setPickerOpen(true)}>프레임 선택…</button>
+              </div>
+            </div>
+          )}
+          {windowStyle === 'image' && (
+            <div style={{ marginBottom: 4 }}>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>선택 파일</span>
+                <span style={{ fontSize: 11, color: '#ccc', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {widget.imageFile ?? '(없음)'}
+                </span>
+              </div>
+              <div style={rowStyle}>
+                <button style={smallBtnStyle} onClick={() => setImagePickerOpen(true)}>파일 선택…</button>
+              </div>
+              <div style={{ ...rowStyle, flexWrap: 'wrap', gap: 2 }}>
+                {([['center', '원본'], ['stretch', '늘림'], ['tile', '타일'], ['fit', '비율맞춤'], ['cover', '비율채움']] as [ImageRenderMode, string][]).map(([mode, label]) => {
+                  const cur = widget.imageRenderMode ?? 'center';
+                  return (
+                    <label key={mode} className={`ui-radio-label${cur === mode ? ' active' : ''}`} style={{ fontSize: 10 }}>
+                      <input type="radio" name={`panel-imgmode-${widget.id}`} value={mode} checked={cur === mode}
+                        onChange={() => { update({ imageRenderMode: mode } as any); reloadPreview(); }} />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
+        <input style={{ ...inputStyle, width: 60 }} type="number"
+          value={widget.padding ?? ''}
+          placeholder="기본"
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
+          }} />
+      </div>
+    </div>
+  );
+}
+
+// ── OptionsWidgetInspector ─────────────────────────────────
+
+function OptionsWidgetInspector({ widget, update }: {
+  widget: WidgetDef_Options; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const opts = widget.options || [];
+
+  const updateOpt = (i: number, field: keyof OptionItemDef, value: string) => {
+    const next = opts.map((o, idx) => idx === i ? { ...o, [field]: value } : o);
+    update({ options: next } as any);
+  };
+
+  const addOpt = () => {
+    update({ options: [...opts, { name: '항목', symbol: 'newOption' }] } as any);
+  };
+
+  const removeOpt = (i: number) => {
+    update({ options: opts.filter((_, idx) => idx !== i) } as any);
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
+        옵션 항목 (ConfigManager 키와 일치해야 함)<br />
+        <span style={{ color: '#666' }}>bool 키: ON/OFF 토글, 숫자 키: 볼륨(0~100)</span>
+      </div>
+      {opts.map((opt, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+          <input
+            style={{ ...inputStyle, flex: 2 }}
+            placeholder="표시 이름"
+            value={opt.name}
+            onChange={(e) => updateOpt(i, 'name', e.target.value)}
+          />
+          <input
+            style={{ ...inputStyle, flex: 3, fontFamily: 'monospace', fontSize: 11 }}
+            placeholder="symbol (예: bgmVolume)"
+            value={opt.symbol}
+            onChange={(e) => updateOpt(i, 'symbol', e.target.value)}
+          />
+          <button style={deleteBtnStyle} onClick={() => removeOpt(i)}>×</button>
+        </div>
+      ))}
+      <button
+        className="ui-canvas-toolbar-btn"
+        style={{ fontSize: 11, marginTop: 2 }}
+        onClick={addOpt}
+      >
+        + 항목 추가
+      </button>
+    </div>
+  );
+}
+
+// ── ButtonWidgetInspector ──────────────────────────────────
+
+function ButtonWidgetInspector({ sceneId: _sceneId, widget, update }: {
+  sceneId: string; widget: WidgetDef_Button; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const currentAction = widget.action || { action: 'popScene' as CommandActionType };
+  const hasChildren = !!(widget.children && widget.children.length > 0);
+  return (
+    <div>
+      {!hasChildren && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>레이블</span>
+          <input style={{ ...inputStyle, flex: 1 }}
+            value={widget.label}
+            onChange={(e) => update({ label: e.target.value } as any)} />
+        </div>
+      )}
+      {hasChildren && (
+        <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
+          자식 위젯이 있어 레이블 불사용 (커서 행 모드)
+        </div>
+      )}
+      <label style={{ ...labelStyle, marginTop: 6 }}>OK 동작</label>
+      <ActionHandlerEditor handler={currentAction}
+        onChange={(updates) => update({ action: { ...currentAction, ...updates } } as any)} />
+      <label style={{ ...labelStyle, marginTop: 6 }}>◀ 동작 (좌 키, 볼륨 감소 등)</label>
+      <ActionHandlerEditor handler={widget.leftAction || { action: 'popScene' as CommandActionType }}
+        onChange={(updates) => update({ leftAction: { ...(widget.leftAction || { action: 'popScene' as CommandActionType }), ...updates } } as any)} />
+      {widget.leftAction && (
+        <button className="ui-canvas-toolbar-btn" style={{ fontSize: 11, color: '#f88', marginTop: 2 }}
+          onClick={() => update({ leftAction: undefined } as any)}>
+          ◀ 동작 제거
+        </button>
+      )}
+      <label style={{ ...labelStyle, marginTop: 6 }}>▶ 동작 (우 키, 볼륨 증가 등)</label>
+      <ActionHandlerEditor handler={widget.rightAction || { action: 'popScene' as CommandActionType }}
+        onChange={(updates) => update({ rightAction: { ...(widget.rightAction || { action: 'popScene' as CommandActionType }), ...updates } } as any)} />
+      {widget.rightAction && (
+        <button className="ui-canvas-toolbar-btn" style={{ fontSize: 11, color: '#f88', marginTop: 2 }}
+          onClick={() => update({ rightAction: undefined } as any)}>
+          ▶ 동작 제거
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── ListWidgetInspector ────────────────────────────────────
+
+function ListWidgetInspector({ sceneId: _sceneId, widget, update }: {
+  sceneId: string; widget: WidgetDef_List; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const items = widget.items || [];
+  const handlers = widget.handlers || {};
+
+  const addItem = () => {
+    const newItems = [...items, { name: `항목${items.length + 1}`, symbol: `cmd${Date.now()}`, enabled: true }];
+    update({ items: newItems } as any);
+  };
+
+  const updateItem = (idx: number, updates: Partial<CustomCommandDef>) => {
+    const newItems = items.map((c, i) => i === idx ? { ...c, ...updates } : c);
+    update({ items: newItems } as any);
+  };
+
+  const removeItem = (idx: number) => {
+    const newItems = items.filter((_, i) => i !== idx);
+    update({ items: newItems } as any);
+  };
+
+  const updateHandler = (symbol: string, updates: Partial<CustomCommandHandler>) => {
+    const newHandlers = { ...handlers, [symbol]: { ...(handlers[symbol] || { action: 'popScene' as CommandActionType }), ...updates } };
+    update({ handlers: newHandlers } as any);
+  };
+
+  return (
+    <div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>열 수</span>
+        <input style={{ ...inputStyle, width: 55 }} type="number" value={widget.maxCols || 1}
+          onChange={(e) => update({ maxCols: parseInt(e.target.value) || 1 } as any)} />
+      </div>
+      <label style={{ ...labelStyle, marginTop: 6 }}>커맨드 목록</label>
+      {items.map((item, idx) => (
+        <div key={idx} style={{ marginBottom: 8, padding: 6, background: '#2a2a2a', borderRadius: 3 }}>
+          <div style={rowStyle}>
+            <input style={{ ...inputStyle, flex: 1 }} value={item.name} placeholder="표시 이름"
+              onChange={(e) => updateItem(idx, { name: e.target.value })} />
+            <input style={{ ...inputStyle, flex: 1 }} value={item.symbol} placeholder="심볼"
+              onChange={(e) => updateItem(idx, { symbol: e.target.value })} />
+            {!item.enabledCondition && (
+              <label style={{ fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={item.enabled !== false}
+                  onChange={(e) => updateItem(idx, { enabled: e.target.checked })} /> 활성
+              </label>
+            )}
+            <button style={deleteBtnStyle} onClick={() => removeItem(idx)}>×</button>
+          </div>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>활성 조건:</span>
+            <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 10 }}
+              placeholder="JS 식 (비워두면 enabled 체크박스 사용)"
+              value={item.enabledCondition || ''}
+              onChange={(e) => updateItem(idx, { enabledCondition: e.target.value || undefined })} />
+          </div>
+          <ActionHandlerEditor
+            handler={handlers[item.symbol] || { action: 'popScene' }}
+            onChange={(updates) => updateHandler(item.symbol, updates)}
+          />
+        </div>
+      ))}
+      <button style={{ ...smallBtnStyle, width: '100%', marginTop: 4 }} onClick={addItem}>+ 항목</button>
+    </div>
+  );
+}
+
+// ── WidgetInspector (main export) ─────────────────────────
+
+const SCENE_W = 816, SCENE_H = 624;
+
+export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetDef }) {
+  const updateWidget = useEditorStore((s) => s.updateWidget);
+  const moveWidgetWithChildren = useEditorStore((s) => s.moveWidgetWithChildren);
+  const update = (updates: Partial<WidgetDef>) => updateWidget(sceneId, widget.id, updates);
+
+  const w = widget.width;
+  const h = widget.height ?? 0;
+  const alignButtons = [
+    { label: '가로 중앙', action: () => moveWidgetWithChildren(sceneId, widget.id, Math.round((SCENE_W - w) / 2), widget.y) },
+    { label: '세로 중앙', action: () => moveWidgetWithChildren(sceneId, widget.id, widget.x, Math.round((SCENE_H - h) / 2)) },
+    { label: '정중앙',    action: () => moveWidgetWithChildren(sceneId, widget.id, Math.round((SCENE_W - w) / 2), Math.round((SCENE_H - h) / 2)) },
+  ];
+
+  return (
+    <div>
+      {/* 공통 속성 */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>공통 속성</label>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
+          <input style={{ ...inputStyle, flex: 1 }} value={widget.id}
+            onChange={(e) => update({ id: e.target.value } as any)} />
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>X</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.x}
+            onChange={(e) => update({ x: parseInt(e.target.value) || 0 } as any)} />
+          <span style={{ fontSize: 11, color: '#888', width: 20 }}>Y</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.y}
+            onChange={(e) => update({ y: parseInt(e.target.value) || 0 } as any)} />
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>W</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.width}
+            onChange={(e) => update({ width: parseInt(e.target.value) || 0 } as any)} />
+          <span style={{ fontSize: 11, color: '#888', width: 20 }}>H</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.height ?? ''}
+            placeholder="auto"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              update({ height: v === '' ? undefined : (parseInt(v) || 0) } as any);
+            }} />
+        </div>
+        <div style={{ ...rowStyle, flexWrap: 'wrap', gap: 4 }}>
+          {alignButtons.map(({ label, action }) => (
+            <button key={label} style={smallBtnStyle} onClick={action}>{label}</button>
+          ))}
+        </div>
+        <div style={rowStyle}>
+          <label style={{ fontSize: 11, color: '#aaa' }}>
+            <input type="checkbox" checked={widget.visible !== false}
+              onChange={(e) => update({ visible: e.target.checked } as any)} /> 표시
+          </label>
+        </div>
+      </div>
+
+      {/* 타입별 속성 */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>타입 속성 ({widget.type})</label>
+        {widget.type === 'panel' && (
+          <PanelWidgetInspector widget={widget as WidgetDef_Panel} update={update} />
+        )}
+        {widget.type === 'label' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>텍스트</span>
+            </div>
+            <textarea
+              style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+              value={(widget as WidgetDef_Label).text}
+              placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
+              onChange={(e) => update({ text: e.target.value } as any)}
+            />
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+              <select style={{ ...selectStyle, flex: 1 }}
+                value={(widget as WidgetDef_Label).align || 'left'}
+                onChange={(e) => update({ align: e.target.value as any } as any)}>
+                <option value="left">왼쪽</option>
+                <option value="center">가운데</option>
+                <option value="right">오른쪽</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {widget.type === 'actorFace' && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 70 }}>액터 인덱스</span>
+            <input style={{ ...inputStyle, width: 60 }} type="number"
+              value={(widget as WidgetDef_ActorFace).actorIndex}
+              onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
+          </div>
+        )}
+        {widget.type === 'gauge' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 타입</span>
+              <select style={{ ...selectStyle, flex: 1 }}
+                value={(widget as WidgetDef_Gauge).gaugeType}
+                onChange={(e) => update({ gaugeType: e.target.value as any } as any)}>
+                <option value="hp">HP</option>
+                <option value="mp">MP</option>
+                <option value="tp">TP</option>
+              </select>
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>액터 인덱스</span>
+              <input style={{ ...inputStyle, width: 60 }} type="number"
+                value={(widget as WidgetDef_Gauge).actorIndex}
+                onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
+            </div>
+          </div>
+        )}
+        {widget.type === 'image' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
+              <input style={{ ...inputStyle, flex: 1 }}
+                value={(widget as WidgetDef_Image).imageName}
+                onChange={(e) => update({ imageName: e.target.value } as any)} />
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
+              <input style={{ ...inputStyle, flex: 1 }}
+                value={(widget as WidgetDef_Image).imageFolder || 'img/system/'}
+                onChange={(e) => update({ imageFolder: e.target.value } as any)} />
+            </div>
+          </div>
+        )}
+        {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
+        {widget.type === 'list' && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
+        {widget.type === 'actorList' && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 80 }}>표시 행 수</span>
+            <input style={{ ...inputStyle, width: 60 }} type="number"
+              value={(widget as any).numVisibleRows ?? 4}
+              onChange={(e) => update({ numVisibleRows: parseInt(e.target.value) || 4 } as any)} />
+          </div>
+        )}
+        {widget.type === 'options' && <OptionsWidgetInspector widget={widget as WidgetDef_Options} update={update} />}
+      </div>
+    </div>
+  );
+}
