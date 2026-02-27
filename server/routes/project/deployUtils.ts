@@ -371,12 +371,12 @@ async function convertImagesToWebP(
   let converted = 0;
   for (const pngPath of pngFiles) {
     const filename = path.relative(imgDir, pngPath);
-    onEvent({ type: 'log', message: `  ${filename}` });
     onEvent({ type: 'progress', current: converted, total });
     const webpPath = pngPath.slice(0, -4) + '.webp';
     await sharp(pngPath).webp({ lossless: true }).toFile(webpPath);
     fs.unlinkSync(pngPath);
     converted++;
+    onEvent({ type: 'log', message: `  ${filename} (성공)` });
     onEvent({ type: 'progress', current: converted, total });
   }
   return converted;
@@ -496,25 +496,41 @@ export async function buildDeployZipWithProgress(
       projectIsWebp = !hasPng(srcImgDir) && hasWebp(srcImgDir);
     }
 
-    // WebP 변환: PNG 파일만 staging에 복사해서 변환
-    // 이미 WebP인 파일은 복사하지 않고 srcPath에서 직접 스트리밍
+    // WebP 변환: PNG마다 같은 경로에 WebP가 이미 있으면 스킵, 없으면 변환
     let imgInStaging = false;
-    const imgWebpSrcRels: string[] = []; // 변환 불필요한 원본 WebP 파일 (srcPath에 위치)
+    const imgWebpSrcRels: string[] = []; // staging에 없는 원본 WebP 파일들
+    let effectiveLargeFiles = largeFiles; // 스킵된 PNG 제거 후 버전
     if (opts.convertWebp && !projectIsWebp) {
-      const imgPngRels = largeFiles.filter(r => r.startsWith('img/') && r.toLowerCase().endsWith('.png'));
+      const allImgPngRels = largeFiles.filter(r => r.startsWith('img/') && r.toLowerCase().endsWith('.png'));
       imgWebpSrcRels.push(...largeFiles.filter(r => r.startsWith('img/') && !r.toLowerCase().endsWith('.png')));
-      if (imgPngRels.length > 0) {
+      // 같은 이름의 WebP가 이미 있는 PNG는 스킵
+      const existingWebpBases = new Set(imgWebpSrcRels.map(r => r.slice(0, r.lastIndexOf('.'))));
+      const imgPngToConvert = allImgPngRels.filter(r => !existingWebpBases.has(r.slice(0, r.lastIndexOf('.'))));
+      const imgPngSkipped  = allImgPngRels.filter(r =>  existingWebpBases.has(r.slice(0, r.lastIndexOf('.'))));
+      if (allImgPngRels.length > 0) {
         onEvent({ type: 'status', phase: 'patching' });
         onEvent({ type: 'log', message: '── WebP 변환 중 ──' });
-        for (const rel of imgPngRels) {
-          const dest = path.join(stagingDir, rel);
-          fs.mkdirSync(path.dirname(dest), { recursive: true });
-          fs.copyFileSync(path.join(srcPath, rel), dest);
+        for (const rel of imgPngSkipped) {
+          onEvent({ type: 'log', message: `  ${rel.slice(4)} (스킵됨)` });
         }
-        const webpCount = await convertImagesToWebP(stagingDir, onEvent);
-        onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개)` });
-        projectIsWebp = webpCount > 0;
-        imgInStaging = webpCount > 0;
+        if (imgPngToConvert.length > 0) {
+          for (const rel of imgPngToConvert) {
+            const dest = path.join(stagingDir, rel);
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.copyFileSync(path.join(srcPath, rel), dest);
+          }
+          const webpCount = await convertImagesToWebP(stagingDir, onEvent);
+          onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개 변환, ${imgPngSkipped.length}개 스킵됨)` });
+          projectIsWebp = webpCount > 0;
+          imgInStaging = webpCount > 0;
+        } else {
+          onEvent({ type: 'log', message: `✓ 전체 스킵됨 — WebP 파일이 이미 존재합니다 (${imgPngSkipped.length}개)` });
+        }
+        // 대응 WebP가 있는 PNG는 archive/bundle에서 제외
+        if (imgPngSkipped.length > 0) {
+          const skipSet = new Set(imgPngSkipped);
+          effectiveLargeFiles = largeFiles.filter(r => !skipSet.has(r));
+        }
       }
     } else if (projectIsWebp) {
       onEvent({ type: 'log', message: '✓ 이미 WebP로 변환된 프로젝트 — 변환 생략' });
@@ -533,13 +549,13 @@ export async function buildDeployZipWithProgress(
         if (fs.existsSync(stagingImgDir)) imgExtEntries.push(...collectBundleEntries(stagingImgDir));
       }
       const imgSrcRels = imgInStaging
-        ? imgWebpSrcRels                            // 변환됐으면 원본 WebP만
-        : largeFiles.filter(r => r.startsWith('img/')); // 변환 없으면 전체
+        ? imgWebpSrcRels                                        // 변환됐으면 원본 WebP만
+        : effectiveLargeFiles.filter(r => r.startsWith('img/')); // 스킵된 PNG 제외
       for (const rel of imgSrcRels) {
         imgExtEntries.push({ absPath: path.join(srcPath, rel), zipName: rel.slice(4), size: fs.statSync(path.join(srcPath, rel)).size });
       }
       if (imgExtEntries.length > 0) extDirs.set('img', imgExtEntries);
-      const audioEntries = largeFiles
+      const audioEntries = effectiveLargeFiles
         .filter(r => r.startsWith('audio/'))
         .map(r => ({ absPath: path.join(srcPath, r), zipName: r.slice(6), size: fs.statSync(path.join(srcPath, r)).size }));
       if (audioEntries.length > 0) extDirs.set('audio', audioEntries);
@@ -557,7 +573,7 @@ export async function buildDeployZipWithProgress(
     const imgWebpSrcSet = new Set(imgWebpSrcRels);
     const directEntries: { src: string; name: string }[] = [];
     if (!opts.bundle) {
-      for (const rel of largeFiles) {
+      for (const rel of effectiveLargeFiles) {  // 스킵된 PNG 이미 제외됨
         if (rel.startsWith('img/') && imgInStaging && !imgWebpSrcSet.has(rel)) continue;
         directEntries.push({ src: path.join(srcPath, rel), name: rel });
       }
