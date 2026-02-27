@@ -3,12 +3,24 @@ import useEditorStore from '../../store/useEditorStore';
 
 // ── 게이지 프리뷰 렌더링 ──────────────────────────────────────────────────
 
+// fill 영역 좌/우(또는 상/하) 중앙 픽셀 색상 샘플링
+function samplePixelColor(img: HTMLImageElement, x: number, y: number): string {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = img.naturalWidth;
+  offscreen.height = img.naturalHeight;
+  const c = offscreen.getContext('2d')!;
+  c.drawImage(img, 0, 0);
+  const d = c.getImageData(x, y, 1, 1).data;
+  return `rgba(${d[0]},${d[1]},${d[2]},${d[3] / 255})`;
+}
+
 function drawGaugePreview(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   bgX: number, bgY: number, bgW: number, bgH: number,
   fillX: number, fillY: number, fillW: number, fillH: number,
   fillDir: 'horizontal' | 'vertical',
+  renderMode: 'image' | 'palette',
   rate: number,   // 0.0 ~ 1.0
   tw: number, th: number,
 ) {
@@ -29,18 +41,44 @@ function drawGaugePreview(
     ctx.drawImage(img, bgX, bgY, bgW, bgH, 0, 0, tw, th);
   }
 
-  // 채움 클리핑
   if (fillW > 0 && fillH > 0 && rate > 0) {
-    if (fillDir === 'vertical') {
-      const dstH = Math.round(th * rate);
-      const dstY = th - dstH;
-      const srcH = Math.round(fillH * rate);
-      const srcY = fillY + fillH - srcH;
-      ctx.drawImage(img, fillX, srcY, fillW, srcH, 0, dstY, tw, dstH);
+    if (renderMode === 'palette') {
+      // 팔레트 모드: fill 영역에서 색상 2개 샘플링 → gradientFillRect
+      const midY = fillY + Math.floor(fillH / 2);
+      const midX = fillX + Math.floor(fillW / 2);
+      let color1: string, color2: string;
+      if (fillDir === 'vertical') {
+        color1 = samplePixelColor(img, midX, fillY);
+        color2 = samplePixelColor(img, midX, fillY + fillH - 1);
+        const dstH = Math.round(th * rate);
+        const grad = ctx.createLinearGradient(0, th - dstH, 0, th);
+        grad.addColorStop(0, color1);
+        grad.addColorStop(1, color2);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, th - dstH, tw, dstH);
+      } else {
+        color1 = samplePixelColor(img, fillX, midY);
+        color2 = samplePixelColor(img, fillX + fillW - 1, midY);
+        const dstW = Math.round(tw * rate);
+        const grad = ctx.createLinearGradient(0, 0, dstW, 0);
+        grad.addColorStop(0, color1);
+        grad.addColorStop(1, color2);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, dstW, th);
+      }
     } else {
-      const dstW = Math.round(tw * rate);
-      const srcW = Math.round(fillW * rate);
-      ctx.drawImage(img, fillX, fillY, srcW, fillH, 0, 0, dstW, th);
+      // 이미지 모드: fill 영역 클리핑 blt
+      if (fillDir === 'vertical') {
+        const dstH = Math.round(th * rate);
+        const dstY = th - dstH;
+        const srcH = Math.round(fillH * rate);
+        const srcY = fillY + fillH - srcH;
+        ctx.drawImage(img, fillX, srcY, fillW, srcH, 0, dstY, tw, dstH);
+      } else {
+        const dstW = Math.round(tw * rate);
+        const srcW = Math.round(fillW * rate);
+        ctx.drawImage(img, fillX, fillY, srcW, fillH, 0, 0, dstW, th);
+      }
     }
   }
 }
@@ -67,6 +105,7 @@ function GaugePreviewItem({ label, rate, gaugeImg }: GaugePreviewItemProps) {
       s.uiSkinGaugeBgX,   s.uiSkinGaugeBgY,   s.uiSkinGaugeBgW,   s.uiSkinGaugeBgH,
       s.uiSkinGaugeFillX, s.uiSkinGaugeFillY, s.uiSkinGaugeFillW, s.uiSkinGaugeFillH,
       s.uiSkinGaugeFillDir as 'horizontal' | 'vertical',
+      'image',  // 편집 프리뷰는 항상 이미지 모드 (fill 영역 그대로 표시)
       rate, tw, th);
   }, [gaugeImg, rate]);
 

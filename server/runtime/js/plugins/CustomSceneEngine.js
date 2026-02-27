@@ -821,16 +821,19 @@
     this._sprite = sprite;
     this._bitmap = bitmap;
     this._displayObject = sprite;
-    // 이미지 모드: 스킨 ID가 있으면 스킨 이미지 로드
-    if (this._gaugeRenderMode === 'image' && this._gaugeSkinId && typeof UIEditorSkins !== 'undefined') {
+    // 스킨 ID가 있으면 (이미지/팔레트 공통) 스킨 이미지 로드
+    if (this._gaugeSkinId && typeof UIEditorSkins !== 'undefined') {
       var skinEntry = UIEditorSkins.find(function(s) { return s.name === this._gaugeSkinId; }.bind(this));
       if (skinEntry) {
         this._skinData = skinEntry;
-        this._skinBitmap = ImageManager.loadSystem(skinEntry.file || skinEntry.name);
+        // gaugeFile 우선, 없으면 스킨 file, 없으면 스킨 name
+        this._skinBitmap = ImageManager.loadSystem(skinEntry.gaugeFile || skinEntry.file || skinEntry.name);
       }
     }
-    // 팔레트 모드: Window.png 로드 (palette가 기본)
-    this._windowSkin = ImageManager.loadSystem('Window');
+    // 스킨 없는 팔레트 모드 폴백: Window.png
+    if (!this._skinData) {
+      this._windowSkin = ImageManager.loadSystem('Window');
+    }
     this.refresh();
   };
   Widget_Gauge.prototype.refresh = function() {
@@ -883,8 +886,52 @@
         if (this._showValue) {
           this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h, 'right');
         }
+      } else if (this._gaugeRenderMode === 'palette' && this._skinData && this._skinBitmap && this._skinBitmap.isReady()) {
+        // 팔레트 모드 — 스킨 이미지에서 색상 샘플링 → gradientFillRect
+        var sd2 = this._skinData;
+        var bgX2 = sd2.gaugeBgX || 0, bgY2 = sd2.gaugeBgY || 0;
+        var bgW2 = sd2.gaugeBgW || 0, bgH2 = sd2.gaugeBgH || 0;
+        var fX2 = sd2.gaugeFillX || 0, fY2 = sd2.gaugeFillY || 0;
+        var fW2 = sd2.gaugeFillW || 0, fH2 = sd2.gaugeFillH || 0;
+        var fillDir2 = sd2.gaugeFillDir || 'horizontal';
+        // 배경 blt
+        if (bgW2 > 0 && bgH2 > 0) {
+          this._bitmap.blt(this._skinBitmap, bgX2, bgY2, bgW2, bgH2, 0, 0, w, h);
+        }
+        // fill 영역에서 색상 샘플링 (horizontal: 좌/우 픽셀, vertical: 상/하 픽셀)
+        var color1P, color2P;
+        if (fW2 > 0 && fH2 > 0) {
+          var midY2 = fY2 + Math.floor(fH2 / 2);
+          var midX2 = fX2 + Math.floor(fW2 / 2);
+          if (fillDir2 === 'vertical') {
+            color1P = this._skinBitmap.getPixel(midX2, fY2);
+            color2P = this._skinBitmap.getPixel(midX2, fY2 + fH2 - 1);
+          } else {
+            color1P = this._skinBitmap.getPixel(fX2, midY2);
+            color2P = this._skinBitmap.getPixel(fX2 + fW2 - 1, midY2);
+          }
+        }
+        if (!color1P) color1P = '#20c020';
+        if (!color2P) color2P = '#60e060';
+        var fillW3 = Math.floor(w * rate);
+        if (fillW3 > 0) {
+          if (fillDir2 === 'vertical') {
+            var fillH3 = Math.floor(h * rate);
+            this._bitmap.gradientFillRect(0, h - fillH3, w, fillH3, color1P, color2P, true);
+          } else {
+            this._bitmap.gradientFillRect(0, 0, fillW3, h, color1P, color2P);
+          }
+        }
+        this._bitmap.fontSize = 20;
+        this._bitmap.textColor = '#ffffff';
+        if (this._showLabel) {
+          this._bitmap.drawText(label, 0, 0, 60, h, 'left');
+        }
+        if (this._showValue) {
+          this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h, 'right');
+        }
       } else {
-        // 팔레트 모드 — Window.png textColor 기반 그라디언트
+        // 팔레트 폴백 — 스킨 없을 때 Window.png textColor 기반 그라디언트
         var gaugeH = 6;
         var gaugeY = h - gaugeH - 2;
         var color1, color2, bgColor;
@@ -909,7 +956,6 @@
               color1 = '#20c020'; color2 = '#60e060';
           }
         } else {
-          // Window.png 아직 미로드 — 하드코딩 fallback
           bgColor = '#202020';
           switch (this._gaugeType) {
             case 'hp': color1 = '#20c020'; color2 = '#60e060'; break;
