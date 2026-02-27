@@ -1606,6 +1606,11 @@
         win.activate();
       }
     } else {
+      var handlersDef = widget._handlersDef || {};
+      if (handlersDef['ok']) {
+        this._executeWidgetHandler(handlersDef['ok'], widget);
+        return;
+      }
       // source==='party' (numRows==='party' or undefined) 일 때 menuActor 설정
       var nr = win._numRows;
       if ((nr === 'party' || nr === undefined) && typeof $gameParty !== 'undefined') {
@@ -1645,6 +1650,12 @@
       win.setPendingIndex(-1);
       win.activate();
     } else {
+      var handlersDef = widget._handlersDef || {};
+      if (handlersDef['cancel']) {
+        win.deselect();
+        this._executeWidgetHandler(handlersDef['cancel'], widget);
+        return;
+      }
       win.deselect();
       var originId = this._personalOriginWidget ? this._personalOriginWidget._id : null;
       if (!originId && this._navManager && this._navManager._cancelWidgetId) {

@@ -276,6 +276,8 @@ export interface WidgetDef_RowSelector extends WidgetDefBase {
   transparent?: boolean;
   /** transparent 모드 시 0 권장 — 커서 위치가 개별 위젯과 정확히 정렬됨 */
   padding?: number;
+  /** ok/cancel 핸들러 직접 정의. 미정의 시 selectActor/기본 네비게이션 동작 */
+  handlers?: Record<string, CustomCommandHandler>;
 }
 
 export interface OptionItemDef {
