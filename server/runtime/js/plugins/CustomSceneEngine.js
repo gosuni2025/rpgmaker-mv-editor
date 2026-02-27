@@ -1415,17 +1415,19 @@
     }
     buildMap(this._rootWidget);
 
-    // Window_Base 타입 위젯은 addWindow, 그 외 루트는 addChild
+    // 비-Window 루트(배경 스프라이트 등)는 windowLayer보다 먼저(뒤에) 렌더링되어야 함
+    // → addChildAt(rootObj, 0) 으로 index 0에 삽입하여 windowLayer 아래에 그려지게 함
+    var rootObj = this._rootWidget.displayObject();
+    if (rootObj && !(rootObj instanceof Window_Base)) {
+      this.addChildAt(rootObj, 0);
+    }
+    // Window_Base 타입 위젯은 addWindow
     for (var id in this._widgetMap) {
       var w = this._widgetMap[id];
       var obj = w.displayObject();
       if (obj && obj instanceof Window_Base) {
         this.addWindow(obj);
       }
-    }
-    var rootObj = this._rootWidget.displayObject();
-    if (rootObj && !(rootObj instanceof Window_Base)) {
-      this.addChild(rootObj);
     }
 
     // 핸들러 설정
