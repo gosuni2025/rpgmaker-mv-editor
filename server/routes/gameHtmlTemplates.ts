@@ -116,13 +116,15 @@ export function buildGameHtml(req: Request, res: Response, resolvedRuntimePath: 
             function createOverlay() {
                 overlay = document.createElement('div');
                 overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#ccc';
-                overlay.innerHTML = '<div style="font-size:15px;margin-bottom:20px">[SW 번들 테스트] 리소스 다운로드 중...</div><div style="width:360px;background:#222;border-radius:4px;overflow:hidden;height:8px"><div id="sw-bar" style="height:8px;width:0%;background:#2c6fc7;transition:width 0.15s"></div></div><div id="sw-txt" style="font-size:12px;margin-top:10px;color:#888"></div>';
+                overlay.innerHTML = '<div id="sw-title" style="font-size:15px;margin-bottom:20px">[SW 번들 테스트] 리소스 다운로드 중...</div><div style="width:360px;background:#222;border-radius:4px;overflow:hidden;height:8px"><div id="sw-bar" style="height:8px;width:0%;background:#2c6fc7;transition:width 0.15s"></div></div><div id="sw-txt" style="font-size:12px;margin-top:10px;color:#888;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center"></div>';
                 document.body.appendChild(overlay);
             }
             function removeOverlay() { if (overlay) { overlay.remove(); overlay = null; } }
-            function setProgress(loaded, total) { if (!overlay) return; var pct = total > 0 ? Math.round(loaded / total * 100) : 0; document.getElementById('sw-bar').style.width = pct + '%'; document.getElementById('sw-txt').textContent = loaded + ' / ' + total + ' (' + pct + '%)'; }
+            function setBar(pct) { if (!overlay) return; document.getElementById('sw-bar').style.width = Math.min(100, Math.max(0, pct)) + '%'; }
+            function setText(t) { if (!overlay) return; document.getElementById('sw-txt').textContent = t; }
+            function setTitle(t) { if (!overlay) return; document.getElementById('sw-title').textContent = t; }
             if (!('serviceWorker' in navigator)) { loadMain(); return; }
-            navigator.serviceWorker.addEventListener('message', function(e) { var msg = e.data; if (!msg) return; if (msg.type === 'bundle-progress') setProgress(msg.loadedFiles, msg.totalFiles); else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip' || msg.type === 'bundle-error') loadMain(); });
+            navigator.serviceWorker.addEventListener('message', function(e) { var msg = e.data; if (!msg) return; if (msg.type === 'bundle-downloading') { setTitle('[SW 번들 테스트] 리소스 다운로드 중...'); setText(msg.file + ' 다운로드 준비 중'); } else if (msg.type === 'bundle-download-progress') { var dlPct = msg.totalSize > 0 ? msg.totalReceived / msg.totalSize * 50 : 0; setBar(dlPct); var mb = function(b) { return (b/1048576).toFixed(1)+' MB'; }; setText(msg.file + '  (' + (msg.totalSize > 0 ? mb(msg.totalReceived)+' / '+mb(msg.totalSize) : mb(msg.totalReceived)) + ')'); } else if (msg.type === 'bundle-progress') { setTitle('[SW 번들 테스트] 압축 해제 중...'); setBar(50 + (msg.totalFiles > 0 ? msg.loadedFiles/msg.totalFiles*50 : 0)); setText(msg.loadedFiles + ' / ' + msg.totalFiles + ' 파일'); } else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip' || msg.type === 'bundle-error') loadMain(); });
             var fallback = setTimeout(function() { loadMain(); }, 60000);
             createOverlay();
             navigator.serviceWorker.register('sw.js', { scope: './' }).then(function(reg) { if (reg.active && !reg.installing && !reg.waiting) { clearTimeout(fallback); loadMain(); } }).catch(function() { clearTimeout(fallback); loadMain(); });
