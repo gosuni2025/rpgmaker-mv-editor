@@ -679,6 +679,52 @@
   }
 
   //===========================================================================
+  // Window_Base — 게이지 이미지 렌더링 (defaultGaugeSkin 지정 시)
+  //===========================================================================
+
+  /** defaultGaugeSkin 스킨 항목 취득 */
+  function getGaugeSkinEntry() {
+    var id = _skins.defaultGaugeSkin;
+    if (!id) return null;
+    return findSkinEntryById(id) || findSkinEntry(id);
+  }
+
+  var _WB_drawGauge = Window_Base.prototype.drawGauge;
+  Window_Base.prototype.drawGauge = function (x, y, width, rate, color1, color2) {
+    var entry = getGaugeSkinEntry();
+    if (!entry) {
+      _WB_drawGauge.call(this, x, y, width, rate, color1, color2);
+      return;
+    }
+    // 게이지 전용 이미지 로드 (gaugeFile 우선, 없으면 스킨 file/name)
+    var gaugeFileName = entry.gaugeFile || entry.file || entry.name;
+    var gaugeBitmap = ImageManager.loadSystem(gaugeFileName);
+    if (!gaugeBitmap || !gaugeBitmap.isReady()) {
+      _WB_drawGauge.call(this, x, y, width, rate, color1, color2);
+      return;
+    }
+    var bgX = entry.gaugeBgX || 0, bgY = entry.gaugeBgY || 0;
+    var bgW = entry.gaugeBgW || 0, bgH = entry.gaugeBgH || 0;
+    var fX  = entry.gaugeFillX || 0, fY  = entry.gaugeFillY || 0;
+    var fW  = entry.gaugeFillW || 0, fH  = entry.gaugeFillH || 0;
+    var dir = entry.gaugeFillDir || 'horizontal';
+    var bmp = this.contents;
+    if (bgW > 0 && bgH > 0) {
+      bmp.blt(gaugeBitmap, bgX, bgY, bgW, bgH, x, y, width, bgH);
+    }
+    if (fW > 0 && fH > 0 && rate > 0) {
+      if (dir === 'vertical') {
+        var fillH = Math.floor(fH * rate);
+        bmp.blt(gaugeBitmap, fX, fY + fH - fillH, fW, fillH, x, y + bgH - fillH, width, fillH);
+      } else {
+        var fillW = Math.floor(fW * rate);
+        var dstFillW = Math.floor(width * rate);
+        bmp.blt(gaugeBitmap, fX, fY, fillW, fH, x, y, dstFillW, fH);
+      }
+    }
+  };
+
+  //===========================================================================
   // Window_Base — 전역 스타일 (모든 Window에 적용)
   //===========================================================================
 

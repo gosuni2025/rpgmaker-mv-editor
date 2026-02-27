@@ -74,6 +74,7 @@ export interface EditorState {
   uiSkinCursorToneR: number;     // 색조 R (-255~255)
   uiSkinCursorToneG: number;     // 색조 G (-255~255)
   uiSkinCursorToneB: number;     // 색조 B (-255~255)
+  uiSkinGaugeFile: string;      // 게이지 전용 이미지 파일 (없으면 스킨 file 폴백)
   uiSkinGaugeBgX: number;       // 게이지 배경 소스 X
   uiSkinGaugeBgY: number;       // 게이지 배경 소스 Y
   uiSkinGaugeBgW: number;       // 게이지 배경 소스 너비
@@ -267,6 +268,7 @@ export interface EditorState {
   setUiSkinCursorBlink: (v: boolean) => void;
   setUiSkinCursorPadding: (v: number) => void;
   setUiSkinCursorTone: (r: number, g: number, b: number) => void;
+  setUiSkinGaugeFile: (file: string) => void;
   setUiSkinGaugeBg: (x: number, y: number, w: number, h: number) => void;
   setUiSkinGaugeFill: (x: number, y: number, w: number, h: number) => void;
   setUiSkinGaugeFillDir: (dir: 'horizontal' | 'vertical') => void;

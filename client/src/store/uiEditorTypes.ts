@@ -183,6 +183,7 @@ export type UiSkinUndoEntry = {
   cursorBlink: boolean;
   cursorPadding: number;
   cursorToneR: number; cursorToneG: number; cursorToneB: number;
+  gaugeFile?: string;
   gaugeBgX: number; gaugeBgY: number; gaugeBgW: number; gaugeBgH: number;
   gaugeFillX: number; gaugeFillY: number; gaugeFillW: number; gaugeFillH: number;
   gaugeFillDir: 'horizontal' | 'vertical';

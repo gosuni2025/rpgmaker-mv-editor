@@ -31,6 +31,7 @@ export default function UIEditorFrameCanvas() {
   const uiSkinCursorW      = useEditorStore((s) => s.uiSkinCursorW);
   const uiSkinCursorH      = useEditorStore((s) => s.uiSkinCursorH);
   const uiSkinCursorCornerSize = useEditorStore((s) => s.uiSkinCursorCornerSize);
+  const uiSkinGaugeFile    = useEditorStore((s) => s.uiSkinGaugeFile);
   const uiSkinGaugeBgX     = useEditorStore((s) => s.uiSkinGaugeBgX);
   const uiSkinGaugeBgY     = useEditorStore((s) => s.uiSkinGaugeBgY);
   const uiSkinGaugeBgW     = useEditorStore((s) => s.uiSkinGaugeBgW);
@@ -133,16 +134,19 @@ export default function UIEditorFrameCanvas() {
         s.uiSkinGaugeBgX, s.uiSkinGaugeBgY, s.uiSkinGaugeBgW, s.uiSkinGaugeBgH,
         s.uiSkinGaugeFillX, s.uiSkinGaugeFillY, s.uiSkinGaugeFillW, s.uiSkinGaugeFillH);
     };
+    const isGaugeTab = useEditorStore.getState().uiEditSubMode === 'gauge';
+    const gaugeFile = useEditorStore.getState().uiSkinGaugeFile;
+    const displayFile = (isGaugeTab && gaugeFile) ? gaugeFile : uiSelectedSkinFile;
     img.onerror = () => {
       ctx.fillStyle = '#1a1a1a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#f66';
       ctx.font = '14px sans-serif';
-      ctx.fillText(`스킨을 불러올 수 없음: ${uiSelectedSkinFile}`, 8, 20);
+      ctx.fillText(`스킨을 불러올 수 없음: ${displayFile}`, 8, 20);
     };
-    img.src = `/img/system/${uiSelectedSkinFile}.png?v=${Date.now()}`;
+    img.src = `/img/system/${displayFile}.png?v=${Date.now()}`;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPath, uiSelectedSkin, uiSelectedSkinFile]);
+  }, [projectPath, uiSelectedSkin, uiSelectedSkinFile, uiEditSubMode, uiSkinGaugeFile]);
 
   useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, uiSkinCursorH, uiSkinCursorCornerSize, uiSkinGaugeBgX, uiSkinGaugeBgY, uiSkinGaugeBgW, uiSkinGaugeBgH, uiSkinGaugeFillX, uiSkinGaugeFillY, uiSkinGaugeFillW, uiSkinGaugeFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay, uiEditSubMode]);
 
