@@ -193,6 +193,7 @@ export interface RPGEvent {
   y: number;
   note: string;
   pages: EventPage[];
+  __ref?: string;  // 외부 파일 참조 마커 (에디터 전용, truthy이면 외부 파일로 저장)
 }
 
 export interface EventPage {

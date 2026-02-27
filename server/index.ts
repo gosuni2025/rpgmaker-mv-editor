@@ -81,10 +81,22 @@ export function createApp(options: AppOptions = {}) {
     const match = req.path.match(mapFilePattern);
     if (match) {
       try {
+        const mapId = parseInt(match[1], 10);
         const mapFile = `Map${match[1]}.json`;
         const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
         const ext = projectManager.readExtJSON(mapFile);
-        res.json({ ...data, ...ext });
+        const merged = { ...data, ...ext };
+        // __ref 마커를 인라인으로 병합 (게임 런타임은 외부 파일을 이해 못함)
+        const events = (merged.events as any[]) || [];
+        merged.events = events.map(ev => {
+          if (!ev || !ev.__ref) return ev;
+          try {
+            const extEvent = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
+            const { __ref: _r, ...cleanEvent } = extEvent;
+            return cleanEvent;
+          } catch { return null; }
+        });
+        res.json(merged);
       } catch (err: unknown) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
         return res.status(500).send((err as Error).message);

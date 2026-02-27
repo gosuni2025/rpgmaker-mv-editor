@@ -127,12 +127,26 @@ router.post('/sample-maps/set-binary-path', (req: Request, res: Response) => {
 
 router.get('/:id', (req: Request, res: Response) => {
   try {
-    const id = String(req.params.id).padStart(3, '0');
+    const idNum = parseInt(req.params.id as string, 10);
+    const id = String(idNum).padStart(3, '0');
     const mapFile = `Map${id}.json`;
     const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
     const ext = projectManager.readExtJSON(mapFile);
     // ext 데이터를 병합 (ext 우선)
     const merged = { ...data, ...ext };
+
+    // events 배열의 __ref 마커 처리: 외부 파일에서 로드하여 병합 (__ref는 클라이언트에 그대로 전달)
+    const events = (merged.events as any[]) || [];
+    merged.events = events.map(ev => {
+      if (!ev || !ev.__ref) return ev;
+      try {
+        const extEvent = projectManager.readEventFile(idNum, ev.id) as Record<string, unknown>;
+        return { ...extEvent, __ref: ev.__ref };
+      } catch {
+        return ev; // 파일 없으면 마커만 반환
+      }
+    });
+
     res.json(merged);
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -165,6 +179,23 @@ router.put('/:id', (req: Request, res: Response) => {
     for (const field of STRIP_ONLY_FIELDS) {
       delete standardData[field];
     }
+
+    // events 배열 처리: __ref 있는 이벤트는 외부 파일로 저장
+    const mapId = parseInt(req.params.id as string, 10);
+    const events = (standardData.events as any[]) || [];
+    standardData.events = events.map(ev => {
+      if (!ev) return ev;
+      const hasRef = !!ev.__ref;
+      const { __ref: _ref, ...eventData } = ev as Record<string, unknown>;
+      if (hasRef) {
+        const newFilename = projectManager.writeEventFile(mapId, ev.id, ev.name || '', eventData);
+        return { id: ev.id, __ref: `Map${String(mapId).padStart(3, '0')}/${newFilename}` };
+      } else {
+        // 인라인으로 복귀 → 기존 외부 파일 삭제
+        projectManager.deleteEventFile(mapId, ev.id);
+        return eventData;
+      }
+    });
 
     projectManager.writeJSON(mapFile, standardData);
     projectManager.writeExtJSON(mapFile, extData);
@@ -269,12 +300,13 @@ router.delete('/:id', (req: Request, res: Response) => {
     mapInfos[id] = null;
     projectManager.writeJSON('MapInfos.json', mapInfos);
 
-    // Delete map file + ext file
+    // Delete map file + ext file + event folder
     const filePath = path.join(projectManager.getDataPath(), mapFile);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
     projectManager.deleteExtJSON(mapFile);
+    projectManager.deleteEventFolder(id);
 
     res.json({ success: true, mapInfo, mapData, extData });
   } catch (err: unknown) {
@@ -350,6 +382,47 @@ router.post('/migrate-extensions', (req: Request, res: Response) => {
     }
 
     res.json({ success: true, migrated });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migrate: 기존 이벤트를 모두 외부 파일로 분리
+router.post('/migrate-events', (req: Request, res: Response) => {
+  if (process.env.DEMO_MODE === 'true') {
+    return res.json({ success: true, migrated: 0 });
+  }
+  try {
+    const mapInfos = projectManager.readJSON('MapInfos.json') as (null | { id: number })[];
+    let migratedMaps = 0;
+    let migratedEvents = 0;
+
+    for (let i = 1; i < mapInfos.length; i++) {
+      if (!mapInfos[i]) continue;
+      const idStr = String(i).padStart(3, '0');
+      const mapFile = `Map${idStr}.json`;
+      try {
+        const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+        const events = (data.events as any[]) || [];
+        let changed = false;
+
+        data.events = events.map(ev => {
+          if (!ev || ev.__ref) return ev; // null이거나 이미 분리된 이벤트는 스킵
+          const { __ref: _r, ...eventData } = ev as Record<string, unknown>;
+          const newFilename = projectManager.writeEventFile(i, ev.id, ev.name || '', eventData);
+          migratedEvents++;
+          changed = true;
+          return { id: ev.id, __ref: `Map${idStr}/${newFilename}` };
+        });
+
+        if (changed) {
+          projectManager.writeJSON(mapFile, data);
+          migratedMaps++;
+        }
+      } catch { /* skip missing maps */ }
+    }
+
+    res.json({ success: true, migratedMaps, migratedEvents });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -464,6 +537,21 @@ router.post('/:id/duplicate', (req: Request, res: Response) => {
       if (Object.keys(newExtData).length > 0) {
         projectManager.writeExtJSON(newMapFile, newExtData);
       }
+    }
+
+    // Copy event folder and update __ref paths to new map ID
+    projectManager.copyEventFolder(sourceId, newId);
+    const newIdStr2 = String(newId).padStart(3, '0');
+    const newEventsArr = (newMapData.events as any[]) || [];
+    const updatedEvents = newEventsArr.map((ev: any) => {
+      if (!ev || !ev.__ref) return ev;
+      // 파일명은 복사 후에도 동일 — 폴더 경로만 새 맵 ID로 교체
+      const filename = (ev.__ref as string).split('/').pop() ?? '';
+      return { id: ev.id, __ref: `Map${newIdStr2}/${filename}` };
+    });
+    if (newEventsArr.some((ev: any) => ev?.__ref)) {
+      newMapData.events = updatedEvents;
+      projectManager.writeJSON(newMapFile, newMapData);
     }
 
     res.json({ id: newId, mapInfo: newMapInfo });

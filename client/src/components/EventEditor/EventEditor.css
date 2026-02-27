@@ -25,7 +25,28 @@
   border-bottom: 1px solid #555;
   border-radius: 4px 4px 0 0;
   flex-shrink: 0;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.event-editor-external-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: normal;
+  color: #aaa;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.event-editor-external-check input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #2675bf;
+}
+.event-editor-external-check:has(input:checked) {
+  color: #7ab8f5;
 }
 
 /* Name / Note bar */

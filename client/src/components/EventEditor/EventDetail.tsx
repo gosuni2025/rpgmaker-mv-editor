@@ -44,6 +44,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
     updateEvent, updatePage, updateConditions, updateImage,
     addPage, copyPage, deletePage, clearPage,
     handleOk, handleApply,
+    isExternal, setIsExternal,
   } = useEventEditor(event!, isNew, resolvedEventId, npcName, showNpcName, minimapMarker, onClose);
 
   const MOVE_TYPES = useMemo(() => [0, 1, 2, 3].map(i => t(`eventDetail.moveTypes.${i}`)), [t]);
@@ -89,7 +90,12 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
     <div className="db-dialog-overlay" style={dialogPos ? { alignItems: 'flex-start', justifyContent: 'flex-start' } : undefined}>
       <div className="event-editor-dialog" ref={dialogRef} style={dialogStyle}>
         <div className="event-editor-titlebar" onMouseDown={handleTitleMouseDown} style={{ cursor: 'move' }}>
-          ID:{String(editEvent.id).padStart(3, '0')} - {t('eventDetail.title', '이벤트 에디터')}
+          <span>ID:{String(editEvent.id).padStart(3, '0')} - {t('eventDetail.title', '이벤트 에디터')}</span>
+          <label className="event-editor-external-check" onMouseDown={e => e.stopPropagation()} title="외부 파일로 분리하면 data/MapXXX/ 폴더에 이벤트 JSON을 저장합니다">
+            <input type="checkbox" checked={isExternal} onChange={e => setIsExternal(e.target.checked)} />
+            외부 파일로 분리
+            <ExtBadge inline />
+          </label>
         </div>
 
         <div className="event-editor-namebar">

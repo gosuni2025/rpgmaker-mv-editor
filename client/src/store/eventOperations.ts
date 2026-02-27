@@ -53,7 +53,9 @@ export function copyEventOp(get: GetFn, set: SetFn, eventId: number) {
   if (ev) {
     const npcEntry = map.npcData?.[eventId];
     const npcData = npcEntry ? { [eventId]: npcEntry } : undefined;
-    set({ clipboard: { type: 'event', event: JSON.parse(JSON.stringify(ev)), npcData } });
+    // __ref 제거: 붙여넣기 시 새 이벤트는 인라인으로 시작
+    const { __ref: _r, ...evData } = JSON.parse(JSON.stringify(ev));
+    set({ clipboard: { type: 'event', event: evData, npcData } });
   }
 }
 
@@ -99,9 +101,11 @@ export function copyEventsOp(get: GetFn, set: SetFn, eventIds: number[]) {
   for (const id of eventIds) {
     if (map.npcData?.[id]) npcData[id] = map.npcData[id];
   }
+  // __ref 제거: 붙여넣기 시 새 이벤트는 인라인으로 시작
+  const evtsCopied = JSON.parse(JSON.stringify(evts)).map(({ __ref: _r, ...ev }: any) => ev);
   set({ clipboard: {
     type: 'events',
-    events: JSON.parse(JSON.stringify(evts)),
+    events: evtsCopied,
     npcData: Object.keys(npcData).length > 0 ? JSON.parse(JSON.stringify(npcData)) : undefined,
   } });
 }

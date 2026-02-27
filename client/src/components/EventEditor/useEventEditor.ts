@@ -43,6 +43,7 @@ export function useEventEditor(
 
   const [editEvent, setEditEvent] = useState<RPGEvent>(() => JSON.parse(JSON.stringify(initialEvent)));
   const [activePage, setActivePage] = useState(0);
+  const [isExternal, setIsExternal] = useState<boolean>(() => !!initialEvent?.__ref);
 
   const page = editEvent.pages?.[activePage];
 
@@ -125,11 +126,15 @@ export function useEventEditor(
 
   const handleOk = useCallback(() => {
     if (!currentMap || !currentMapId) return;
+    // __ref 마커: isExternal이면 설정 (기존 값 유지 or 플래그 값), 아니면 제거
+    const eventToSave: RPGEvent = isExternal
+      ? { ...editEvent, __ref: editEvent.__ref || '__pending__' }
+      : { ...editEvent, __ref: undefined };
     const events = [...(currentMap.events || [])];
     if (isNew) {
       const oldEvents = [...events];
       while (events.length <= editEvent.id) events.push(null);
-      events[editEvent.id] = editEvent;
+      events[editEvent.id] = eventToSave;
       const state = useEditorStore.getState();
       const undoStack = [...state.undoStack, {
         mapId: currentMapId, type: 'event' as const,
@@ -145,24 +150,28 @@ export function useEventEditor(
       setSelectedEventId(editEvent.id);
     } else {
       const idx = events.findIndex(e => e && e.id === resolvedEventId);
-      if (idx >= 0) events[idx] = editEvent;
+      if (idx >= 0) events[idx] = eventToSave;
       useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap), minimapData: buildMinimapData(currentMap) } as MapData & { tilesetNames?: string[] } });
     }
     onClose();
-  }, [currentMap, currentMapId, isNew, editEvent, resolvedEventId, npcName, showNpcName, minimapMarker, onClose, setSelectedEventId]);
+  }, [currentMap, currentMapId, isNew, editEvent, isExternal, resolvedEventId, npcName, showNpcName, minimapMarker, onClose, setSelectedEventId]);
 
   const handleApply = useCallback(() => {
     if (!currentMap || isNew) return;
+    const eventToSave: RPGEvent = isExternal
+      ? { ...editEvent, __ref: editEvent.__ref || '__pending__' }
+      : { ...editEvent, __ref: undefined };
     const events = [...(currentMap.events || [])];
     const idx = events.findIndex(e => e && e.id === resolvedEventId);
-    if (idx >= 0) events[idx] = JSON.parse(JSON.stringify(editEvent));
+    if (idx >= 0) events[idx] = JSON.parse(JSON.stringify(eventToSave));
     useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap), minimapData: buildMinimapData(currentMap) } as MapData & { tilesetNames?: string[] } });
-  }, [currentMap, isNew, editEvent, resolvedEventId, npcName, showNpcName, minimapMarker]);
+  }, [currentMap, isNew, editEvent, isExternal, resolvedEventId, npcName, showNpcName, minimapMarker]);
 
   return {
     editEvent, page, activePage, setActivePage,
     updateEvent, updatePage, updateConditions, updateImage,
     addPage, copyPage, deletePage, clearPage,
     handleOk, handleApply,
+    isExternal, setIsExternal,
   };
 }
