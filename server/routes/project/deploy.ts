@@ -6,7 +6,7 @@ import projectManager from '../../services/projectManager';
 import settingsManager from '../../services/settingsManager';
 import { openInExplorer } from './helpers';
 import {
-  DEPLOYS_DIR,
+  getDeploysDir,
   CacheBustOptions,
   buildDeployZipWithProgress,
   setupSSE,
@@ -18,7 +18,7 @@ import {
 
 // Re-export for use by deploy-ghpages.ts and deploy-itchio.ts
 export {
-  DEPLOYS_DIR,
+  getDeploysDir,
   CacheBustOptions,
   buildDeployZipWithProgress,
   setupSSE,
@@ -166,7 +166,7 @@ router.get('/deploy-zip-progress', async (req: Request, res: Response) => {
       opts,
       (data) => sseWrite(res, data),
     );
-    openInExplorer(DEPLOYS_DIR);
+    openInExplorer(getDeploysDir(projectManager.currentPath!));
     sseWrite(res, { type: 'done', zipPath });
   } catch (err) {
     sseWrite(res, { type: 'error', message: (err as Error).message });
@@ -176,9 +176,14 @@ router.get('/deploy-zip-progress', async (req: Request, res: Response) => {
 
 // ─── deploys 폴더 열기 ────────────────────────────────────────────────────────
 router.post('/open-deploys-dir', (_req: Request, res: Response) => {
-  fs.mkdirSync(DEPLOYS_DIR, { recursive: true });
-  openInExplorer(DEPLOYS_DIR);
-  res.json({ success: true, path: DEPLOYS_DIR });
+  if (!projectManager.isOpen()) {
+    res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
+    return;
+  }
+  const deploysDir = getDeploysDir(projectManager.currentPath!);
+  fs.mkdirSync(deploysDir, { recursive: true });
+  openInExplorer(deploysDir);
+  res.json({ success: true, path: deploysDir });
 });
 
 // ─── 런타임 → 프로젝트 js/3d/ 동기화 ────────────────────────────────────────

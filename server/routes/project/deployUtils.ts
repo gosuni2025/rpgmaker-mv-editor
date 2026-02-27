@@ -6,7 +6,11 @@ import archiver from 'archiver';
 import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 
+/** @deprecated 직접 사용하지 말 것 — getDeploysDir(projectPath) 사용 */
 export const DEPLOYS_DIR = path.join(os.homedir(), '.rpg-editor', 'deploys');
+export function getDeploysDir(projectPath: string): string {
+  return path.join(projectPath, 'deploy');
+}
 // Generator: 에디터 전용 캐릭터 생성기 에셋, 웹 배포에 불필요
 export const EXCLUDE_DIRS_LOWER = new Set(['save', '.git', 'node_modules', 'generator']);
 export const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'Game.rpgproject']);
@@ -441,7 +445,8 @@ export async function buildDeployZipWithProgress(
   opts: CacheBustOptions,
   onEvent: (data: object) => void,
 ): Promise<string> {
-  fs.mkdirSync(DEPLOYS_DIR, { recursive: true });
+  const deploysDir = getDeploysDir(srcPath);
+  fs.mkdirSync(deploysDir, { recursive: true });
 
   const t0 = Date.now();
   const phases: { name: string; ms: number }[] = [];
@@ -584,7 +589,7 @@ export async function buildDeployZipWithProgress(
     onEvent({ type: 'status', phase: 'zipping' });
     onEvent({ type: 'log', message: '── ZIP 압축 중 ──' });
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
-    const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
+    const zipPath = path.join(deploysDir, `${safeName}.zip`);
     const zipExcludeDirs = opts.bundle ? ['img', 'audio', 'data'] : [];
     // bundle=false: img/audio를 srcPath에서 직접 스트리밍
     // imgInStaging=true인 경우 PNG→WebP 변환된 파일은 staging에 있으므로 archive.directory가 처리,
