@@ -1,31 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import i18n from '../../i18n';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient, { ApiError } from '../../api/client';
 import { getRecentProjects, removeRecentProject } from '../OpenProjectDialog';
 import { useMenuBarKeyboard } from './useMenuBarKeyboard';
+import { useMenuBarMenus } from './useMenuBarMenus';
+import { CreditDialog } from './CreditDialog';
 import './MenuBar.css';
 import '../UIEditor/UIEditor.css';
 
-interface MenuItem {
-  label?: string;
-  action?: string;
-  shortcut?: string;
-  type?: string;
-  checked?: () => boolean;
-  disabled?: () => boolean;
-  children?: MenuItem[];
-}
-
-interface Menu {
-  label: string;
-  items: MenuItem[];
-}
-
 export default function MenuBar() {
-  const { t } = useTranslation();
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -74,148 +58,10 @@ export default function MenuBar() {
   const [showTileIdOverlay, setShowTileIdOverlay] = useState(false);
   const [showCreditDialog, setShowCreditDialog] = useState(false);
 
-  const recentProjects = getRecentProjects().slice(0, 10);
-  const recentItems: MenuItem[] = recentProjects.length > 0
-    ? recentProjects.map((p) => ({
-        label: `${p.name || p.path.split('/').pop()} — ${p.path}`,
-        action: `recent:${p.path}`,
-      }))
-    : [{ label: t('menu.noRecentProjects'), disabled: () => true }];
-
-  const menus: Menu[] = [
-    {
-      label: t('menu.file'),
-      items: [
-        { label: t('menu.newProject'), action: 'newProject', disabled: () => demoMode },
-        { label: t('menu.openProject'), action: 'openProject', disabled: () => demoMode },
-        { label: t('menu.closeProject'), action: 'closeProject', disabled: () => !hasProject || demoMode },
-        { type: 'separator' },
-        { label: t('menu.recentProjects'), children: recentItems },
-        { type: 'separator' },
-        { label: t('common.save'), action: 'save', shortcut: 'Ctrl+S', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.deploy'), action: 'deploy', disabled: () => !hasProject },
-        { label: t('menu.migrate'), action: 'migrate', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.openEditorFolder'), action: 'openEditorFolder', disabled: () => demoMode },
-        { label: t('menu.openEditorFolderTerminal'), action: 'openEditorFolderTerminal', disabled: () => demoMode },
-        { label: t('menu.openVscode'), action: 'openVscode', disabled: () => !hasProject || demoMode },
-        { type: 'separator' },
-        { label: t('menu.projectSettings'), action: 'pluginManager', disabled: () => !hasProject },
-        { label: t('menu.options'), action: 'options' },
-      ],
-    },
-    {
-      label: t('menu.edit'),
-      items: [
-        { label: t('common.undo'), action: 'undo', shortcut: 'Ctrl+Z', disabled: () => undoStack.length === 0 },
-        { label: t('common.redo'), action: 'redo', shortcut: 'Ctrl+Y', disabled: () => redoStack.length === 0 },
-        { type: 'separator' },
-        { label: t('common.cut'), action: 'cut', shortcut: 'Ctrl+X', disabled: () => !hasProject },
-        { label: t('common.copy'), action: 'copy', shortcut: 'Ctrl+C', disabled: () => !hasProject },
-        { label: t('common.paste'), action: 'paste', shortcut: 'Ctrl+V', disabled: () => !hasProject },
-        { label: t('common.delete'), action: 'delete', shortcut: 'Del', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('common.selectAll', '전체 선택'), action: 'selectAll', shortcut: 'Ctrl+A', disabled: () => !hasProject },
-        { label: t('common.deselect', '선택 해제'), action: 'deselect', shortcut: 'Ctrl+D', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.find'), action: 'find', shortcut: 'Ctrl+F', disabled: () => !hasProject },
-      ],
-    },
-    {
-      label: t('menu.mode'),
-      items: [
-        { label: t('menu.map'), action: 'modeMap', shortcut: 'F5', checked: () => editMode === 'map' },
-        { label: t('menu.event'), action: 'modeEvent', shortcut: 'F6', checked: () => editMode === 'event' },
-        { label: t('menu.light', '조명'), action: 'modeLight', shortcut: 'F7', checked: () => editMode === 'light' },
-        { label: t('menu.object'), action: 'modeObject', shortcut: 'F8', checked: () => editMode === 'object' },
-        { label: t('menu.cameraZone', '카메라 영역'), action: 'modeCameraZone', shortcut: 'F9', checked: () => editMode === 'cameraZone' },
-        { label: t('menu.passage', '통행'), action: 'modePassage', shortcut: 'F11', checked: () => editMode === 'passage' },
-      ],
-    },
-    {
-      label: t('menu.draw'),
-      items: [
-        { label: t('menu.pencil'), action: 'toolPen', checked: () => selectedTool === 'pen' },
-        { label: t('menu.eraser'), action: 'toolEraser', checked: () => selectedTool === 'eraser' },
-        { label: t('menu.shadow'), action: 'toolShadow', checked: () => selectedTool === 'shadow' },
-        { type: 'separator' } as any,
-        { label: t('menu.rectangle'), action: 'toolRectangle', checked: () => drawShape === 'rectangle' },
-        { label: t('menu.ellipse'), action: 'toolEllipse', checked: () => drawShape === 'ellipse' },
-        { label: t('menu.fill'), action: 'toolFill', checked: () => drawShape === 'fill' },
-      ],
-    },
-    {
-      label: t('menu.scale'),
-      items: [
-        { label: t('menu.zoomIn'), action: 'zoomIn', shortcut: 'Ctrl+=' },
-        { label: t('menu.zoomOut'), action: 'zoomOut', shortcut: 'Ctrl+-' },
-        { label: t('menu.actualSize'), action: 'zoomActual', shortcut: 'Ctrl+0' },
-      ],
-    },
-    {
-      label: t('menu.tools'),
-      items: [
-        { label: t('menu.database'), action: 'database', shortcut: 'F10', disabled: () => !hasProject },
-        { label: t('menu.pluginManager'), action: 'pluginManager', disabled: () => !hasProject },
-        { label: t('menu.soundTest'), action: 'soundTest', disabled: () => !hasProject },
-        { label: t('menu.eventSearch'), action: 'eventSearch', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.characterGenerator'), action: 'characterGenerator', disabled: () => !hasProject },
-        { label: t('menu.resourceManager'), action: 'resourceManager', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.convertToWebp'), action: 'convertToWebp', disabled: () => !hasProject },
-        { label: t('menu.convertToPng'), action: 'convertToPng', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.localization'), action: 'localization', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.autotileDebug'), action: 'autotileDebug', disabled: () => !hasProject },
-        { label: t('menu.tileIdDebug'), action: 'tileIdDebug', checked: () => showTileIdOverlay, disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: 'Fog of War 테스트', action: 'fogOfWarTest' },
-        { label: 'Fog Volume 3D 테스트', action: 'fogVolume3dTest' },
-        { label: 'OcclusionSilhouette 테스트', action: 'silhouetteTest' },
-        { label: 'Parallax UV 테스트', action: 'parallaxUVTest' },
-      ],
-    },
-    {
-      label: t('menu.game'),
-      items: [
-        { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
-        { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+R', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.playtestTitlePixi'), action: 'playtestTitlePixi', disabled: () => !hasProject },
-        { label: t('menu.playtestCurrentMapPixi'), action: 'playtestCurrentMapPixi', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.openProjectFolder'), action: 'openFolder', disabled: () => !hasProject || demoMode },
-        { label: t('menu.openProjectFolderTerminal'), action: 'openProjectFolderTerminal', disabled: () => !hasProject || demoMode },
-        { type: 'separator' },
-        { label: t('menu.copyPath'), action: 'copyPath', disabled: () => !hasProject },
-      ],
-    },
-    {
-      label: 'MCP',
-      items: [
-        { label: 'MCP 상태 팝업', action: 'mcpStatus' },
-        { type: 'separator' },
-        { label: 'MCP 설정 매뉴얼', action: 'mcpManual' },
-      ],
-    },
-    {
-      label: t('menu.help'),
-      items: [
-        { label: t('menu.checkUpdate', '업데이트 확인...'), action: 'checkUpdate' },
-        { type: 'separator' },
-        { label: t('menu.homepage'), action: 'homepage' },
-        { label: t('menu.reportIssue'), action: 'reportIssue' },
-        { type: 'separator' },
-        { label: t('menu.twitter'), action: 'twitter' },
-        { label: t('menu.youtube'), action: 'youtube' },
-        { type: 'separator' },
-        { label: t('menu.credits', '크레딧...'), action: 'credits' },
-      ],
-    },
-  ];
+  const menus = useMenuBarMenus({
+    hasProject, demoMode, editMode, selectedTool, drawShape,
+    undoStack, redoStack, showTileIdOverlay,
+  });
 
   const handleAction = useCallback((action: string) => {
     setOpenMenu(null);
@@ -230,7 +76,7 @@ export default function MenuBar() {
           });
         } else {
           removeRecentProject(recentPath);
-          alert(t('menu.projectNotFound'));
+          alert('프로젝트를 찾을 수 없습니다');
         }
       }).catch(() => {});
       return;
@@ -369,7 +215,6 @@ export default function MenuBar() {
       case 'fogVolume3dTest': window.open('/fogvolume3d', '_blank'); break;
       case 'silhouetteTest': window.open('/silhouette', '_blank'); break;
       case 'parallaxUVTest': window.open('/parallaxuv', '_blank'); break;
-
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;
       case 'checkUpdate': setShowUpdateCheckDialog(true); break;
@@ -386,7 +231,7 @@ export default function MenuBar() {
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
       setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog,
       setShowUpdateCheckDialog, setShowMCPStatusDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
-      zoomActualSize, undo, redo, openProject, projectPath, t, showTileIdOverlay]);
+      zoomActualSize, undo, redo, openProject, projectPath, showTileIdOverlay]);
 
   useMenuBarKeyboard(handleAction);
 
@@ -401,7 +246,7 @@ export default function MenuBar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [openMenu]);
 
-  const renderMenuItems = (items: MenuItem[]) =>
+  const renderMenuItems = (items: ReturnType<typeof useMenuBarMenus>[0]['items']) =>
     items.map((item, j) =>
       item.type === 'separator' ? (
         <div key={j} className="menubar-separator" />
@@ -432,40 +277,7 @@ export default function MenuBar() {
 
   return (
     <>
-    {showCreditDialog && (
-      <div className="modal-overlay" onMouseDown={() => setShowCreditDialog(false)}>
-        <div className="modal-content credit-dialog" onMouseDown={e => e.stopPropagation()}>
-          <div className="credit-dialog-header">
-            <span>크레딧</span>
-            <button className="credit-dialog-close" onClick={() => setShowCreditDialog(false)}>✕</button>
-          </div>
-          <div className="credit-dialog-body">
-            <section>
-              <h3>샘플 에셋</h3>
-              <div className="credit-asset">
-                <div className="credit-asset-name">UI Pack — Pixel Adventure</div>
-                <div className="credit-asset-author">by Kenney (kenney.nl)</div>
-                <div className="credit-asset-license">License: CC0 1.0 (Public Domain)</div>
-                <a className="credit-asset-link" href="https://kenney.nl/assets/ui-pack-pixel-adventure" target="_blank" rel="noreferrer">
-                  kenney.nl/assets/ui-pack-pixel-adventure
-                </a>
-              </div>
-            </section>
-            <div className="credit-separator" />
-            <section>
-              <h3>Special Thanks</h3>
-              <div className="credit-asset">
-                <div className="credit-asset-name">RPG Maker MV</div>
-                <div className="credit-asset-author">by Kadokawa Corporation / Degica</div>
-                <a className="credit-asset-link" href="https://store.steampowered.com/app/363890/RPG_Maker_MV/" target="_blank" rel="noreferrer">
-                  store.steampowered.com — RPG Maker MV
-                </a>
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>
-    )}
+    {showCreditDialog && <CreditDialog onClose={() => setShowCreditDialog(false)} />}
     <div className="menubar" ref={menuRef}>
       {menus.map((menu, i) => (
         <div
