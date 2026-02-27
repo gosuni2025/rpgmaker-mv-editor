@@ -400,9 +400,13 @@ export default function UIEditorCanvas() {
           {/* 창 선택/드래그 오버레이 */}
           <div className="ui-overlay-container">
             {/* 커스텀 씬 위젯 오버레이 */}
-            {customSceneId && widgetOrderedIds
-              .filter(id => id !== 'root')
-              .map(id => {
+            {customSceneId && (() => {
+              // 선택된 위젯을 마지막에 렌더링 → DOM 상단에 위치, 리사이즈 핸들 가시 + 클릭 우선처리
+              const ids = widgetOrderedIds.filter(id => id !== 'root');
+              const sortedIds = customSceneSelectedWidget
+                ? [...ids.filter(id => id !== customSceneSelectedWidget), customSceneSelectedWidget]
+                : ids;
+              return sortedIds.map(id => {
                 const pos = widgetPositions.get(id);
                 if (!pos) return null;
                 if (widgetById.get(id)?.previewSelectable === false) return null;
@@ -458,7 +462,8 @@ export default function UIEditorCanvas() {
                     ))}
                   </div>
                 );
-              })}
+              });
+            })()}
             {!customSceneId && uiEditorWindows.map((win) => {
               const isSelected = win.id === uiEditorSelectedWindowId;
               const windowOverride = uiEditorOverrides[win.className];

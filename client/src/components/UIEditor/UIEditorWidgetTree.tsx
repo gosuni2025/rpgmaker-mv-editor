@@ -54,6 +54,13 @@ export function WidgetTreeNode({
 
   const canContain = true; // 모든 위젯이 자식을 가질 수 있음
   const canDrag = widget.id !== 'root';
+  // onDragLeave 레이스 컨디션 방지: dropPos를 ref에도 저장하여 onDrop에서 최신값 사용
+  const dropPosRef = React.useRef<'before' | 'inside' | null>(null);
+
+  const setDropPosAndRef = (pos: 'before' | 'inside' | null) => {
+    dropPosRef.current = pos;
+    setDropPos(pos);
+  };
 
   return (
     <div>
@@ -81,7 +88,7 @@ export function WidgetTreeNode({
         }}
         onDragEnd={() => {
           dragState.widgetId = null;
-          setDropPos(null);
+          setDropPosAndRef(null);
         }}
         onDragOver={(e) => {
           const did = dragState.widgetId;
@@ -91,22 +98,27 @@ export function WidgetTreeNode({
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           const relY = e.clientY - rect.top;
           if (canContain && relY > rect.height * 0.35) {
-            setDropPos('inside');
+            setDropPosAndRef('inside');
           } else {
-            setDropPos('before');
+            setDropPosAndRef('before');
           }
         }}
-        onDragLeave={() => setDropPos(null)}
+        onDragLeave={(e) => {
+          // 자식 엘리먼트로 이동하는 경우(row 내부 span 등)에는 초기화하지 않음
+          if (rowRef.current && rowRef.current.contains(e.relatedTarget as Node)) return;
+          setDropPosAndRef(null);
+        }}
         onDrop={(e) => {
           const did = dragState.widgetId;
           if (!did || did === widget.id || hasDescendantWithId(widget, did)) {
-            setDropPos(null);
+            setDropPosAndRef(null);
             return;
           }
           e.preventDefault();
           e.stopPropagation();
-          const pos = dropPos ?? 'before';
-          setDropPos(null);
+          // ref 값 사용 — state는 onDragLeave로 이미 null이 됐을 수 있음
+          const pos = dropPosRef.current ?? 'before';
+          setDropPosAndRef(null);
           dragState.widgetId = null;
           onReorder(did, widget.id, pos);
         }}
