@@ -1032,37 +1032,14 @@
     if (!this._skinData) {
       this._windowSkin = ImageManager.loadSystem('Window');
     }
-    // 텍스트 서브스프라이트 (이름/현재값/최대값)
-    var h0 = this._height || 36;
-    var barH0 = Math.max(6, Math.round(h0 * 0.35));
-    var textH0 = h0 - barH0;
-    this._barH = barH0;
-    this._textH = textH0;
-    if (textH0 >= 8) {
-      var nw = Math.max(24, Math.round(this._width * 0.28));
-      var cw = Math.max(24, Math.round(this._width * 0.36));
-      var mw = Math.max(8, this._width - nw - cw);
-      this._nameSprite = new Sprite(new Bitmap(nw, textH0));
-      this._nameSprite.x = 0; this._nameSprite.y = 0;
-      sprite.addChild(this._nameSprite);
-      this._curSprite = new Sprite(new Bitmap(cw, textH0));
-      this._curSprite.x = nw; this._curSprite.y = 0;
-      sprite.addChild(this._curSprite);
-      this._maxSprite = new Sprite(new Bitmap(mw, textH0));
-      this._maxSprite.x = nw + cw; this._maxSprite.y = 0;
-      sprite.addChild(this._maxSprite);
-      this._nSprW = nw; this._cSprW = cw; this._mSprW = mw;
-    } else {
-      this._nameSprite = this._curSprite = this._maxSprite = null;
-    }
     this.refresh();
   };
   Widget_Gauge.prototype.refresh = function() {
     if (!this._bitmap) return;
     var w = this._width;
     var h = this._height || 36;
-    var barH = this._barH || Math.max(6, Math.round(h * 0.35));
-    var barY = (this._textH !== undefined) ? this._textH : (h - barH);
+    var barH = Math.max(6, Math.round(h * 0.35));
+    var barY = h - barH;
     this._bitmap.clear();
     this._drawDecoBg(this._bitmap, w, h, this._def);
     var label = '', cur = 0, max = 1;
@@ -1179,37 +1156,6 @@
         var fillW2 = Math.floor(w * rate);
         if (fillW2 > 0) {
           this._bitmap.gradientFillRect(0, barY, fillW2, barH, color1, color2);
-        }
-      }
-    }
-    // 서브스프라이트(이름/현재값/최대값) 갱신
-    if (this._nameSprite || this._curSprite || this._maxSprite) {
-      var fs = Math.max(10, (this._textH || 16) - 4);
-      if (this._nameSprite) {
-        this._nameSprite.bitmap.clear();
-        this._nameSprite.visible = !!(this._showLabel && hasValue);
-        if (this._showLabel && hasValue) {
-          this._nameSprite.bitmap.fontSize = fs;
-          this._nameSprite.bitmap.textColor = '#ffffff';
-          this._nameSprite.bitmap.drawText(label, 2, 0, this._nSprW - 2, this._textH, 'left');
-        }
-      }
-      if (this._curSprite) {
-        this._curSprite.bitmap.clear();
-        this._curSprite.visible = !!(this._showValue && hasValue);
-        if (this._showValue && hasValue) {
-          this._curSprite.bitmap.fontSize = fs;
-          this._curSprite.bitmap.textColor = '#ffffff';
-          this._curSprite.bitmap.drawText(String(cur), 0, 0, this._cSprW, this._textH, 'right');
-        }
-      }
-      if (this._maxSprite) {
-        this._maxSprite.bitmap.clear();
-        this._maxSprite.visible = !!(this._showValue && hasValue);
-        if (this._showValue && hasValue) {
-          this._maxSprite.bitmap.fontSize = fs;
-          this._maxSprite.bitmap.textColor = '#aaaaaa';
-          this._maxSprite.bitmap.drawText('/' + String(max), 2, 0, this._mSprW - 2, this._textH, 'left');
         }
       }
     }
