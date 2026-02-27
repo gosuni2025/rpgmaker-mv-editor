@@ -165,33 +165,7 @@ function SkinList() {
   const [editLabelValue, setEditLabelValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  const loadSkins = useCallback(() => {
-    if (!projectPath) return;
-    setLoading(true);
-    apiClient.get<{ skins: SkinEntry[]; defaultSkin: string; defaultFrameSkin: string; defaultCursorSkin: string }>('/ui-editor/skins')
-      .then((skinsData) => {
-        const list: SkinEntry[] = skinsData.skins ?? [];
-        setSkins(list);
-        setDefaultSkin(skinsData.defaultSkin ?? '');
-        setDefaultFrameSkin(skinsData.defaultFrameSkin ?? '');
-        setDefaultCursorSkin(skinsData.defaultCursorSkin ?? '');
-        const current = list.find((s) => s.name === uiSelectedSkin);
-        if (current) setUiSkinCornerSize(current.cornerSize);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [projectPath]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { loadSkins(); }, [loadSkins, uiSkinsReloadToken]);
-
-  // 편집 input이 열리면 포커스
-  useEffect(() => {
-    if (editingLabelFor !== null) {
-      setTimeout(() => editInputRef.current?.focus(), 0);
-    }
-  }, [editingLabelFor]);
-
-  const handleSelect = (skin: SkinEntry) => {
+  const applySkin = useCallback((skin: SkinEntry) => {
     setUiSelectedSkin(skin.name);
     setUiSelectedSkinFile(skin.file || skin.name);
     setUiSkinCornerSize(skin.cornerSize);
@@ -215,6 +189,37 @@ function SkinList() {
     setUiSkinGaugeBg(skin.gaugeBgX ?? 132, skin.gaugeBgY ?? 168, skin.gaugeBgW ?? 12, skin.gaugeBgH ?? 12);
     setUiSkinGaugeFill(skin.gaugeFillX ?? 144, skin.gaugeFillY ?? 168, skin.gaugeFillW ?? 24, skin.gaugeFillH ?? 12);
     setUiSkinGaugeFillDir(skin.gaugeFillDir ?? 'horizontal');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadSkins = useCallback(() => {
+    if (!projectPath) return;
+    setLoading(true);
+    apiClient.get<{ skins: SkinEntry[]; defaultSkin: string; defaultFrameSkin: string; defaultCursorSkin: string }>('/ui-editor/skins')
+      .then((skinsData) => {
+        const list: SkinEntry[] = skinsData.skins ?? [];
+        setSkins(list);
+        setDefaultSkin(skinsData.defaultSkin ?? '');
+        setDefaultFrameSkin(skinsData.defaultFrameSkin ?? '');
+        setDefaultCursorSkin(skinsData.defaultCursorSkin ?? '');
+        // 복원된 선택 스킨의 모든 값을 초기화 (cornerSize뿐 아니라 게이지 등 전체)
+        const current = list.find((s) => s.name === uiSelectedSkin);
+        if (current) applySkin(current);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectPath, applySkin]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { loadSkins(); }, [loadSkins, uiSkinsReloadToken]);
+
+  // 편집 input이 열리면 포커스
+  useEffect(() => {
+    if (editingLabelFor !== null) {
+      setTimeout(() => editInputRef.current?.focus(), 0);
+    }
+  }, [editingLabelFor]);
+
+  const handleSelect = (skin: SkinEntry) => {
+    applySkin(skin);
   };
 
   const handleDelete = async (name: string, e: React.MouseEvent) => {
