@@ -308,6 +308,12 @@
             try { canvas.focus(); } catch(e) {}
         }
 
+        console.log('[TCC] touchstart cnt=' + event.touches.length +
+            ' is3D=' + is3DActive() +
+            ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
+            ' _active=' + Mode3D._active +
+            ' _perspCamera=' + !!Mode3D._perspCamera);
+
         for (var i = 0; i < event.changedTouches.length; i++) {
             var t = event.changedTouches[i];
             var p = canvasClamp(
@@ -348,7 +354,20 @@
         }
     };
 
+    var _touchMoveLogCount = 0;
     TouchInput._onTouchMove = function(event) {
+        // 처음 5번만 상세 로그 (스팸 방지)
+        if (_touchMoveLogCount < 5) {
+            _touchMoveLogCount++;
+            console.log('[TCC] touchmove #' + _touchMoveLogCount +
+                ' cnt=' + event.touches.length +
+                ' is3D=' + is3DActive() +
+                ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
+                ' _active=' + Mode3D._active +
+                ' _perspCamera=' + !!Mode3D._perspCamera +
+                ' drag.active=' + _dragState.active +
+                ' drag.moved=' + _dragState.moved);
+        }
         if (is3DActive()) {
             // 핀치 줌
             if (event.touches.length >= 2) {
@@ -401,6 +420,9 @@
                         }
                     }
                     if (_dragState.moved) {
+                        if (_touchMoveLogCount <= 5) {
+                            console.log('[TCC] applyYaw dx=' + dx.toFixed(1) + ' dy=' + dy.toFixed(1));
+                        }
                         applyYaw(-dx * ROTATION_SPEED);
                         applyTilt(dy * ROTATION_SPEED);
                         _dragState.lastX = touch.pageX;
@@ -442,6 +464,7 @@
     };
 
     TouchInput._onTouchCancel = function(/*event*/) {
+        console.warn('[TCC] touchcancel! drag.active=' + _dragState.active + ' drag.moved=' + _dragState.moved);
         _dragState.active    = false;
         _dragState.moved     = false;
         _pinchState.active   = false;
