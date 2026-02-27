@@ -197,6 +197,10 @@
 
     var _orig_onLeftButtonDown = TouchInput._onLeftButtonDown;
     TouchInput._onLeftButtonDown = function(event) {
+        console.log('[TCC] mousedown is3D=' + is3DActive() +
+            ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
+            ' _active=' + Mode3D._active +
+            ' _perspCamera=' + !!Mode3D._perspCamera);
         if (is3DActive()) {
             var x = Graphics.pageToCanvasX(event.pageX);
             var y = Graphics.pageToCanvasY(event.pageY);
@@ -230,8 +234,18 @@
         }
     });
 
+    var _mouseMovLogCount = 0;
     var _orig_onMouseMove = TouchInput._onMouseMove;
     TouchInput._onMouseMove = function(event) {
+        if (_mouseMovLogCount < 5 && (event.buttons & 1)) {
+            _mouseMovLogCount++;
+            console.log('[TCC] mousemove #' + _mouseMovLogCount +
+                ' is3D=' + is3DActive() +
+                ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
+                ' _active=' + Mode3D._active +
+                ' _perspCamera=' + !!Mode3D._perspCamera +
+                ' drag.active=' + _dragState.active);
+        }
         // event.buttons & 1: 현재 왼쪽 버튼이 눌려있는지 직접 확인
         // (iframe 환경에서 _mousePressed가 설정되지 않는 경우 대응)
         if (is3DActive() && _dragState.active && (event.buttons & 1)) {
