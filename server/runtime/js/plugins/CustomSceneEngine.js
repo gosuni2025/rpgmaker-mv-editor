@@ -264,14 +264,23 @@
   Window_CustomActorList.prototype = Object.create(Window_Selectable.prototype);
   Window_CustomActorList.prototype.constructor = Window_CustomActorList;
 
+  // padding 커스터마이징 지원 (transparent 모드에서 padding:0 으로 커서 정렬)
+  Window_CustomActorList.prototype.standardPadding = function() {
+    if (this._winDef && this._winDef.padding !== undefined) return this._winDef.padding;
+    return Window_Selectable.prototype.standardPadding.call(this);
+  };
+
   Window_CustomActorList.prototype.initialize = function(x, y, winDef) {
     this._winDef = winDef || {};
     this._customClassName = 'Window_CS_' + (winDef && winDef.id ? winDef.id : 'actorList');
     this._formationMode = false;
     this._pendingIndex = -1;
+    this._showFace   = this._winDef.showFace   !== false;
+    this._showStatus = this._winDef.showStatus !== false;
     var w = this._winDef.width || 576;
     var h = this._winDef.height || 624;
     Window_Selectable.prototype.initialize.call(this, x, y, w, h);
+    if (this._winDef.transparent) this.setBackgroundType(2);
     this.loadImages();
     this.refresh();
   };
@@ -302,8 +311,8 @@
 
   Window_CustomActorList.prototype.drawItem = function(index) {
     this.drawItemBackground(index);
-    this.drawItemImage(index);
-    this.drawItemStatus(index);
+    if (this._showFace)   this.drawItemImage(index);
+    if (this._showStatus) this.drawItemStatus(index);
   };
 
   Window_CustomActorList.prototype.drawItemBackground = function(index) {

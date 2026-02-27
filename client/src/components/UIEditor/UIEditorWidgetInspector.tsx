@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType,
   WidgetDef_Panel, WidgetDef_Label, WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge,
-  WidgetDef_List, WidgetDef_Options, OptionItemDef, WidgetDef_Button, ImageRenderMode,
+  WidgetDef_List, WidgetDef_ActorList, WidgetDef_Options, OptionItemDef, WidgetDef_Button, ImageRenderMode,
 } from '../../store/uiEditorTypes';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
@@ -529,12 +529,44 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
         {widget.type === 'list' && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
         {widget.type === 'actorList' && (
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 80 }}>표시 행 수</span>
-            <input style={{ ...inputStyle, width: 60 }} type="number"
-              value={(widget as any).numVisibleRows ?? 4}
-              onChange={(e) => update({ numVisibleRows: parseInt(e.target.value) || 4 } as any)} />
-          </div>
+          <>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 80 }}>표시 행 수</span>
+              <input style={{ ...inputStyle, width: 60 }} type="number"
+                value={(widget as WidgetDef_ActorList).numVisibleRows ?? 4}
+                onChange={(e) => update({ numVisibleRows: parseInt(e.target.value) || 4 } as any)} />
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 80 }}>투명 선택기</span>
+              <input type="checkbox"
+                checked={(widget as WidgetDef_ActorList).transparent ?? false}
+                onChange={(e) => update({ transparent: e.target.checked } as any)} />
+              <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>커서만 표시</span>
+            </div>
+            {!(widget as WidgetDef_ActorList).transparent && (<>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 80 }}>얼굴 표시</span>
+                <input type="checkbox"
+                  checked={(widget as WidgetDef_ActorList).showFace !== false}
+                  onChange={(e) => update({ showFace: e.target.checked } as any)} />
+              </div>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 80 }}>상태 표시</span>
+                <input type="checkbox"
+                  checked={(widget as WidgetDef_ActorList).showStatus !== false}
+                  onChange={(e) => update({ showStatus: e.target.checked } as any)} />
+              </div>
+            </>)}
+            {(widget as WidgetDef_ActorList).transparent && (
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 80 }}>패딩</span>
+                <input style={{ ...inputStyle, width: 60 }} type="number"
+                  value={(widget as WidgetDef_ActorList).padding ?? 18}
+                  onChange={(e) => update({ padding: parseInt(e.target.value) } as any)} />
+                <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0 = 커서 정렬</span>
+              </div>
+            )}
+          </>
         )}
         {widget.type === 'options' && <OptionsWidgetInspector widget={widget as WidgetDef_Options} update={update} />}
       </div>

@@ -263,6 +263,12 @@ export interface WidgetDef_List extends WidgetDefBase {
 export interface WidgetDef_ActorList extends WidgetDefBase {
   type: 'actorList';
   numVisibleRows?: number;
+  /** true: 프레임/배경 없는 투명 선택 커서만 표시 (display는 개별 위젯으로 구성) */
+  transparent?: boolean;
+  showFace?: boolean;
+  showStatus?: boolean;
+  /** transparent 모드 시 0 권장 — 커서 위치가 개별 위젯과 정확히 정렬됨 */
+  padding?: number;
 }
 
 export interface OptionItemDef {
