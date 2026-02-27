@@ -88,6 +88,11 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     const totalRef = { current: 0 };
     const params = new URLSearchParams(cacheBustToQuery(cbOpts));
     if (bundle) params.set('bundle', '1');
+    // itch.io butler 업로드와 동일한 파일명: {slug}-{channel}.zip
+    if (project.trim().includes('/')) {
+      const slug = project.trim().split('/')[1];
+      if (slug) params.set('zipName', `${slug}-${channel}`);
+    }
     const evtSource = new EventSource(`/api/project/deploy-zip-progress?${params}`);
     abortRef.current = () => {
       evtSource.close();

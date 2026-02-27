@@ -157,11 +157,12 @@ router.get('/deploy-zip-progress', async (req: Request, res: Response) => {
     return;
   }
   const opts = parseCacheBustQuery(req.query as Record<string, unknown>);
+  const zipName = (req.query['zipName'] as string | undefined)?.trim() || getGameTitle();
   setupSSE(res);
   try {
     const zipPath = await buildDeployZipWithProgress(
       projectManager.currentPath!,
-      getGameTitle(),
+      zipName,
       opts,
       (data) => sseWrite(res, data),
     );

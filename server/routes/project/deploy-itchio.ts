@@ -122,9 +122,12 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
 
   try {
     // ── 1+2. ZIP 생성 (번들링 포함) ──────────────────────────────────────────
+    // itch.io는 butler가 업로드 시 {slug}-{channel}.zip 형식으로 저장하므로 동일하게 맞춤
+    const gameSlug = project.trim().split('/')[1] || getGameTitle();
+    const zipBaseName = `${gameSlug}-${resolvedChannel}`;
     const zipPath = await buildDeployZipWithProgress(
       projectManager.currentPath!,
-      getGameTitle(),
+      zipBaseName,
       opts,
       (ev) => sseWrite(res, ev),
     );
