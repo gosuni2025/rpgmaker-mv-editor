@@ -32,8 +32,8 @@ export function computeAllWidgetPositions(root: WidgetDef_Panel): Map<string, Wi
     res.set(w.id, { absX: ax, absY: ay, width: w.width, height: w.height ?? 36, parentInnerAbsX: pix, parentInnerAbsY: piy });
     if (w.type === 'panel') {
       const p = w as WidgetDef_Panel;
-      const pad = p.windowed !== false ? (p.padding ?? 18) : 0;
-      for (const c of p.children ?? []) visit(c, ax + pad + c.x, ay + pad + c.y, ax + pad, ay + pad);
+      // 런타임과 동일 — windowed 여부에 관계없이 padding 오프셋을 자식 좌표에 더하지 않음
+      for (const c of p.children ?? []) visit(c, ax + c.x, ay + c.y, ax, ay);
     }
   }
   visit(root, root.x, root.y, 0, 0);
