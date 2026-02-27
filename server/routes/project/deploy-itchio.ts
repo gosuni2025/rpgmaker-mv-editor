@@ -121,22 +121,26 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
   const sseStatus = (phase: string) => sseWrite(res, { type: 'status', phase });
 
   try {
+    const tDeploy = Date.now();
     // ── 1+2. ZIP 생성 (번들링 포함) ──────────────────────────────────────────
     // itch.io는 butler가 업로드 시 {slug}-{channel}.zip 형식으로 저장하므로 동일하게 맞춤
     const gameSlug = project.trim().split('/')[1] || getGameTitle();
     const zipBaseName = `${gameSlug}-${resolvedChannel}`;
+    const tZip = Date.now();
     const zipPath = await buildDeployZipWithProgress(
       projectManager.currentPath!,
       zipBaseName,
       opts,
       (ev) => sseWrite(res, ev),
     );
+    const zipMs = Date.now() - tZip;
 
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');
     sseLog(`── butler push → ${project}:${resolvedChannel} ──`);
     sseLog(`$ butler push "${zipPath}" "${project}:${resolvedChannel}" --json`);
 
+    const tUpload = Date.now();
     await new Promise<void>((resolve, reject) => {
       const butler = spawn('butler', [
         'push',
@@ -205,8 +209,13 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
       });
     });
 
+    const uploadMs = Date.now() - tUpload;
+    const totalMs = Date.now() - tDeploy;
+    const fmtMs = (ms: number) => ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+
     const itchUrl = deriveItchUrl(project.trim());
     sseLog(`\n✓ 배포 완료! (${itchUrl})`);
+    sseLog(`── 소요 시간 (업로드 포함) ──\n  ZIP 생성: ${fmtMs(zipMs)}\n  butler 업로드: ${fmtMs(uploadMs)}\n  합계: ${fmtMs(totalMs)}`);
     const currentGameId = settingsManager.get().itchio.gameId;
     sseWrite(res, { type: 'done', pageUrl: itchUrl, gameId: currentGameId || undefined });
 

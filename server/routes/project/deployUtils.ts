@@ -428,6 +428,12 @@ export function getGameTitle(): string {
   }
 }
 
+function fmtMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = (ms / 1000).toFixed(1);
+  return `${s}s`;
+}
+
 /** 파일 복사 + ZIP 생성 공통 로직 (SSE 프로그레스 콜백 포함) */
 export async function buildDeployZipWithProgress(
   srcPath: string,
@@ -436,6 +442,14 @@ export async function buildDeployZipWithProgress(
   onEvent: (data: object) => void,
 ): Promise<string> {
   fs.mkdirSync(DEPLOYS_DIR, { recursive: true });
+
+  const t0 = Date.now();
+  const phases: { name: string; ms: number }[] = [];
+  let tPhase = t0;
+  const endPhase = (name: string) => {
+    phases.push({ name, ms: Date.now() - tPhase });
+    tPhase = Date.now();
+  };
 
   onEvent({ type: 'status', phase: 'counting' });
   onEvent({ type: 'log', message: '── 파일 수집 ──' });
@@ -472,8 +486,10 @@ export async function buildDeployZipWithProgress(
       }
     }
     onEvent({ type: 'log', message: '✓ 복사 완료' });
+    endPhase('파일 복사');
 
     syncRuntimeFiles(stagingDir);
+    endPhase('런타임 동기화');
 
     // WebP 여부는 원본 img/ 디렉터리에서 확인
     const srcImgDir = path.join(srcPath, 'img');
@@ -531,6 +547,7 @@ export async function buildDeployZipWithProgress(
           const skipSet = new Set(imgPngSkipped);
           effectiveLargeFiles = largeFiles.filter(r => !skipSet.has(r));
         }
+        endPhase('WebP 변환');
       }
     } else if (projectIsWebp) {
       onEvent({ type: 'log', message: '✓ 이미 WebP로 변환된 프로젝트 — 변환 생략' });
@@ -539,6 +556,7 @@ export async function buildDeployZipWithProgress(
     applyIndexHtmlRename(stagingDir);
     const buildId = makeBuildId();
     applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
+    endPhase('캐시 버스팅');
 
     if (opts.bundle) {
       const extDirs = new Map<string, BundleFileEntry[]>();
@@ -560,6 +578,7 @@ export async function buildDeployZipWithProgress(
         .map(r => ({ absPath: path.join(srcPath, r), zipName: r.slice(6), size: fs.statSync(path.join(srcPath, r)).size }));
       if (audioEntries.length > 0) extDirs.set('audio', audioEntries);
       await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }), extDirs.size > 0 ? extDirs : undefined);
+      endPhase('번들 생성');
     }
 
     onEvent({ type: 'status', phase: 'zipping' });
@@ -581,7 +600,17 @@ export async function buildDeployZipWithProgress(
     await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot, name) => {
       onEvent({ type: 'zip-progress', current: cur, total: tot, name });
     }, zipExcludeDirs, directEntries);
+    endPhase('ZIP 압축');
     onEvent({ type: 'log', message: '✓ ZIP 완료' });
+
+    // ── 단계별 소요 시간 요약 ──
+    const totalMs = Date.now() - t0;
+    const lines = ['── 소요 시간 ──'];
+    for (const p of phases) {
+      lines.push(`  ${p.name}: ${fmtMs(p.ms)}`);
+    }
+    lines.push(`  합계: ${fmtMs(totalMs)}`);
+    onEvent({ type: 'log', message: lines.join('\n') });
 
     return zipPath;
   } finally {
