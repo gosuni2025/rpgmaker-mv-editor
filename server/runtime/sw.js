@@ -86,18 +86,30 @@ async function installBundles() {
   const cacheName = CACHE_PREFIX + version;
   const dataCache = await caches.open(cacheName);
 
-  await broadcast({ type: 'bundle-start', version, total: bundles.length });
-
-  // Phase 1: 모든 ZIP 병렬 다운로드 (스트리밍 진행률 추적)
+  // Phase 0: HEAD 요청으로 전체 파일 크기 사전 확인 → totalSize 역주행 방지
   const dlProgress = {};
   bundles.forEach(({ file }) => { dlProgress[file] = { received: 0, total: 0 }; });
+  await Promise.all(bundles.map(async ({ file }) => {
+    try {
+      const r = await fetch(base + 'bundles/' + file, { method: 'HEAD', cache: 'no-store' });
+      if (r.ok) dlProgress[file].total = parseInt(r.headers.get('Content-Length') || '0', 10);
+    } catch {}
+  }));
 
+  await broadcast({
+    type: 'bundle-start',
+    version,
+    files: bundles.map(({ file }) => ({ file, total: dlProgress[file].total })),
+  });
+
+  // Phase 1: 모든 ZIP 병렬 다운로드 (스트리밍 진행률 추적)
   async function fetchWithProgress(url, file) {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`${file} ${res.status}`);
 
+    // Content-Length가 HEAD와 다를 경우를 대비해 갱신
     const contentLength = parseInt(res.headers.get('Content-Length') || '0', 10);
-    dlProgress[file].total = contentLength;
+    if (contentLength > 0) dlProgress[file].total = contentLength;
 
     const reader = res.body.getReader();
     const chunks = [];
@@ -121,7 +133,6 @@ async function installBundles() {
   }
 
   const zipList = await Promise.all(bundles.map(async ({ file, prefix }) => {
-    await broadcast({ type: 'bundle-downloading', file });
     const buffer = await fetchWithProgress(base + 'bundles/' + file, file);
     const zip = await JSZip.loadAsync(buffer);
     return { prefix, zip, file };

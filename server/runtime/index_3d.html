@@ -111,17 +111,18 @@
             navigator.serviceWorker.addEventListener('message', function(e) {
                 var msg = e.data;
                 if (!msg) return;
-                if (msg.type === 'bundle-downloading') {
+                if (msg.type === 'bundle-start') {
                     var filesDiv = document.getElementById('bo-files');
-                    if (filesDiv) {
-                        var safeId = 'bo-f-' + msg.file.replace(/[^a-z0-9]/gi, '_');
-                        if (!document.getElementById(safeId)) {
+                    if (filesDiv && msg.files) {
+                        msg.files.forEach(function(f) {
+                            var safeId = 'bo-f-' + f.file.replace(/[^a-z0-9]/gi, '_');
                             var row = document.createElement('div');
                             row.id = safeId;
                             row.style.cssText = 'display:flex;justify-content:space-between';
-                            row.innerHTML = '<span>' + msg.file + '</span><span id="' + safeId + '-sz">...</span>';
+                            var sizeStr = f.total > 0 ? '0.0 / ' + mb(f.total) : '...';
+                            row.innerHTML = '<span>' + f.file + '</span><span id="' + safeId + '-sz">' + sizeStr + '</span>';
                             filesDiv.appendChild(row);
-                        }
+                        });
                     }
                 } else if (msg.type === 'bundle-download-progress') {
                     var dlPct = msg.totalSize > 0 ? msg.totalReceived / msg.totalSize * 50 : 0;
