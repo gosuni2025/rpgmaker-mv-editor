@@ -715,3 +715,89 @@ export const DEFAULT_EDITOR_LIGHTS: EditorLights = {
   spotLight: { enabled: true, color: '#ffeedd', intensity: 0.8, distance: 250, angle: 0.60, penumbra: 0.9, z: 120, shadowMapSize: 2048, targetDistance: 70 },
   shadow: { enabled: false, opacity: 0.4, color: '#000000', offsetScale: 0.6 },
 };
+
+// ============================================================
+// Quest System
+// ============================================================
+
+export type QuestObjectiveType =
+  | 'kill'      // 적 N마리 처치
+  | 'collect'   // 아이템 N개 보유
+  | 'gold'      // 골드 N 이상 보유
+  | 'variable'  // 변수 X가 조건 충족
+  | 'switch'    // 스위치 X가 ON/OFF
+  | 'reach'     // 맵 X의 위치에 도달
+  | 'talk'      // 맵 X의 이벤트와 대화
+  | 'manual';   // 플러그인 커맨드로 수동 완료
+
+export type QuestVariableOperator = '>=' | '==' | '<=' | '>' | '<' | '!=';
+
+export interface QuestObjectiveConfig {
+  // kill
+  enemyId?: number;
+  // collect
+  itemType?: 'item' | 'weapon' | 'armor';
+  itemId?: number;
+  // kill | collect
+  count?: number;
+  // gold
+  amount?: number;
+  // variable
+  variableId?: number;
+  value?: number;
+  operator?: QuestVariableOperator;
+  // switch
+  switchId?: number;
+  switchValue?: boolean;
+  // reach | talk
+  mapId?: number;
+  // reach
+  x?: number;
+  y?: number;
+  radius?: number;
+  // talk
+  eventId?: number;
+}
+
+export interface QuestObjective {
+  id: number;
+  text: string;
+  type: QuestObjectiveType;
+  config: QuestObjectiveConfig;
+  optional?: boolean;
+  hidden?: boolean;
+}
+
+export type QuestRewardType = 'gold' | 'exp' | 'item' | 'weapon' | 'armor';
+
+export interface QuestReward {
+  type: QuestRewardType;
+  amount?: number;
+  itemId?: number;
+  count?: number;
+}
+
+export interface QuestCategory {
+  id: string;
+  name: string;
+  icon?: number;
+}
+
+export interface Quest {
+  id: string;
+  title: string;
+  category: string;
+  icon?: number;
+  description: string;
+  difficulty?: string;
+  requester?: string;
+  location?: string;
+  objectives: QuestObjective[];
+  rewards: QuestReward[];
+  note?: string;
+}
+
+export interface QuestDatabase {
+  categories: QuestCategory[];
+  quests: Quest[];
+}

@@ -1,0 +1,388 @@
+/* QuestsTab 레이아웃 */
+.qs-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 왼쪽 패널 */
+.qs-left {
+  width: 220px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #555;
+  background: #353535;
+}
+
+/* 카테고리 탭 */
+.qs-cat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  border-bottom: 1px solid #555;
+  background: #2b2b2b;
+}
+
+.qs-cat-tab {
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  color: #aaa;
+  background: #3a3a3a;
+  white-space: nowrap;
+}
+
+.qs-cat-tab:hover { background: #444; color: #ddd; }
+.qs-cat-tab.active { background: #2675bf; color: #fff; }
+.qs-cat-tab-manage { font-size: 13px; padding: 3px 6px; }
+
+/* 카테고리 관리 패널 */
+.qs-cat-manager {
+  border-bottom: 1px solid #555;
+  padding: 6px;
+  background: #2f2f2f;
+  font-size: 12px;
+}
+
+.qs-cat-header {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.qs-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+}
+
+.qs-cat-id {
+  font-size: 10px;
+  color: #888;
+  background: #222;
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 50px;
+  text-align: center;
+}
+
+.qs-cat-add-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+/* 퀘스트 목록 헤더 */
+.qs-list-header {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-bottom: 1px solid #555;
+  justify-content: flex-end;
+}
+
+.qs-list-header button {
+  padding: 2px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  background: #444;
+  border: 1px solid #666;
+  color: #ddd;
+  border-radius: 3px;
+}
+
+.qs-list-header button:hover:not(:disabled) { background: #555; }
+.qs-list-header button:disabled { opacity: 0.4; cursor: default; }
+
+/* 퀘스트 목록 */
+.qs-quest-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.qs-quest-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  border-left: 3px solid transparent;
+}
+
+.qs-quest-item:hover { background: #404040; }
+
+.qs-quest-item.active {
+  background: #3c3c3c;
+  border-left-color: #2675bf;
+}
+
+.qs-quest-id {
+  font-size: 10px;
+  color: #888;
+  background: #222;
+  padding: 1px 4px;
+  border-radius: 2px;
+  min-width: 36px;
+  text-align: center;
+}
+
+.qs-quest-title {
+  color: #ddd;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 오른쪽 편집 패널 */
+.qs-right {
+  flex: 1;
+  overflow-y: auto;
+  background: #2b2b2b;
+}
+
+.qs-editor {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 섹션 */
+.qs-section {
+  background: #333;
+  border: 1px solid #4a4a4a;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.qs-section-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #aaa;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.qs-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.qs-section-header .qs-section-title {
+  margin-bottom: 0;
+}
+
+/* 폼 필드 */
+.qs-form-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.qs-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: #bbb;
+  flex: 1;
+}
+
+.qs-form-field span {
+  font-size: 11px;
+  color: #888;
+}
+
+.qs-form-field input,
+.qs-form-field textarea,
+.qs-form-field select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 6px;
+  color: #ddd;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.qs-form-field input:focus,
+.qs-form-field textarea:focus,
+.qs-form-field select:focus {
+  outline: none;
+  border-color: #2675bf;
+}
+
+/* 목표 행 */
+.qs-obj-row {
+  background: #2b2b2b;
+  border: 1px solid #4a4a4a;
+  border-radius: 3px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.qs-obj-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #303030;
+}
+
+.qs-obj-id {
+  font-size: 10px;
+  color: #666;
+  min-width: 22px;
+  text-align: center;
+}
+
+.qs-obj-text {
+  flex: 1;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.qs-obj-check {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #aaa;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qs-obj-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.qs-obj-btns button {
+  padding: 2px 6px;
+  font-size: 11px;
+  background: #444;
+  border: 1px solid #666;
+  color: #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.qs-obj-btns button:hover { background: #555; }
+
+/* 목표 설정 필드 */
+.qs-cfg-row {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  flex-wrap: wrap;
+}
+
+.qs-cfg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: #888;
+}
+
+.qs-cfg-field input {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 5px;
+  color: #ddd;
+  font-size: 12px;
+  width: 80px;
+}
+
+.qs-cfg-manual {
+  font-size: 11px;
+  color: #888;
+  align-items: center;
+}
+
+.qs-cfg-manual code {
+  background: #222;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #9cdcfe;
+}
+
+/* 보상 행 */
+.qs-reward-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  padding: 4px 0;
+}
+
+.qs-reward-row input {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.qs-reward-del {
+  margin-left: auto;
+}
+
+/* 공통 버튼 */
+.qs-btn-add {
+  padding: 3px 10px;
+  font-size: 12px;
+  background: #2675bf;
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.qs-btn-add:hover { background: #3085cf; }
+
+.qs-btn-danger {
+  background: #6b2b2b !important;
+  border-color: #8b3b3b !important;
+  color: #f99 !important;
+}
+
+.qs-btn-danger:hover { background: #7b3b3b !important; }
+
+/* 빈 상태 */
+.qs-empty {
+  padding: 8px;
+  color: #666;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.qs-empty-list {
+  text-align: center;
+  padding: 20px 8px;
+}
+
+.qs-no-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #555;
+  font-size: 13px;
+}

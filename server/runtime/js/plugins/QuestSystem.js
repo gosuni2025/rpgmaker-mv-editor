@@ -1,0 +1,986 @@
+/*:
+ * @plugindesc 유연한 퀘스트 시스템 v1.0.0
+ * 적 처치, 아이템 수집, 위치 도달 등 다양한 조건을 자동으로 추적합니다.
+ * @author RPGMaker MV Web Editor
+ *
+ * @param journalKey
+ * @text 저널 여는 키
+ * @desc 퀘스트 저널을 여는 키보드 단축키 (빈 칸이면 비활성)
+ * @default J
+ *
+ * @param showTracker
+ * @text 맵 추적창 표시
+ * @desc 맵 화면에 현재 추적 퀘스트 창을 표시할지 여부
+ * @type boolean
+ * @default true
+ *
+ * @param trackerX
+ * @text 추적창 X
+ * @type number
+ * @default 0
+ *
+ * @param trackerY
+ * @text 추적창 Y
+ * @type number
+ * @default 0
+ *
+ * @param trackerWidth
+ * @text 추적창 너비
+ * @type number
+ * @default 300
+ *
+ * @param autoGiveRewards
+ * @text 보상 자동 지급
+ * @desc 퀘스트 완료 시 보상을 자동으로 지급할지 여부
+ * @type boolean
+ * @default true
+ *
+ * @help
+ * ============================================================================
+ * QuestSystem.js — 유연한 퀘스트 시스템
+ * ============================================================================
+ *
+ * 퀘스트 데이터는 data/Quests.json 파일에서 로드됩니다.
+ * 에디터의 데이터베이스 → 퀘스트 탭에서 편집할 수 있습니다.
+ *
+ * ── 플러그인 커맨드 ──────────────────────────────────────────────────────────
+ *
+ * QuestSystem open               # 퀘스트 저널 열기
+ * QuestSystem add <questId>      # 퀘스트를 'known' 상태로 추가
+ * QuestSystem start <questId>    # 퀘스트를 'active' 상태로 시작
+ * QuestSystem complete <questId> # 퀘스트 강제 완료 (보상 자동 지급)
+ * QuestSystem fail <questId>     # 퀘스트 실패 처리
+ * QuestSystem remove <questId>   # 퀘스트 상태 초기화 (히든)
+ * QuestSystem track <questId>    # 지정 퀘스트를 맵 추적창에 표시
+ * QuestSystem untrack            # 추적 퀘스트 해제
+ *
+ * QuestSystem completeObjective <questId> <objId>  # 목표 수동 완료
+ * QuestSystem failObjective <questId> <objId>      # 목표 실패
+ * QuestSystem showObjective <questId> <objId>      # 숨겨진 목표 표시
+ *
+ * ── 퀘스트 상태 ──────────────────────────────────────────────────────────────
+ *   hidden    — 아직 알려지지 않음 (기본)
+ *   known     — 존재는 알지만 미수락
+ *   active    — 진행 중
+ *   completed — 완료
+ *   failed    — 실패
+ *
+ * ── 목표 타입 ─────────────────────────────────────────────────────────────────
+ *   kill      — 적 ID N마리 처치 (자동 추적)
+ *   collect   — 아이템 N개 보유 (자동 추적)
+ *   gold      — 골드 N 이상 보유 (자동 추적)
+ *   variable  — 변수 X가 조건 충족 (자동 추적)
+ *   switch    — 스위치 X가 ON/OFF (자동 추적)
+ *   reach     — 맵 X의 위치에 도달 (자동 추적)
+ *   talk      — 맵 X의 이벤트와 대화 (자동 추적)
+ *   manual    — 플러그인 커맨드로 수동 완료
+ */
+
+(function () {
+  'use strict';
+
+  var params = PluginManager.parameters('QuestSystem');
+  var journalKey = String(params['journalKey'] || 'J');
+  var showTracker = String(params['showTracker']) !== 'false';
+  var trackerX = Number(params['trackerX'] || 0);
+  var trackerY = Number(params['trackerY'] || 0);
+  var trackerWidth = Number(params['trackerWidth'] || 300);
+  var autoGiveRewards = String(params['autoGiveRewards']) !== 'false';
+
+  // ============================================================
+  // 데이터 로드
+  // ============================================================
+
+  var _questDb = null; // { categories: [], quests: [] }
+
+  function loadQuestDb() {
+    if (_questDb) return _questDb;
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'data/Quests.json', false);
+      xhr.send();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        _questDb = JSON.parse(xhr.responseText);
+      }
+    } catch (e) {
+      console.warn('[QuestSystem] data/Quests.json 로드 실패:', e);
+    }
+    if (!_questDb) _questDb = { categories: [], quests: [] };
+    return _questDb;
+  }
+
+  function getQuestData(questId) {
+    var db = loadQuestDb();
+    return db.quests.find(function (q) { return q.id === questId; }) || null;
+  }
+
+  // ============================================================
+  // $gameSystem 확장 — 퀘스트 상태 저장
+  // ============================================================
+
+  var _initGameSystem = Game_System.prototype.initialize;
+  Game_System.prototype.initialize = function () {
+    _initGameSystem.call(this);
+    this._questSystem = { quests: {}, trackedQuest: null };
+  };
+
+  Game_System.prototype.questState = function () {
+    if (!this._questSystem) {
+      this._questSystem = { quests: {}, trackedQuest: null };
+    }
+    return this._questSystem;
+  };
+
+  // 퀘스트 상태 가져오기 (없으면 기본값)
+  Game_System.prototype.getQuestEntry = function (questId) {
+    var state = this.questState();
+    if (!state.quests[questId]) {
+      var data = getQuestData(questId);
+      if (!data) return null;
+      var objStates = {};
+      data.objectives.forEach(function (obj) {
+        objStates[obj.id] = {
+          status: obj.hidden ? 'hidden' : 'active',
+          progress: 0,
+        };
+      });
+      state.quests[questId] = {
+        status: 'hidden',
+        objectives: objStates,
+      };
+    }
+    return state.quests[questId];
+  };
+
+  Game_System.prototype.getQuestStatus = function (questId) {
+    var entry = this.getQuestEntry(questId);
+    return entry ? entry.status : 'hidden';
+  };
+
+  Game_System.prototype.setQuestStatus = function (questId, status) {
+    var entry = this.getQuestEntry(questId);
+    if (!entry) return;
+    entry.status = status;
+  };
+
+  Game_System.prototype.getObjectiveEntry = function (questId, objId) {
+    var entry = this.getQuestEntry(questId);
+    if (!entry) return null;
+    var numId = Number(objId);
+    if (!entry.objectives[numId]) {
+      entry.objectives[numId] = { status: 'hidden', progress: 0 };
+    }
+    return entry.objectives[numId];
+  };
+
+  // ============================================================
+  // 퀘스트 조작 함수
+  // ============================================================
+
+  var QS = {};
+
+  QS.addQuest = function (questId) {
+    var entry = $gameSystem.getQuestEntry(questId);
+    if (!entry) return;
+    if (entry.status === 'hidden') entry.status = 'known';
+    QS.refreshTracker();
+  };
+
+  QS.startQuest = function (questId) {
+    var entry = $gameSystem.getQuestEntry(questId);
+    if (!entry) return;
+    entry.status = 'active';
+    // 숨겨진 목표 중 hidden이 아닌 것들 활성화
+    var data = getQuestData(questId);
+    if (data) {
+      data.objectives.forEach(function (obj) {
+        var oe = entry.objectives[obj.id];
+        if (!oe) oe = entry.objectives[obj.id] = { status: 'active', progress: 0 };
+        if (!obj.hidden && oe.status === 'hidden') oe.status = 'active';
+      });
+    }
+    QS.refreshTracker();
+  };
+
+  QS.completeQuest = function (questId) {
+    var entry = $gameSystem.getQuestEntry(questId);
+    if (!entry) return;
+    entry.status = 'completed';
+    if (autoGiveRewards) QS.giveRewards(questId);
+    QS.refreshTracker();
+  };
+
+  QS.failQuest = function (questId) {
+    var entry = $gameSystem.getQuestEntry(questId);
+    if (!entry) return;
+    entry.status = 'failed';
+    QS.refreshTracker();
+  };
+
+  QS.removeQuest = function (questId) {
+    var state = $gameSystem.questState();
+    delete state.quests[questId];
+    QS.refreshTracker();
+  };
+
+  QS.trackQuest = function (questId) {
+    $gameSystem.questState().trackedQuest = questId || null;
+    QS.refreshTracker();
+  };
+
+  QS.completeObjective = function (questId, objId) {
+    var oe = $gameSystem.getObjectiveEntry(questId, Number(objId));
+    if (!oe) return;
+    oe.status = 'completed';
+    QS.checkQuestAutoComplete(questId);
+    QS.refreshTracker();
+  };
+
+  QS.failObjective = function (questId, objId) {
+    var oe = $gameSystem.getObjectiveEntry(questId, Number(objId));
+    if (!oe) return;
+    oe.status = 'failed';
+    QS.refreshTracker();
+  };
+
+  QS.showObjective = function (questId, objId) {
+    var oe = $gameSystem.getObjectiveEntry(questId, Number(objId));
+    if (!oe) return;
+    if (oe.status === 'hidden') oe.status = 'active';
+    QS.refreshTracker();
+  };
+
+  // 보상 지급
+  QS.giveRewards = function (questId) {
+    var data = getQuestData(questId);
+    if (!data || !data.rewards) return;
+    data.rewards.forEach(function (r) {
+      switch (r.type) {
+        case 'gold':
+          $gameParty.gainGold(r.amount || 0);
+          break;
+        case 'exp':
+          $gameParty.members().forEach(function (actor) {
+            actor.gainExp(r.amount || 0);
+          });
+          break;
+        case 'item':
+          var item = $dataItems[r.itemId || 1];
+          if (item) $gameParty.gainItem(item, r.count || 1);
+          break;
+        case 'weapon':
+          var weapon = $dataWeapons[r.itemId || 1];
+          if (weapon) $gameParty.gainItem(weapon, r.count || 1);
+          break;
+        case 'armor':
+          var armor = $dataArmors[r.itemId || 1];
+          if (armor) $gameParty.gainItem(armor, r.count || 1);
+          break;
+      }
+    });
+  };
+
+  // 필수 목표가 모두 완료되면 퀘스트 자동 완료
+  QS.checkQuestAutoComplete = function (questId) {
+    var entry = $gameSystem.getQuestEntry(questId);
+    if (!entry || entry.status !== 'active') return;
+    var data = getQuestData(questId);
+    if (!data) return;
+    var required = data.objectives.filter(function (o) { return !o.optional; });
+    var allDone = required.every(function (o) {
+      var oe = entry.objectives[o.id];
+      return oe && oe.status === 'completed';
+    });
+    if (allDone) QS.completeQuest(questId);
+  };
+
+  // 특정 목표 진행도 업데이트 후 완료 체크
+  QS.updateObjectiveProgress = function (questId, objId, progress) {
+    var oe = $gameSystem.getObjectiveEntry(questId, Number(objId));
+    if (!oe || oe.status !== 'active') return;
+    oe.progress = progress;
+    var data = getQuestData(questId);
+    if (!data) return;
+    var obj = data.objectives.find(function (o) { return o.id === Number(objId); });
+    if (!obj) return;
+    var target = obj.config.count || 1;
+    if (progress >= target) {
+      oe.status = 'completed';
+      QS.checkQuestAutoComplete(questId);
+    }
+    QS.refreshTracker();
+  };
+
+  // 추적창 새로고침
+  QS.refreshTracker = function () {
+    if (SceneManager._scene && SceneManager._scene._questTrackerWindow) {
+      SceneManager._scene._questTrackerWindow.refresh();
+    }
+  };
+
+  // 활성 퀘스트 중 특정 조건 타입의 목표를 가진 것들 반환
+  QS.getActiveObjectivesOfType = function (type) {
+    var result = [];
+    var state = $gameSystem.questState();
+    var db = loadQuestDb();
+    db.quests.forEach(function (qData) {
+      var entry = state.quests[qData.id];
+      if (!entry || entry.status !== 'active') return;
+      qData.objectives.forEach(function (obj) {
+        if (obj.type !== type) return;
+        var oe = entry.objectives[obj.id];
+        if (!oe || oe.status !== 'active') return;
+        result.push({ questId: qData.id, obj: obj, oe: oe });
+      });
+    });
+    return result;
+  };
+
+  // ============================================================
+  // 자동 추적 훅
+  // ============================================================
+
+  // ── kill 추적: 적 사망 ────────────────────────────────────────
+
+  var _Game_BattlerBase_die = Game_BattlerBase.prototype.die;
+  Game_BattlerBase.prototype.die = function () {
+    _Game_BattlerBase_die.call(this);
+    if (this instanceof Game_Enemy) {
+      var enemyId = this.enemyId();
+      QS.getActiveObjectivesOfType('kill').forEach(function (item) {
+        if ((item.obj.config.enemyId || 0) !== enemyId) return;
+        item.oe.progress = (item.oe.progress || 0) + 1;
+        var target = item.obj.config.count || 1;
+        if (item.oe.progress >= target) {
+          item.oe.status = 'completed';
+          QS.checkQuestAutoComplete(item.questId);
+        }
+      });
+      QS.refreshTracker();
+    }
+  };
+
+  // ── collect 추적: 아이템 획득/손실 ───────────────────────────────
+
+  var _Game_Party_gainItem = Game_Party.prototype.gainItem;
+  Game_Party.prototype.gainItem = function (item, amount, includeEquip) {
+    _Game_Party_gainItem.call(this, item, amount, includeEquip);
+    if (!item) return;
+    // 아이템 타입 판별
+    var itemType = null;
+    if ($dataItems && $dataItems.indexOf && $dataItems.indexOf(item) >= 0) itemType = 'item';
+    else if (DataManager.isItem(item)) itemType = 'item';
+    else if (DataManager.isWeapon(item)) itemType = 'weapon';
+    else if (DataManager.isArmor(item)) itemType = 'armor';
+    if (!itemType) return;
+
+    var currentAmount = this.numItems(item);
+    QS.getActiveObjectivesOfType('collect').forEach(function (entry) {
+      var cfg = entry.obj.config;
+      if (cfg.itemType !== itemType) return;
+      if ((cfg.itemId || 0) !== item.id) return;
+      entry.oe.progress = currentAmount;
+      var target = cfg.count || 1;
+      if (currentAmount >= target) {
+        if (entry.oe.status === 'active') {
+          entry.oe.status = 'completed';
+          QS.checkQuestAutoComplete(entry.questId);
+        }
+      } else {
+        // 아이템이 줄면 다시 미완 상태로
+        if (entry.oe.status === 'completed') entry.oe.status = 'active';
+      }
+    });
+
+    // gold 추적 (gainGold에서도 하지만 혹시 모르니)
+    QS._checkGoldObjectives();
+    QS.refreshTracker();
+  };
+
+  // ── gold 추적 ──────────────────────────────────────────────────
+
+  var _Game_Party_gainGold = Game_Party.prototype.gainGold;
+  Game_Party.prototype.gainGold = function (amount) {
+    _Game_Party_gainGold.call(this, amount);
+    QS._checkGoldObjectives();
+    QS.refreshTracker();
+  };
+
+  QS._checkGoldObjectives = function () {
+    var gold = $gameParty.gold();
+    QS.getActiveObjectivesOfType('gold').forEach(function (item) {
+      var target = item.obj.config.amount || 0;
+      item.oe.progress = gold;
+      if (gold >= target) {
+        if (item.oe.status === 'active') {
+          item.oe.status = 'completed';
+          QS.checkQuestAutoComplete(item.questId);
+        }
+      } else {
+        if (item.oe.status === 'completed') item.oe.status = 'active';
+      }
+    });
+  };
+
+  // ── variable 추적 ──────────────────────────────────────────────
+
+  var _Game_Variables_setValue = Game_Variables.prototype.setValue;
+  Game_Variables.prototype.setValue = function (variableId, value) {
+    _Game_Variables_setValue.call(this, variableId, value);
+    QS.getActiveObjectivesOfType('variable').forEach(function (item) {
+      var cfg = item.obj.config;
+      if ((cfg.variableId || 0) !== variableId) return;
+      var target = cfg.value || 0;
+      var op = cfg.operator || '>=';
+      var current = $gameVariables.value(variableId);
+      var met = false;
+      switch (op) {
+        case '>=': met = current >= target; break;
+        case '==': met = current === target; break;
+        case '<=': met = current <= target; break;
+        case '>':  met = current >  target; break;
+        case '<':  met = current <  target; break;
+        case '!=': met = current !== target; break;
+      }
+      item.oe.progress = current;
+      if (met) {
+        if (item.oe.status === 'active') {
+          item.oe.status = 'completed';
+          QS.checkQuestAutoComplete(item.questId);
+        }
+      } else {
+        if (item.oe.status === 'completed') item.oe.status = 'active';
+      }
+    });
+    QS.refreshTracker();
+  };
+
+  // ── switch 추적 ────────────────────────────────────────────────
+
+  var _Game_Switches_setValue = Game_Switches.prototype.setValue;
+  Game_Switches.prototype.setValue = function (switchId, value) {
+    _Game_Switches_setValue.call(this, switchId, value);
+    QS.getActiveObjectivesOfType('switch').forEach(function (item) {
+      var cfg = item.obj.config;
+      if ((cfg.switchId || 0) !== switchId) return;
+      var wantOn = cfg.switchValue !== false;
+      var met = (value === wantOn);
+      item.oe.progress = met ? 1 : 0;
+      if (met) {
+        if (item.oe.status === 'active') {
+          item.oe.status = 'completed';
+          QS.checkQuestAutoComplete(item.questId);
+        }
+      } else {
+        if (item.oe.status === 'completed') item.oe.status = 'active';
+      }
+    });
+    QS.refreshTracker();
+  };
+
+  // ── reach / talk 추적: Scene_Map 업데이트 ───────────────────────
+
+  var _Scene_Map_update = Scene_Map.prototype.update;
+  Scene_Map.prototype.update = function () {
+    _Scene_Map_update.call(this);
+    if (Graphics.frameCount % 10 === 0) {  // 10프레임마다 체크
+      QS._checkReachObjectives();
+    }
+  };
+
+  QS._checkReachObjectives = function () {
+    if (!$gamePlayer || !$gameMap) return;
+    var mapId = $gameMap.mapId();
+    var px = $gamePlayer.x;
+    var py = $gamePlayer.y;
+    QS.getActiveObjectivesOfType('reach').forEach(function (item) {
+      var cfg = item.obj.config;
+      if ((cfg.mapId || 0) !== mapId) return;
+      var dx = (cfg.x || 0) - px;
+      var dy = (cfg.y || 0) - py;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var radius = cfg.radius || 1;
+      if (dist <= radius) {
+        item.oe.status = 'completed';
+        QS.checkQuestAutoComplete(item.questId);
+      }
+    });
+  };
+
+  // ── talk 추적: 이벤트 시작 ────────────────────────────────────
+
+  var _Game_Event_start = Game_Event.prototype.start;
+  Game_Event.prototype.start = function () {
+    _Game_Event_start.call(this);
+    if (!$gameMap) return;
+    var mapId = $gameMap.mapId();
+    var eventId = this._eventId;
+    QS.getActiveObjectivesOfType('talk').forEach(function (item) {
+      var cfg = item.obj.config;
+      if ((cfg.mapId || 0) !== mapId) return;
+      if ((cfg.eventId || 0) !== eventId) return;
+      item.oe.status = 'completed';
+      QS.checkQuestAutoComplete(item.questId);
+    });
+    QS.refreshTracker();
+  };
+
+  // ============================================================
+  // 플러그인 커맨드
+  // ============================================================
+
+  var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+  Game_Interpreter.prototype.pluginCommand = function (command, args) {
+    _Game_Interpreter_pluginCommand.call(this, command, args);
+    if (command !== 'QuestSystem') return;
+    var action = args[0];
+    var questId = args[1];
+    var objId = args[2];
+    switch (action) {
+      case 'open':
+        SceneManager.push(Scene_QuestJournal);
+        break;
+      case 'add':
+        QS.addQuest(questId);
+        break;
+      case 'start':
+        QS.startQuest(questId);
+        break;
+      case 'complete':
+        QS.completeQuest(questId);
+        break;
+      case 'fail':
+        QS.failQuest(questId);
+        break;
+      case 'remove':
+        QS.removeQuest(questId);
+        break;
+      case 'track':
+        QS.trackQuest(questId);
+        break;
+      case 'untrack':
+        QS.trackQuest(null);
+        break;
+      case 'completeObjective':
+        QS.completeObjective(questId, objId);
+        break;
+      case 'failObjective':
+        QS.failObjective(questId, objId);
+        break;
+      case 'showObjective':
+        QS.showObjective(questId, objId);
+        break;
+    }
+  };
+
+  // ============================================================
+  // 조건 체크 스크립트 헬퍼 (이벤트 조건 스크립트에서 사용 가능)
+  // ============================================================
+
+  window.QuestSystem = {
+    status: function (questId) { return $gameSystem.getQuestStatus(questId); },
+    isActive: function (questId) { return $gameSystem.getQuestStatus(questId) === 'active'; },
+    isCompleted: function (questId) { return $gameSystem.getQuestStatus(questId) === 'completed'; },
+    isFailed: function (questId) { return $gameSystem.getQuestStatus(questId) === 'failed'; },
+    isKnown: function (questId) {
+      var s = $gameSystem.getQuestStatus(questId);
+      return s === 'known' || s === 'active' || s === 'completed';
+    },
+    start: function (questId) { QS.startQuest(questId); },
+    complete: function (questId) { QS.completeQuest(questId); },
+    open: function () { SceneManager.push(Scene_QuestJournal); },
+  };
+
+  // ============================================================
+  // Window_QuestCategory — 카테고리 목록창
+  // ============================================================
+
+  function Window_QuestCategory() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Window_QuestCategory.prototype = Object.create(Window_Command.prototype);
+  Window_QuestCategory.prototype.constructor = Window_QuestCategory;
+
+  Window_QuestCategory.prototype.initialize = function (x, y, width) {
+    Window_Command.prototype.initialize.call(this, x, y);
+    this._windowWidth = width;
+  };
+
+  Window_QuestCategory.prototype.windowWidth = function () {
+    return this._windowWidth || 200;
+  };
+
+  Window_QuestCategory.prototype.makeCommandList = function () {
+    this.addCommand('전체', '__all__');
+    var db = loadQuestDb();
+    db.categories.forEach(function (cat) {
+      this.addCommand(cat.name, cat.id);
+    }, this);
+  };
+
+  // ============================================================
+  // Window_QuestList — 퀘스트 목록창
+  // ============================================================
+
+  function Window_QuestList() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Window_QuestList.prototype = Object.create(Window_Selectable.prototype);
+  Window_QuestList.prototype.constructor = Window_QuestList;
+
+  Window_QuestList.prototype.initialize = function (x, y, width, height) {
+    Window_Selectable.prototype.initialize.call(this, x, y, width, height);
+    this._category = '__all__';
+    this._data = [];
+    this.refresh();
+  };
+
+  Window_QuestList.prototype.setCategory = function (cat) {
+    if (this._category !== cat) {
+      this._category = cat;
+      this.refresh();
+      this.select(0);
+    }
+  };
+
+  Window_QuestList.prototype.maxItems = function () {
+    return this._data.length;
+  };
+
+  Window_QuestList.prototype.item = function () {
+    return this._data[this.index()] || null;
+  };
+
+  Window_QuestList.prototype.makeItemList = function () {
+    var db = loadQuestDb();
+    var state = $gameSystem.questState();
+    this._data = db.quests.filter(function (q) {
+      var entry = state.quests[q.id];
+      if (!entry || entry.status === 'hidden') return false;
+      if (this._category !== '__all__' && q.category !== this._category) return false;
+      return true;
+    }, this);
+  };
+
+  Window_QuestList.prototype.refresh = function () {
+    this.makeItemList();
+    this.createContents();
+    this.drawAllItems();
+  };
+
+  Window_QuestList.prototype.drawItem = function (index) {
+    var quest = this._data[index];
+    if (!quest) return;
+    var rect = this.itemRect(index);
+    var status = $gameSystem.getQuestStatus(quest.id);
+    var statusColor = { active: '#6af', completed: '#8f8', failed: '#f88', known: '#fa8' };
+    var color = statusColor[status] || '#ddd';
+    this.changeTextColor(color);
+    this.drawText(quest.title || quest.id, rect.x + 4, rect.y, rect.width - 8, 'left');
+    this.resetTextColor();
+  };
+
+  Window_QuestList.prototype.setQuestDetailWindow = function (win) {
+    this._questDetailWindow = win;
+    this.callUpdateHelp();
+  };
+
+  Window_QuestList.prototype.updateHelp = function () {
+    if (this._questDetailWindow) {
+      this._questDetailWindow.setQuest(this.item());
+    }
+  };
+
+  // ============================================================
+  // Window_QuestDetail — 퀘스트 상세창
+  // ============================================================
+
+  function Window_QuestDetail() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Window_QuestDetail.prototype = Object.create(Window_Base.prototype);
+  Window_QuestDetail.prototype.constructor = Window_QuestDetail;
+
+  Window_QuestDetail.prototype.initialize = function (x, y, width, height) {
+    Window_Base.prototype.initialize.call(this, x, y, width, height);
+    this._quest = null;
+    this.refresh();
+  };
+
+  Window_QuestDetail.prototype.setQuest = function (quest) {
+    if (this._quest !== quest) {
+      this._quest = quest;
+      this.refresh();
+    }
+  };
+
+  Window_QuestDetail.prototype.refresh = function () {
+    this.contents.clear();
+    var quest = this._quest;
+    if (!quest) return;
+    var entry = $gameSystem.getQuestEntry(quest.id);
+    if (!entry) return;
+
+    var lh = this.lineHeight();
+    var y = 0;
+
+    // 제목
+    this.changeTextColor(this.systemColor());
+    this.drawText(quest.title || quest.id, 0, y, this.contentsWidth(), 'left');
+    this.resetTextColor();
+    y += lh;
+
+    // 메타 정보 (난이도, 의뢰인, 장소)
+    var meta = [];
+    if (quest.difficulty) meta.push('난이도: ' + quest.difficulty);
+    if (quest.requester) meta.push('의뢰: ' + quest.requester);
+    if (quest.location) meta.push('장소: ' + quest.location);
+    if (meta.length > 0) {
+      this.changeTextColor('#aaa');
+      this.drawText(meta.join('   '), 0, y, this.contentsWidth(), 'left');
+      this.resetTextColor();
+      y += lh;
+    }
+
+    // 구분선
+    this.contents.fillRect(0, y + lh / 2 - 1, this.contentsWidth(), 1, '#555');
+    y += lh;
+
+    // 설명
+    if (quest.description) {
+      var lines = quest.description.split('\n');
+      lines.forEach(function (line) {
+        this.drawTextEx(line, 0, y);
+        y += lh;
+      }, this);
+      y += 4;
+    }
+
+    // 목표
+    this.changeTextColor(this.systemColor());
+    this.drawText('[ 목표 ]', 0, y, this.contentsWidth(), 'left');
+    this.resetTextColor();
+    y += lh;
+
+    quest.objectives.forEach(function (obj) {
+      var oe = entry.objectives[obj.id];
+      if (!oe || oe.status === 'hidden') return;
+      var statusIcon = { completed: '✓', failed: '✗', active: '○' }[oe.status] || '○';
+      var statusColor = { completed: '#8f8', failed: '#f88', active: '#ddd' }[oe.status] || '#ddd';
+      var optStr = obj.optional ? ' (선택)' : '';
+      var progressStr = '';
+      if (['kill', 'collect', 'gold'].includes(obj.type)) {
+        var target = obj.config.count || obj.config.amount || 1;
+        progressStr = ' [' + (oe.progress || 0) + '/' + target + ']';
+      }
+      this.changeTextColor(statusColor);
+      this.drawText('  ' + statusIcon + ' ' + obj.text + optStr + progressStr,
+        0, y, this.contentsWidth(), 'left');
+      this.resetTextColor();
+      y += lh;
+    }, this);
+
+    // 보상 (완료되지 않은 경우에만)
+    if (entry.status !== 'completed' && quest.rewards && quest.rewards.length > 0) {
+      y += 4;
+      this.changeTextColor(this.systemColor());
+      this.drawText('[ 보상 ]', 0, y, this.contentsWidth(), 'left');
+      this.resetTextColor();
+      y += lh;
+
+      quest.rewards.forEach(function (r) {
+        var text = '';
+        switch (r.type) {
+          case 'gold':   text = (r.amount || 0) + 'G'; break;
+          case 'exp':    text = (r.amount || 0) + ' EXP'; break;
+          case 'item':   text = '아이템 ID:' + r.itemId + ' x' + (r.count || 1); break;
+          case 'weapon': text = '무기 ID:' + r.itemId + ' x' + (r.count || 1); break;
+          case 'armor':  text = '방어구 ID:' + r.itemId + ' x' + (r.count || 1); break;
+        }
+        this.drawText('  • ' + text, 0, y, this.contentsWidth(), 'left');
+        y += lh;
+      }, this);
+    }
+
+    // 완료/실패 메시지
+    if (entry.status === 'completed') {
+      y += 4;
+      this.changeTextColor('#8f8');
+      this.drawText('★ 완료됨', 0, y, this.contentsWidth(), 'center');
+      this.resetTextColor();
+    } else if (entry.status === 'failed') {
+      y += 4;
+      this.changeTextColor('#f88');
+      this.drawText('✗ 실패', 0, y, this.contentsWidth(), 'center');
+      this.resetTextColor();
+    }
+  };
+
+  // ============================================================
+  // Scene_QuestJournal — 퀘스트 저널 씬
+  // ============================================================
+
+  function Scene_QuestJournal() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Scene_QuestJournal.prototype = Object.create(Scene_MenuBase.prototype);
+  Scene_QuestJournal.prototype.constructor = Scene_QuestJournal;
+
+  Scene_QuestJournal.prototype.initialize = function () {
+    Scene_MenuBase.prototype.initialize.call(this);
+  };
+
+  Scene_QuestJournal.prototype.create = function () {
+    Scene_MenuBase.prototype.create.call(this);
+    this.createCategoryWindow();
+    this.createListWindow();
+    this.createDetailWindow();
+  };
+
+  Scene_QuestJournal.prototype.createCategoryWindow = function () {
+    var catWidth = 180;
+    var catHeight = Graphics.boxHeight;
+    this._categoryWindow = new Window_QuestCategory(0, 0, catWidth);
+    this._categoryWindow.setHandler('ok', this.onCategoryOk.bind(this));
+    this._categoryWindow.setHandler('cancel', this.popScene.bind(this));
+    this.addWindow(this._categoryWindow);
+  };
+
+  Scene_QuestJournal.prototype.createListWindow = function () {
+    var catWidth = this._categoryWindow.windowWidth();
+    var listWidth = 220;
+    var listHeight = Graphics.boxHeight;
+    this._listWindow = new Window_QuestList(catWidth, 0, listWidth, listHeight);
+    this._listWindow.setHandler('ok', this.onListOk.bind(this));
+    this._listWindow.setHandler('cancel', this.onListCancel.bind(this));
+    this._listWindow.deactivate();
+    this.addWindow(this._listWindow);
+    this._categoryWindow.setHelpWindow && null; // no help window
+  };
+
+  Scene_QuestJournal.prototype.createDetailWindow = function () {
+    var catWidth = this._categoryWindow.windowWidth();
+    var listWidth = this._listWindow.windowWidth();
+    var detailX = catWidth + listWidth;
+    var detailWidth = Graphics.boxWidth - detailX;
+    var detailHeight = Graphics.boxHeight;
+    this._detailWindow = new Window_QuestDetail(detailX, 0, detailWidth, detailHeight);
+    this._listWindow.setQuestDetailWindow(this._detailWindow);
+    this.addWindow(this._detailWindow);
+  };
+
+  Scene_QuestJournal.prototype.onCategoryOk = function () {
+    this._listWindow.setCategory(this._categoryWindow.currentSymbol());
+    this._listWindow.activate();
+    this._listWindow.select(0);
+  };
+
+  Scene_QuestJournal.prototype.onListOk = function () {
+    // 현재는 상세만 보는 씬이므로 다시 리스트로
+    this._listWindow.activate();
+  };
+
+  Scene_QuestJournal.prototype.onListCancel = function () {
+    this._listWindow.deactivate();
+    this._categoryWindow.activate();
+  };
+
+  Scene_QuestJournal.prototype.start = function () {
+    Scene_MenuBase.prototype.start.call(this);
+    this._categoryWindow.activate();
+  };
+
+  // ============================================================
+  // Window_QuestTracker — 맵 화면 추적창
+  // ============================================================
+
+  function Window_QuestTracker() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Window_QuestTracker.prototype = Object.create(Window_Base.prototype);
+  Window_QuestTracker.prototype.constructor = Window_QuestTracker;
+
+  Window_QuestTracker.prototype.initialize = function (x, y, width) {
+    var height = this.fittingHeight(8);
+    Window_Base.prototype.initialize.call(this, x, y, width, height);
+    this.opacity = 180;
+    this.refresh();
+  };
+
+  Window_QuestTracker.prototype.refresh = function () {
+    this.contents.clear();
+    var trackedId = $gameSystem.questState().trackedQuest;
+    if (!trackedId) {
+      this.height = 0;
+      return;
+    }
+    var quest = getQuestData(trackedId);
+    var entry = $gameSystem.getQuestEntry(trackedId);
+    if (!quest || !entry || entry.status !== 'active') {
+      this.height = 0;
+      return;
+    }
+
+    var lh = this.lineHeight();
+    var y = 0;
+
+    this.changeTextColor(this.systemColor());
+    this.drawText(quest.title, 0, y, this.contentsWidth(), 'left');
+    this.resetTextColor();
+    y += lh;
+
+    var visibleCount = 0;
+    quest.objectives.forEach(function (obj) {
+      var oe = entry.objectives[obj.id];
+      if (!oe || oe.status === 'hidden' || oe.status === 'completed') return;
+      var progressStr = '';
+      if (['kill', 'collect', 'gold'].includes(obj.type)) {
+        var target = obj.config.count || obj.config.amount || 1;
+        progressStr = ' (' + (oe.progress || 0) + '/' + target + ')';
+      }
+      this.drawText('○ ' + obj.text + progressStr, 0, y, this.contentsWidth(), 'left');
+      y += lh;
+      visibleCount++;
+    }, this);
+
+    var newHeight = this.standardPadding() * 2 + y;
+    if (this.height !== newHeight) {
+      this.height = newHeight;
+    }
+  };
+
+  // ============================================================
+  // Scene_Map 확장 — 추적창 추가, 단축키
+  // ============================================================
+
+  var _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
+  Scene_Map.prototype.createAllWindows = function () {
+    _Scene_Map_createAllWindows.call(this);
+    if (showTracker) {
+      this._questTrackerWindow = new Window_QuestTracker(trackerX, trackerY, trackerWidth);
+      this.addWindow(this._questTrackerWindow);
+    }
+  };
+
+  var _Scene_Map_updateScene = Scene_Map.prototype.updateScene;
+  Scene_Map.prototype.updateScene = function () {
+    _Scene_Map_updateScene.call(this);
+    if (!SceneManager.isSceneChanging() && journalKey) {
+      if (Input.isTriggered(journalKey.toLowerCase()) || Input.isTriggered(journalKey.toUpperCase())) {
+        SceneManager.push(Scene_QuestJournal);
+      }
+    }
+  };
+
+  // ============================================================
+  // 스크립트 전역 노출
+  // ============================================================
+
+  window.QS = QS;
+
+})();

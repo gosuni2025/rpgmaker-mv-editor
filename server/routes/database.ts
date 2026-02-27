@@ -16,7 +16,8 @@ const TYPE_MAP: Record<string, string> = {
   tilesets: 'Tilesets.json',
   commonEvents: 'CommonEvents.json',
   system: 'System.json',
-  mapInfos: 'MapInfos.json'
+  mapInfos: 'MapInfos.json',
+  quests: 'Quests.json'
 };
 
 function resolveFilename(type: string): string | null {

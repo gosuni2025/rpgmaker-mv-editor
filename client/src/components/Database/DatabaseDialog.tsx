@@ -18,6 +18,7 @@ import CommonEventsTab from './CommonEventsTab';
 import SystemTab from './SystemTab';
 import TypesTab from './TypesTab';
 import TermsTab from './TermsTab';
+import QuestsTab from './QuestsTab';
 import './DatabaseDialog.css';
 
 interface Tab {
@@ -41,6 +42,7 @@ const TABS: Tab[] = [
   { key: 'system', labelKey: 'database.tabs.system' },
   { key: 'types', labelKey: 'database.tabs.types' },
   { key: 'terms', labelKey: 'database.tabs.terms' },
+  { key: 'quests', labelKey: 'database.tabs.quests' },
 ];
 
 type TabComponentType = React.ComponentType<{ data: unknown; onChange: (data: unknown) => void }>;
@@ -61,6 +63,7 @@ const TAB_COMPONENTS: Record<string, TabComponentType> = {
   system: SystemTab as TabComponentType,
   types: TypesTab as TabComponentType,
   terms: TermsTab as TabComponentType,
+  quests: QuestsTab as TabComponentType,
 };
 
 const MAX_HISTORY = 50;
