@@ -83,9 +83,15 @@ export function WidgetTreeNode({
         onDragStart={(e) => {
           if (!canDrag) { e.preventDefault(); return; }
           dragState.widgetId = widget.id;
+          // 드래그 위젯의 모든 자손 ID를 미리 계산 (순환 참조 방지용)
+          function collectDescendantIds(w: WidgetDef, acc: Set<string>) {
+            for (const c of w.children || []) { acc.add(c.id); collectDescendantIds(c, acc); }
+          }
+          dragState.descendantIds = new Set<string>();
+          collectDescendantIds(widget, dragState.descendantIds);
           e.stopPropagation();
           e.dataTransfer.effectAllowed = 'move';
-          console.log('[DnD] dragStart', widget.id);
+          console.log('[DnD] dragStart', widget.id, 'descendants:', [...dragState.descendantIds]);
         }}
         onDragEnd={() => {
           console.log('[DnD] dragEnd', widget.id, 'dragState.widgetId was:', dragState.widgetId);
@@ -96,7 +102,8 @@ export function WidgetTreeNode({
           const did = dragState.widgetId;
           if (!did) { console.log('[DnD] dragOver skip: no dragState.widgetId'); return; }
           if (did === widget.id) { console.log('[DnD] dragOver skip: same widget'); return; }
-          if (hasDescendantWithId(widget, did)) { console.log('[DnD] dragOver skip: descendant'); return; }
+          // 드래그 위젯의 자손 안으로 넣는 것만 금지 (순환 참조). 조상으로 이동은 허용.
+          if (dragState.descendantIds.has(widget.id)) { console.log('[DnD] dragOver skip: would create cycle (target is dragged widget\'s descendant)'); return; }
           e.preventDefault();
           e.stopPropagation();
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -116,7 +123,7 @@ export function WidgetTreeNode({
         onDrop={(e) => {
           const did = dragState.widgetId;
           console.log('[DnD] drop on', widget.id, '| dragId:', did, '| dropPosRef:', dropPosRef.current, '| dropPos state:', dropPos);
-          if (!did || did === widget.id || hasDescendantWithId(widget, did)) {
+          if (!did || did === widget.id || dragState.descendantIds.has(widget.id)) {
             console.log('[DnD] drop skipped (guard)');
             setDropPosAndRef(null);
             return;

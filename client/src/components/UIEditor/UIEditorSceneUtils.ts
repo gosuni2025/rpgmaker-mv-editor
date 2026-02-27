@@ -42,5 +42,9 @@ export function hasDescendantWithId(w: WidgetDef, id: string): boolean {
   return (w.children || []).some((c) => c.id === id || hasDescendantWithId(c, id));
 }
 
-/** 드래그 중인 widgetId를 모듈 레벨 ref로 관리 (컴포넌트 간 공유) */
-export const dragState = { widgetId: null as string | null };
+/** 드래그 중인 widgetId와 자손 ID 집합을 모듈 레벨 ref로 관리 (컴포넌트 간 공유) */
+export const dragState = {
+  widgetId: null as string | null,
+  /** 드래그 위젯의 모든 자손 ID (순환 참조 방지용) */
+  descendantIds: new Set<string>(),
+};
