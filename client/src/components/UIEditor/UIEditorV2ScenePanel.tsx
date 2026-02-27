@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type { CustomSceneDefV2, NavigationConfig, WidgetDef } from '../../store/uiEditorTypes';
 import { WidgetTreeNode, AddWidgetMenu } from './UIEditorWidgetTree';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
+import UIEditorDuplicateSceneDialog from './UIEditorDuplicateSceneDialog';
 
 // ── NavigationConfigSection ──────────────────────────────────
 
@@ -55,6 +56,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
   const [addMenuParent, setAddMenuParent] = React.useState<string | null>(null);
   const [addMenuBtnRect, setAddMenuBtnRect] = React.useState<DOMRect | null>(null);
   const addBtnRef = React.useRef<HTMLButtonElement>(null);
+  const [showDuplicateDialog, setShowDuplicateDialog] = React.useState(false);
 
   // dirty 상태 감지 → debounce 자동저장 + iframe 프리뷰 갱신
   React.useEffect(() => {
@@ -111,9 +113,17 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
           <input style={{ ...inputStyle, flex: 1 }} value={scene.displayName}
             onChange={(e) => updateCustomScene(sceneId, { displayName: e.target.value })} />
         </div>
-        <button style={{ ...deleteBtnStyle, width: '100%', marginTop: 4 }} onClick={handleDeleteScene}>
-          씬 삭제
-        </button>
+        <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+          <button
+            style={{ ...smallBtnStyle, flex: 1, background: '#3a6ea8', padding: '4px 8px' }}
+            onClick={() => setShowDuplicateDialog(true)}
+          >
+            씬 복제
+          </button>
+          <button style={{ ...deleteBtnStyle, flex: 1 }} onClick={handleDeleteScene}>
+            씬 삭제
+          </button>
+        </div>
       </div>
 
       {/* 네비게이션 설정 */}
@@ -156,6 +166,15 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
           )}
         </div>
       </div>
+
+      {/* 씬 복제 다이얼로그 */}
+      {showDuplicateDialog && (
+        <UIEditorDuplicateSceneDialog
+          sourceScene={scene}
+          onClose={() => setShowDuplicateDialog(false)}
+          onDuplicated={(newId) => setUiEditorScene(`Scene_CS_${newId}`)}
+        />
+      )}
 
       {/* +위젯 팝업 (portal) */}
       {addMenuParent && addMenuBtnRect && ReactDOM.createPortal(
