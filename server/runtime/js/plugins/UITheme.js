@@ -1681,4 +1681,7 @@
     }
   });
 
+  // CustomSceneEngine.js 등 외부에서 스킨 배열에 접근할 수 있도록 전역 노출
+  window.UIEditorSkins = _skins.skins || [];
+
 })();
