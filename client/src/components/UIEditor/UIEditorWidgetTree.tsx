@@ -85,39 +85,46 @@ export function WidgetTreeNode({
           dragState.widgetId = widget.id;
           e.stopPropagation();
           e.dataTransfer.effectAllowed = 'move';
+          console.log('[DnD] dragStart', widget.id);
         }}
         onDragEnd={() => {
+          console.log('[DnD] dragEnd', widget.id, 'dragState.widgetId was:', dragState.widgetId);
           dragState.widgetId = null;
           setDropPosAndRef(null);
         }}
         onDragOver={(e) => {
           const did = dragState.widgetId;
-          if (!did || did === widget.id || hasDescendantWithId(widget, did)) return;
+          if (!did) { console.log('[DnD] dragOver skip: no dragState.widgetId'); return; }
+          if (did === widget.id) { console.log('[DnD] dragOver skip: same widget'); return; }
+          if (hasDescendantWithId(widget, did)) { console.log('[DnD] dragOver skip: descendant'); return; }
           e.preventDefault();
           e.stopPropagation();
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           const relY = e.clientY - rect.top;
-          if (canContain && relY > rect.height * 0.35) {
-            setDropPosAndRef('inside');
-          } else {
-            setDropPosAndRef('before');
+          const newPos = (canContain && relY > rect.height * 0.35) ? 'inside' : 'before';
+          if (dropPosRef.current !== newPos) {
+            console.log('[DnD] dragOver', widget.id, newPos, `relY=${relY.toFixed(1)} h=${rect.height.toFixed(1)}`);
+            setDropPosAndRef(newPos);
           }
         }}
         onDragLeave={(e) => {
-          // 자식 엘리먼트로 이동하는 경우(row 내부 span 등)에는 초기화하지 않음
-          if (rowRef.current && rowRef.current.contains(e.relatedTarget as Node)) return;
+          const isInside = rowRef.current && rowRef.current.contains(e.relatedTarget as Node);
+          console.log('[DnD] dragLeave', widget.id, 'relatedTarget inside row:', isInside, e.relatedTarget);
+          if (isInside) return;
           setDropPosAndRef(null);
         }}
         onDrop={(e) => {
           const did = dragState.widgetId;
+          console.log('[DnD] drop on', widget.id, '| dragId:', did, '| dropPosRef:', dropPosRef.current, '| dropPos state:', dropPos);
           if (!did || did === widget.id || hasDescendantWithId(widget, did)) {
+            console.log('[DnD] drop skipped (guard)');
             setDropPosAndRef(null);
             return;
           }
           e.preventDefault();
           e.stopPropagation();
-          // ref 값 사용 — state는 onDragLeave로 이미 null이 됐을 수 있음
           const pos = dropPosRef.current ?? 'before';
+          console.log('[DnD] onReorder', did, '->', widget.id, pos);
           setDropPosAndRef(null);
           dragState.widgetId = null;
           onReorder(did, widget.id, pos);
