@@ -1183,7 +1183,7 @@
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
     this._applyWindowStyle(win, def);
-    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
+    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, this._height || 400);
@@ -1241,7 +1241,7 @@
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
     this._applyWindowStyle(win, def);
-    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
+    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, def.height || 400);
@@ -1296,7 +1296,7 @@
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
     this._applyWindowStyle(win, def);
-    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
+    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, this._height || 52);
@@ -1338,7 +1338,7 @@
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
     this._applyWindowStyle(win, def);
-    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
+    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, def.height || 400);
