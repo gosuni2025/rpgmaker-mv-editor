@@ -161,7 +161,7 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
     switch (type) {
       case 'panel': def = { id, type, x: 0, y: 0, width: 300, height: 200, windowed: true, children: [] }; break;
       case 'label': def = { id, type, x: 0, y: 0, width: 200, height: 36, text: '텍스트' }; break;
-      case 'image': def = { id, type, x: 0, y: 0, width: 100, height: 100, imageName: '' }; break;
+      case 'image': def = { id, type, x: 0, y: 0, width: 100, height: 100, imageSource: 'file', imageName: '' }; break;
       case 'actorFace': def = { id, type, x: 0, y: 0, width: 144, height: 144, actorIndex: 0 }; break;
       case 'gauge': def = { id, type, x: 0, y: 0, width: 200, height: 36, gaugeType: 'hp', actorIndex: 0 }; break;
       case 'background': def = { id, type, x: 0, y: 0, width: 816, height: 624 }; break;
@@ -185,12 +185,13 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
     onClose();
   };
 
-  const types: WidgetType[] = ['background', 'panel', 'label', 'image', 'actorFace', 'gauge', 'separator', 'button', 'list', 'actorList', 'options'];
+  // actorFace는 팔레트에서 제거 — image(imageSource:'actorFace') 로 대체
+  const types: WidgetType[] = ['background', 'panel', 'label', 'image', 'gauge', 'separator', 'button', 'list', 'actorList', 'options'];
   const typeLabels: Record<WidgetType, string> = {
     background: '배경 (맵 스크린샷)',
     panel: '패널', label: '레이블', image: '이미지',
-    actorFace: '액터 얼굴', gauge: '게이지', separator: '구분선',
-    button: '버튼', list: '리스트', actorList: '파티 멤버 목록',
+    actorFace: '액터 얼굴(구)', gauge: '게이지', separator: '구분선',
+    button: '버튼', list: '리스트', actorList: '파티 선택',
     options: '옵션(블랙박스)',
   };
 

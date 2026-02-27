@@ -727,22 +727,97 @@
   Widget_Image.prototype.constructor = Widget_Image;
   Widget_Image.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._imageSource = def.imageSource || 'file';
+    this._actorIndex  = def.actorIndex  || 0;
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
     this._displayObject = sprite;
-    if (def.imageName && typeof ImageManager !== 'undefined') {
-      var folder = def.imageFolder || 'img/system/';
-      var bitmap = ImageManager.loadBitmap(folder, def.imageName);
-      var self = this;
-      bitmap.addLoadListener(function() {
-        var drawW = self._width || bitmap.width;
-        var drawH = self._height || bitmap.height;
-        var bmp = new Bitmap(drawW, drawH);
-        bmp.blt(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, drawW, drawH);
-        sprite.bitmap = bmp;
-      });
+    this.refresh();
+  };
+  Widget_Image.prototype.refresh = function() {
+    var sprite = this._displayObject;
+    if (!sprite) return;
+    switch (this._imageSource) {
+      case 'actorFace':      this._refreshActorFace(sprite);      break;
+      case 'actorCharacter': this._refreshActorCharacter(sprite); break;
+      default:               this._refreshFile(sprite);           break;
     }
+    Widget_Base.prototype.refresh.call(this);
+  };
+  Widget_Image.prototype._refreshFile = function(sprite) {
+    var def = this._def;
+    if (!def.imageName || typeof ImageManager === 'undefined') return;
+    var folder = def.imageFolder || 'img/system/';
+    var bitmap = ImageManager.loadBitmap(folder, def.imageName);
+    var self = this;
+    bitmap.addLoadListener(function() {
+      var drawW = self._width || bitmap.width;
+      var drawH = self._height || bitmap.height;
+      var bmp = new Bitmap(drawW, drawH);
+      bmp.blt(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, drawW, drawH);
+      sprite.bitmap = bmp;
+    });
+  };
+  Widget_Image.prototype._refreshActorFace = function(sprite) {
+    if (typeof $gameParty === 'undefined') return;
+    var actor = $gameParty.members()[this._actorIndex];
+    if (!actor || typeof ImageManager === 'undefined') return;
+    var faceName  = actor.faceName();
+    var faceIndex = actor.faceIndex();
+    if (!faceName) return;
+    var self = this;
+    var w = this._width  || 144;
+    var h = this._height || 144;
+    var bitmap = ImageManager.loadFace(faceName);
+    bitmap.addLoadListener(function() {
+      var bmp = new Bitmap(w, h);
+      var pw = Window_Base._faceWidth  || 144;
+      var ph = Window_Base._faceHeight || 144;
+      var sw = Math.min(w, pw);
+      var sh = Math.min(h, ph);
+      var sx = (faceIndex % 4) * pw + (pw - sw) / 2;
+      var sy = Math.floor(faceIndex / 4) * ph + (ph - sh) / 2;
+      bmp.blt(bitmap, sx, sy, sw, sh, 0, 0, w, h);
+      sprite.bitmap = bmp;
+    });
+  };
+  Widget_Image.prototype._refreshActorCharacter = function(sprite) {
+    if (typeof $gameParty === 'undefined') return;
+    var actor = $gameParty.members()[this._actorIndex];
+    if (!actor || typeof ImageManager === 'undefined') return;
+    var charName  = actor.characterName();
+    var charIndex = actor.characterIndex();
+    if (!charName) return;
+    var self = this;
+    var w = this._width  || 48;
+    var h = this._height || 48;
+    var bitmap = ImageManager.loadCharacter(charName);
+    bitmap.addLoadListener(function() {
+      var isBig = ImageManager.isBigCharacter(charName);
+      var cw, ch, sx, sy;
+      if (isBig) {
+        cw = Math.floor(bitmap.width  / 3);
+        ch = Math.floor(bitmap.height / 4);
+        sx = cw;  // 중간 프레임 (frame 1)
+        sy = 0;   // 아래 방향 (row 0)
+      } else {
+        cw = Math.floor(bitmap.width  / 12);
+        ch = Math.floor(bitmap.height / 8);
+        sx = (charIndex % 4 * 3 + 1) * cw;          // 캐릭터 중간 프레임
+        sy = Math.floor(charIndex / 4) * 4 * ch;    // 아래 방향
+      }
+      var bmp = new Bitmap(w, h);
+      bmp.blt(bitmap, sx, sy, cw, ch, 0, 0, w, h);
+      sprite.bitmap = bmp;
+    });
+  };
+  Widget_Image.prototype.update = function() {
+    if (this._imageSource !== 'file') {
+      if (this._updateCount === undefined) this._updateCount = 0;
+      if (++this._updateCount % 60 === 0) this.refresh();
+    }
+    Widget_Base.prototype.update.call(this);
   };
   window.Widget_Image = Widget_Image;
 

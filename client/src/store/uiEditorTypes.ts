@@ -220,10 +220,17 @@ export interface WidgetDef_Label extends WidgetDefBase {
   fontSize?: number;
 }
 
+export type ImageSource = 'file' | 'actorFace' | 'actorCharacter';
+
 export interface WidgetDef_Image extends WidgetDefBase {
   type: 'image';
-  imageName: string;
+  /** 이미지 소스 타입 (기본: 'file') */
+  imageSource?: ImageSource;
+  // file 소스
+  imageName?: string;
   imageFolder?: string;
+  // actorFace / actorCharacter 소스
+  actorIndex?: number;
 }
 
 export interface WidgetDef_ActorFace extends WidgetDefBase {

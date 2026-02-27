@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type {
-  CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType,
+  CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType, ImageSource,
   WidgetDef_Panel, WidgetDef_Label, WidgetDef_Image, WidgetDef_ActorFace, WidgetDef_Gauge,
   WidgetDef_List, WidgetDef_ActorList, WidgetDef_Options, OptionItemDef, WidgetDef_Button, ImageRenderMode,
 } from '../../store/uiEditorTypes';
@@ -510,22 +510,46 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
             </div>
           </div>
         )}
-        {widget.type === 'image' && (
-          <div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
-              <input style={{ ...inputStyle, flex: 1 }}
-                value={(widget as WidgetDef_Image).imageName}
-                onChange={(e) => update({ imageName: e.target.value } as any)} />
+        {widget.type === 'image' && (() => {
+          const img = widget as WidgetDef_Image;
+          const src: ImageSource = img.imageSource || 'file';
+          return (
+            <div>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>소스</span>
+                <select style={{ ...selectStyle, flex: 1 }} value={src}
+                  onChange={(e) => update({ imageSource: e.target.value as ImageSource } as any)}>
+                  <option value="file">파일</option>
+                  <option value="actorFace">액터 얼굴</option>
+                  <option value="actorCharacter">액터 캐릭터</option>
+                </select>
+              </div>
+              {src === 'file' && <>
+                <div style={rowStyle}>
+                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
+                  <input style={{ ...inputStyle, flex: 1 }}
+                    value={img.imageName || ''}
+                    onChange={(e) => update({ imageName: e.target.value } as any)} />
+                </div>
+                <div style={rowStyle}>
+                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
+                  <input style={{ ...inputStyle, flex: 1 }}
+                    value={img.imageFolder || 'img/system/'}
+                    onChange={(e) => update({ imageFolder: e.target.value } as any)} />
+                </div>
+              </>}
+              {(src === 'actorFace' || src === 'actorCharacter') && (
+                <div style={rowStyle}>
+                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>파티 슬롯</span>
+                  <input style={{ ...inputStyle, width: 60 }} type="number" min={0} max={3}
+                    value={img.actorIndex ?? 0}
+                    onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
+                  <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0~3</span>
+                </div>
+              )}
             </div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
-              <input style={{ ...inputStyle, flex: 1 }}
-                value={(widget as WidgetDef_Image).imageFolder || 'img/system/'}
-                onChange={(e) => update({ imageFolder: e.target.value } as any)} />
-            </div>
-          </div>
-        )}
+          );
+        })()}
         {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
         {widget.type === 'list' && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
         {widget.type === 'actorList' && (
