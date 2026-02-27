@@ -30,11 +30,8 @@ export function computeAllWidgetPositions(root: WidgetDef_Panel): Map<string, Wi
   const res = new Map<string, WidgetAbsPos>();
   function visit(w: WidgetDef, ax: number, ay: number, pix: number, piy: number) {
     res.set(w.id, { absX: ax, absY: ay, width: w.width, height: w.height ?? 36, parentInnerAbsX: pix, parentInnerAbsY: piy });
-    if (w.type === 'panel') {
-      const p = w as WidgetDef_Panel;
-      // 런타임과 동일 — windowed 여부에 관계없이 padding 오프셋을 자식 좌표에 더하지 않음
-      for (const c of p.children ?? []) visit(c, ax + c.x, ay + c.y, ax, ay);
-    }
+    // panel 외 타입도 children을 가질 수 있으므로 모든 타입에서 재귀
+    for (const c of w.children ?? []) visit(c, ax + c.x, ay + c.y, ax, ay);
   }
   visit(root, root.x, root.y, 0, 0);
   return res;
@@ -44,7 +41,8 @@ export function flattenWidgetIds(root: WidgetDef_Panel): string[] {
   const ids: string[] = [];
   function visit(w: WidgetDef) {
     ids.push(w.id);
-    if (w.type === 'panel') for (const c of (w as WidgetDef_Panel).children ?? []) visit(c);
+    // panel 외 타입도 children을 가질 수 있으므로 모든 타입에서 재귀
+    for (const c of w.children ?? []) visit(c);
   }
   visit(root);
   return ids;
