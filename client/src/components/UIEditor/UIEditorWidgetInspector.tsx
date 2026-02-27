@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType, ImageSource,
-  WidgetDef_Panel, WidgetDef_Label, WidgetDef_Image, WidgetDef_Gauge,
+  WidgetDef_Label, WidgetDef_Image, WidgetDef_Gauge,
   WidgetDef_List, WidgetDef_RowSelector, WidgetDef_Options, OptionItemDef, WidgetDef_Button, ImageRenderMode,
 } from '../../store/uiEditorTypes';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
@@ -107,14 +107,18 @@ export function ActionHandlerEditor({ handler, onChange }: {
   );
 }
 
-// ── PanelWidgetInspector ────────────────────────────────────
+// ── WindowStyleSection — 모든 window-based 위젯 공통 창 스타일 UI ─────────────
 
-function PanelWidgetInspector({ widget, update }: {
-  widget: WidgetDef_Panel; update: (u: Partial<WidgetDef>) => void;
+const WINDOW_BASED_TYPES: WidgetType[] = ['panel', 'button', 'list', 'rowSelector', 'options'];
+
+function WindowStyleSection({ widget, update }: {
+  widget: WidgetDef; update: (u: Partial<WidgetDef>) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
-  const windowed = widget.windowed !== false;
+  // panel/button/list/rowSelector/options 모두 기본으로 창 배경 표시 (기존 동작 유지)
+  const defaultWindowed = true;
+  const windowed = widget.windowed !== undefined ? widget.windowed : defaultWindowed;
   const windowStyle = widget.windowStyle ?? 'default';
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
@@ -124,11 +128,6 @@ function PanelWidgetInspector({ widget, update }: {
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
     iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
     iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: uiEditorScene }, '*');
-  };
-
-  const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
-    update({ windowStyle: style === 'default' ? undefined : style } as any);
-    reloadPreview();
   };
 
   return (
@@ -151,7 +150,11 @@ function PanelWidgetInspector({ widget, update }: {
       <div style={rowStyle}>
         <label style={{ fontSize: 11, color: '#aaa' }}>
           <input type="checkbox" checked={windowed}
-            onChange={(e) => { update({ windowed: e.target.checked } as any); reloadPreview(); }} /> 창 배경
+            onChange={(e) => {
+              const v = e.target.checked;
+              update({ windowed: v !== defaultWindowed ? v : undefined } as any);
+              reloadPreview();
+            }} /> 창 배경 표시
         </label>
       </div>
       {windowed && (
@@ -161,10 +164,10 @@ function PanelWidgetInspector({ widget, update }: {
               <label key={style} className={`ui-radio-label${windowStyle === style ? ' active' : ''}`}>
                 <input
                   type="radio"
-                  name={`panel-style-${widget.id}`}
+                  name={`winstyle-${widget.id}`}
                   value={style}
                   checked={windowStyle === style}
-                  onChange={() => handleStyleChange(style)}
+                  onChange={() => { update({ windowStyle: style === 'default' ? undefined : style } as any); reloadPreview(); }}
                 />
                 {style === 'default' ? '기본' : style === 'frame' ? '프레임 변경' : '이미지로 변경'}
               </label>
@@ -199,7 +202,7 @@ function PanelWidgetInspector({ widget, update }: {
                   const cur = widget.imageRenderMode ?? 'center';
                   return (
                     <label key={mode} className={`ui-radio-label${cur === mode ? ' active' : ''}`} style={{ fontSize: 10 }}>
-                      <input type="radio" name={`panel-imgmode-${widget.id}`} value={mode} checked={cur === mode}
+                      <input type="radio" name={`winstyle-imgmode-${widget.id}`} value={mode} checked={cur === mode}
                         onChange={() => { update({ imageRenderMode: mode } as any); reloadPreview(); }} />
                       {label}
                     </label>
@@ -208,18 +211,43 @@ function PanelWidgetInspector({ widget, update }: {
               </div>
             </div>
           )}
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
+            <input style={{ ...inputStyle, width: 60 }} type="number"
+              value={widget.padding ?? ''}
+              placeholder="기본"
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
+              }} />
+          </div>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 70 }}>배경 불투명도</span>
+            <input style={{ ...inputStyle, width: 60 }} type="number" min="0" max="255"
+              value={widget.backOpacity ?? ''}
+              placeholder="기본"
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                update({ backOpacity: v === '' ? undefined : (parseInt(v) || 0) } as any);
+              }} />
+            <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0~255</span>
+          </div>
         </>
       )}
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
-        <input style={{ ...inputStyle, width: 60 }} type="number"
-          value={widget.padding ?? ''}
-          placeholder="기본"
-          onChange={(e) => {
-            const v = e.target.value.trim();
-            update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
-          }} />
-      </div>
+      {/* RowSelector transparent 모드: windowed=false여도 패딩 설정 가능 */}
+      {!windowed && widget.type === 'rowSelector' && (
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number"
+            value={widget.padding ?? ''}
+            placeholder="18"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
+            }} />
+          <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0 = 커서 정렬</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -538,12 +566,18 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         )}
       </div>
 
+      {/* 창 스타일 — window-based 위젯 공통 */}
+      {WINDOW_BASED_TYPES.includes(widget.type) && (
+        <div style={sectionStyle}>
+          <label style={labelStyle}>창 스타일</label>
+          <WindowStyleSection widget={widget} update={update} />
+        </div>
+      )}
+
       {/* 타입별 속성 */}
+      {widget.type !== 'panel' && (
       <div style={sectionStyle}>
         <label style={labelStyle}>타입 속성 ({widget.type})</label>
-        {widget.type === 'panel' && (
-          <PanelWidgetInspector widget={widget as WidgetDef_Panel} update={update} />
-        )}
         {widget.type === 'label' && (
           <div>
             <div style={rowStyle}>
@@ -688,13 +722,6 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                 onChange={(e) => update({ transparent: e.target.checked } as any)} />
               <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>커서만 표시</span>
             </div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 80 }}>패딩</span>
-              <input style={{ ...inputStyle, width: 60 }} type="number"
-                value={(widget as WidgetDef_RowSelector).padding ?? 18}
-                onChange={(e) => update({ padding: parseInt(e.target.value) } as any)} />
-              <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0 = 커서 정렬</span>
-            </div>
             <label style={{ ...labelStyle, marginTop: 6 }}>OK 핸들러 <span style={{ color: '#666', fontWeight: 'normal' }}>(비워두면 selectActor 동작)</span></label>
             {(widget as WidgetDef_RowSelector).handlers?.['ok'] ? (
               <>
@@ -745,6 +772,7 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         )}
         {widget.type === 'options' && <OptionsWidgetInspector widget={widget as WidgetDef_Options} update={update} />}
       </div>
+      )}
     </div>
   );
 }

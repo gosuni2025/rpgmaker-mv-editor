@@ -214,19 +214,24 @@ export interface WidgetDefBase {
   borderColor?: string;
   /** 테두리 모서리 곡률 (px, default 0 = 직각) */
   borderRadius?: number;
+  /** 창 배경 표시 여부. panel/button/list/rowSelector/options 모두 기본 true (프레임 표시). false로 설정 시 투명 */
+  windowed?: boolean;
+  /** 창 스타일 (default: 기본 윈도우스킨, frame: 커스텀 프레임, image: 이미지) */
+  windowStyle?: 'default' | 'frame' | 'image';
+  windowskinName?: string;
+  skinId?: string;
+  /** windowStyle='image' 전용 — img/system/ 파일명 */
+  imageFile?: string;
+  imageRenderMode?: ImageRenderMode;
+  colorTone?: [number, number, number];
+  /** Window 내부 패딩 (px). RowSelector transparent 모드에서는 커서 정렬에 영향 */
+  padding?: number;
+  /** 창 배경 불투명도 0~255 */
+  backOpacity?: number;
 }
 
 export interface WidgetDef_Panel extends WidgetDefBase {
   type: 'panel';
-  windowed?: boolean;
-  padding?: number;
-  backOpacity?: number;
-  windowStyle?: 'default' | 'frame' | 'image';
-  windowskinName?: string;
-  skinId?: string;
-  imageFile?: string;
-  imageRenderMode?: ImageRenderMode;
-  colorTone?: [number, number, number];
 }
 
 export interface WidgetDef_Label extends WidgetDefBase {
@@ -288,8 +293,6 @@ export interface WidgetDef_RowSelector extends WidgetDefBase {
   numRows?: number | 'party';
   /** true: 프레임/배경 없는 투명 선택 커서만 표시 (display는 개별 위젯으로 구성) */
   transparent?: boolean;
-  /** transparent 모드 시 0 권장 — 커서 위치가 개별 위젯과 정확히 정렬됨 */
-  padding?: number;
   /** ok/cancel 핸들러 직접 정의. 미정의 시 selectActor/기본 네비게이션 동작 */
   handlers?: Record<string, CustomCommandHandler>;
 }

@@ -634,6 +634,32 @@
     bmp._setDirty();
   };
   // Window 기반 위젯(Panel/Button 등)용: 별도 장식 스프라이트 생성
+  // Window 스타일 적용 헬퍼 — windowed=false면 투명(프레임 없음), 아니면 windowStyle/frame/image 적용
+  Widget_Base.prototype._applyWindowStyle = function(win, def) {
+    if (def.windowed === false) {
+      win.setBackgroundType(2);
+      return;
+    }
+    if (def.windowStyle && def.windowStyle !== 'default') {
+      var csOv = { windowStyle: def.windowStyle };
+      if (def.windowStyle === 'frame') {
+        if (def.windowskinName) csOv.windowskinName = def.windowskinName;
+        if (def.skinId) csOv.skinId = def.skinId;
+        if (def.colorTone) csOv.colorTone = def.colorTone;
+      } else if (def.windowStyle === 'image') {
+        if (def.imageFile) {
+          csOv.imageFile = def.imageFile;
+          win._themeSkin = ImageManager.loadSystem(def.imageFile);
+        }
+        if (def.imageRenderMode) csOv.imageRenderMode = def.imageRenderMode;
+      }
+      if (typeof window._uiThemeSetWindowOverride === 'function') {
+        window._uiThemeSetWindowOverride(win._customClassName, csOv);
+      }
+    }
+    if (def.backOpacity !== undefined) win.backOpacity = def.backOpacity;
+  };
+
   Widget_Base.prototype._createDecoSprite = function(def, w, h) {
     var hasBg = !!def.bgColor;
     var hasBorder = !!(def.borderWidth && def.borderWidth > 0);
@@ -694,26 +720,8 @@
       var padding = def.padding;
       var win = new Window_Base(this._x, this._y, this._width, this._height || 400);
       if (padding !== undefined) win._padding = padding;
-      if (def.backOpacity !== undefined) win.backOpacity = def.backOpacity;
       win._customClassName = 'Window_CS_' + this._id;
-      // 프레임 스타일 처리 (기본 이외)
-      if (def.windowStyle && def.windowStyle !== 'default') {
-        var csOv = { windowStyle: def.windowStyle };
-        if (def.windowStyle === 'frame') {
-          if (def.windowskinName) csOv.windowskinName = def.windowskinName;
-          if (def.skinId) csOv.skinId = def.skinId;
-          if (def.colorTone) csOv.colorTone = def.colorTone;
-        } else if (def.windowStyle === 'image') {
-          if (def.imageFile) {
-            csOv.imageFile = def.imageFile;
-            win._themeSkin = ImageManager.loadSystem(def.imageFile);
-          }
-          if (def.imageRenderMode) csOv.imageRenderMode = def.imageRenderMode;
-        }
-        if (typeof window._uiThemeSetWindowOverride === 'function') {
-          window._uiThemeSetWindowOverride(win._customClassName, csOv);
-        }
-      }
+      this._applyWindowStyle(win, def);
       if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
       this._displayObject = win;
       this._padding = win._padding;
@@ -1174,6 +1182,7 @@
     var win = new Window_RowSelector(this._x, this._y, def);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    this._applyWindowStyle(win, def);
     if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
@@ -1231,6 +1240,7 @@
     var win = new Window_CustomOptions(this._x, this._y, def);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    this._applyWindowStyle(win, def);
     if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
@@ -1285,6 +1295,7 @@
     }
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    this._applyWindowStyle(win, def);
     if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
@@ -1326,6 +1337,7 @@
     var win = new Window_CustomCommand(this._x, this._y, listDef);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    this._applyWindowStyle(win, def);
     if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
