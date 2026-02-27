@@ -189,7 +189,16 @@ router.put('/:id', (req: Request, res: Response) => {
       const { __ref: _ref, ...eventData } = ev as Record<string, unknown>;
       if (hasRef) {
         const newFilename = projectManager.writeEventFile(mapId, ev.id, ev.name || '', eventData);
-        return { id: ev.id, __ref: `Map${String(mapId).padStart(3, '0')}/${newFilename}` };
+        const refPath = `Map${String(mapId).padStart(3, '0')}/${newFilename}`;
+        return {
+          id: ev.id,
+          name: ev.name || '',
+          x: ev.x ?? 0,
+          y: ev.y ?? 0,
+          note: ev.note || '',
+          __ref: refPath,
+          __note: `외부 파일 참조 (에디터 전용). MV 기본 에디터에서는 빈 이벤트로 표시됩니다. 파일 경로: data/${refPath}`,
+        };
       } else {
         // 인라인으로 복귀 → 기존 외부 파일 삭제
         projectManager.deleteEventFile(mapId, ev.id);
@@ -410,9 +419,18 @@ router.post('/migrate-events', (req: Request, res: Response) => {
           if (!ev || ev.__ref) return ev; // null이거나 이미 분리된 이벤트는 스킵
           const { __ref: _r, ...eventData } = ev as Record<string, unknown>;
           const newFilename = projectManager.writeEventFile(i, ev.id, ev.name || '', eventData);
+          const refPath = `Map${idStr}/${newFilename}`;
           migratedEvents++;
           changed = true;
-          return { id: ev.id, __ref: `Map${idStr}/${newFilename}` };
+          return {
+            id: ev.id,
+            name: ev.name || '',
+            x: ev.x ?? 0,
+            y: ev.y ?? 0,
+            note: ev.note || '',
+            __ref: refPath,
+            __note: `외부 파일 참조 (에디터 전용). MV 기본 에디터에서는 빈 이벤트로 표시됩니다. 파일 경로: data/${refPath}`,
+          };
         });
 
         if (changed) {
