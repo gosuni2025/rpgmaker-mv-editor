@@ -732,6 +732,12 @@
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
+    // actorFace/actorCharacter는 빈 bitmap을 미리 생성해 sprite에 설정
+    if (this._imageSource !== 'file') {
+      var bmp = new Bitmap(this._width || 144, this._height || 144);
+      sprite.bitmap = bmp;
+      this._bitmap = bmp;
+    }
     this._displayObject = sprite;
     this.refresh();
   };
@@ -771,15 +777,18 @@
     var h = this._height || 144;
     var bitmap = ImageManager.loadFace(faceName);
     bitmap.addLoadListener(function() {
-      var bmp = new Bitmap(w, h);
+      if (!self._bitmap) {
+        self._bitmap = new Bitmap(w, h);
+        sprite.bitmap = self._bitmap;
+      }
+      self._bitmap.clear();
       var pw = Window_Base._faceWidth  || 144;
       var ph = Window_Base._faceHeight || 144;
       var sw = Math.min(w, pw);
       var sh = Math.min(h, ph);
       var sx = (faceIndex % 4) * pw + (pw - sw) / 2;
       var sy = Math.floor(faceIndex / 4) * ph + (ph - sh) / 2;
-      bmp.blt(bitmap, sx, sy, sw, sh, 0, 0, w, h);
-      sprite.bitmap = bmp;
+      self._bitmap.blt(bitmap, sx, sy, sw, sh, 0, 0, w, h);
     });
   };
   Widget_Image.prototype._refreshActorCharacter = function(sprite) {
@@ -794,6 +803,11 @@
     var h = this._height || 48;
     var bitmap = ImageManager.loadCharacter(charName);
     bitmap.addLoadListener(function() {
+      if (!self._bitmap) {
+        self._bitmap = new Bitmap(w, h);
+        sprite.bitmap = self._bitmap;
+      }
+      self._bitmap.clear();
       var isBig = ImageManager.isBigCharacter(charName);
       var cw, ch, sx, sy;
       if (isBig) {
@@ -807,9 +821,7 @@
         sx = (charIndex % 4 * 3 + 1) * cw;          // 캐릭터 중간 프레임
         sy = Math.floor(charIndex / 4) * 4 * ch;    // 아래 방향
       }
-      var bmp = new Bitmap(w, h);
-      bmp.blt(bitmap, sx, sy, cw, ch, 0, 0, w, h);
-      sprite.bitmap = bmp;
+      self._bitmap.blt(bitmap, sx, sy, cw, ch, 0, 0, w, h);
     });
   };
   Widget_Image.prototype.update = function() {

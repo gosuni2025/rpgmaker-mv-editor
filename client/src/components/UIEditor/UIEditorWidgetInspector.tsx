@@ -150,7 +150,7 @@ function PanelWidgetInspector({ widget, update }: {
       <div style={rowStyle}>
         <label style={{ fontSize: 11, color: '#aaa' }}>
           <input type="checkbox" checked={windowed}
-            onChange={(e) => update({ windowed: e.target.checked } as any)} /> 창 배경
+            onChange={(e) => { update({ windowed: e.target.checked } as any); reloadPreview(); }} /> 창 배경
         </label>
       </div>
       {windowed && (
