@@ -814,6 +814,53 @@
   window.Widget_Label = Widget_Label;
 
   //===========================================================================
+  // Widget_TextArea — 멀티라인 텍스트 (템플릿 지원, \n 개행)
+  //===========================================================================
+  function Widget_TextArea() {}
+  Widget_TextArea.prototype = Object.create(Widget_Base.prototype);
+  Widget_TextArea.prototype.constructor = Widget_TextArea;
+  Widget_TextArea.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._template = def.text || '';
+    this._fontSize = def.fontSize || 20;
+    this._color = def.color || '#dddddd';
+    this._lineHeight = def.lineHeight || (this._fontSize + 8);
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    var bitmap = new Bitmap(this._width, this._height);
+    bitmap.fontSize = this._fontSize;
+    sprite.bitmap = bitmap;
+    this._sprite = sprite;
+    this._bitmap = bitmap;
+    this._displayObject = sprite;
+    this.refresh();
+  };
+  Widget_TextArea.prototype.refresh = function() {
+    if (!this._bitmap) return;
+    var text = resolveTemplate(this._template);
+    if (text === this._lastText) return;
+    this._lastText = text;
+    this._bitmap.clear();
+    this._bitmap.fontSize = this._fontSize;
+    this._bitmap.textColor = this._color;
+    var lh = this._lineHeight;
+    var lines = text ? text.split('\n') : [];
+    var y = 0;
+    for (var i = 0; i < lines.length; i++) {
+      if (y + lh > this._height) break;
+      this._bitmap.drawText(lines[i], 0, y, this._width, lh, 'left');
+      y += lh;
+    }
+    Widget_Base.prototype.refresh.call(this);
+  };
+  Widget_TextArea.prototype.update = function() {
+    this.refresh();
+    Widget_Base.prototype.update.call(this);
+  };
+  window.Widget_TextArea = Widget_TextArea;
+
+  //===========================================================================
   // Widget_Image — 이미지 표시
   //===========================================================================
   function Widget_Image() {}
@@ -1660,6 +1707,7 @@
       switch (def.type) {
         case 'panel':       widget = new Widget_Panel();       break;
         case 'label':       widget = new Widget_Label();       break;
+        case 'textArea':    widget = new Widget_TextArea();    break;
         case 'image':       widget = new Widget_Image();       break;
         case 'gauge':       widget = new Widget_Gauge();       break;
         case 'separator':   widget = new Widget_Separator();   break;
