@@ -501,12 +501,23 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                 onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
             </div>
             <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 스킨 ID</span>
-              <input style={{ ...inputStyle, flex: 1 }}
-                placeholder="(없으면 색상 바)"
-                value={(widget as WidgetDef_Gauge).gaugeSkinId || ''}
-                onChange={(e) => update({ gaugeSkinId: e.target.value || undefined } as any)} />
+              <span style={{ fontSize: 11, color: '#888', width: 70 }}>렌더 방식</span>
+              <select style={{ ...selectStyle, flex: 1 }}
+                value={(widget as WidgetDef_Gauge).gaugeRenderMode || 'palette'}
+                onChange={(e) => update({ gaugeRenderMode: e.target.value as any } as any)}>
+                <option value="palette">팔레트 (Window.png 색상)</option>
+                <option value="image">이미지 (스킨 파일)</option>
+              </select>
             </div>
+            {((widget as WidgetDef_Gauge).gaugeRenderMode || 'palette') === 'image' && (
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>스킨 ID</span>
+                <input style={{ ...inputStyle, flex: 1 }}
+                  placeholder="UIEditorSkins.json의 스킨 name"
+                  value={(widget as WidgetDef_Gauge).gaugeSkinId || ''}
+                  onChange={(e) => update({ gaugeSkinId: e.target.value || undefined } as any)} />
+              </div>
+            )}
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
               <input
                 type="checkbox"

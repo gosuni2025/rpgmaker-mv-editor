@@ -241,6 +241,7 @@ export interface WidgetDef_Gauge extends WidgetDefBase {
   type: 'gauge';
   gaugeType: 'hp' | 'mp' | 'tp';
   actorIndex: number;
+  gaugeRenderMode?: 'palette' | 'image';  // palette: Window.png 팔레트 기반, image: 스킨 이미지 기반
   gaugeSkinId?: string;
   showLabel?: boolean;
   showValue?: boolean;

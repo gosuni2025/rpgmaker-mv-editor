@@ -806,11 +806,13 @@
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._gaugeType = def.gaugeType || 'hp';
     this._actorIndex = def.actorIndex || 0;
+    this._gaugeRenderMode = def.gaugeRenderMode || 'palette';
     this._gaugeSkinId = def.gaugeSkinId || null;
     this._showLabel = def.showLabel !== false;
     this._showValue = def.showValue !== false;
     this._skinData = null;
     this._skinBitmap = null;
+    this._windowSkin = null;
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
@@ -819,14 +821,16 @@
     this._sprite = sprite;
     this._bitmap = bitmap;
     this._displayObject = sprite;
-    // 스킨 ID가 있으면 스킨 이미지 로드
-    if (this._gaugeSkinId && typeof UIEditorSkins !== 'undefined') {
+    // 이미지 모드: 스킨 ID가 있으면 스킨 이미지 로드
+    if (this._gaugeRenderMode === 'image' && this._gaugeSkinId && typeof UIEditorSkins !== 'undefined') {
       var skinEntry = UIEditorSkins.find(function(s) { return s.name === this._gaugeSkinId; }.bind(this));
       if (skinEntry) {
         this._skinData = skinEntry;
         this._skinBitmap = ImageManager.loadSystem(skinEntry.file || skinEntry.name);
       }
     }
+    // 팔레트 모드: Window.png 로드 (palette가 기본)
+    this._windowSkin = ImageManager.loadSystem('Window');
     this.refresh();
   };
   Widget_Gauge.prototype.refresh = function() {
@@ -847,7 +851,7 @@
       }
       var rate = max > 0 ? cur / max : 0;
       // 이미지 기반 게이지 렌더링
-      if (this._skinData && this._skinBitmap && this._skinBitmap.isReady()) {
+      if (this._gaugeRenderMode === 'image' && this._skinData && this._skinBitmap && this._skinBitmap.isReady()) {
         var sd = this._skinData;
         var bgX = sd.gaugeBgX || 0, bgY = sd.gaugeBgY || 0;
         var bgW = sd.gaugeBgW || 0, bgH = sd.gaugeBgH || 0;
@@ -880,12 +884,45 @@
           this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h, 'right');
         }
       } else {
-        // 색상 바 렌더링 (기존 방식, 하위 호환)
+        // 팔레트 모드 — Window.png textColor 기반 그라디언트
         var gaugeH = 6;
         var gaugeY = h - gaugeH - 2;
-        this._bitmap.fillRect(0, gaugeY, w, gaugeH, '#202020');
-        var color = this._gaugeType === 'hp' ? '#20c020' : (this._gaugeType === 'mp' ? '#2040c0' : '#c08020');
-        this._bitmap.fillRect(0, gaugeY, Math.floor(w * rate), gaugeH, color);
+        var color1, color2, bgColor;
+        if (this._windowSkin && this._windowSkin.isReady()) {
+          var ws = this._windowSkin;
+          // textColor(n): px = 96+(n%8)*12+6, py = 144+floor(n/8)*12+6
+          bgColor = ws.getPixel(96 + (19 % 8) * 12 + 6, 144 + Math.floor(19 / 8) * 12 + 6);
+          switch (this._gaugeType) {
+            case 'hp':
+              color1 = ws.getPixel(96 + (20 % 8) * 12 + 6, 144 + Math.floor(20 / 8) * 12 + 6);
+              color2 = ws.getPixel(96 + (21 % 8) * 12 + 6, 144 + Math.floor(21 / 8) * 12 + 6);
+              break;
+            case 'mp':
+              color1 = ws.getPixel(96 + (22 % 8) * 12 + 6, 144 + Math.floor(22 / 8) * 12 + 6);
+              color2 = ws.getPixel(96 + (23 % 8) * 12 + 6, 144 + Math.floor(23 / 8) * 12 + 6);
+              break;
+            case 'tp':
+              color1 = ws.getPixel(96 + (28 % 8) * 12 + 6, 144 + Math.floor(28 / 8) * 12 + 6);
+              color2 = ws.getPixel(96 + (29 % 8) * 12 + 6, 144 + Math.floor(29 / 8) * 12 + 6);
+              break;
+            default:
+              color1 = '#20c020'; color2 = '#60e060';
+          }
+        } else {
+          // Window.png 아직 미로드 — 하드코딩 fallback
+          bgColor = '#202020';
+          switch (this._gaugeType) {
+            case 'hp': color1 = '#20c020'; color2 = '#60e060'; break;
+            case 'mp': color1 = '#2040c0'; color2 = '#4080e0'; break;
+            case 'tp': color1 = '#c08020'; color2 = '#e0c040'; break;
+            default:   color1 = '#20c020'; color2 = '#60e060'; break;
+          }
+        }
+        this._bitmap.fillRect(0, gaugeY, w, gaugeH, bgColor || '#202020');
+        var fillW2 = Math.floor(w * rate);
+        if (fillW2 > 0) {
+          this._bitmap.gradientFillRect(0, gaugeY, fillW2, gaugeH, color1, color2);
+        }
         this._bitmap.fontSize = 20;
         this._bitmap.textColor = '#ffffff';
         if (this._showLabel) {
