@@ -132,7 +132,7 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');
     sseLog(`── butler push → ${project}:${resolvedChannel} ──`);
-    sseLog(`$ butler push <game.zip> "${project}:${resolvedChannel}" --json`);
+    sseLog(`$ butler push "${zipPath}" "${project}:${resolvedChannel}" --json`);
 
     await new Promise<void>((resolve, reject) => {
       const butler = spawn('butler', [
