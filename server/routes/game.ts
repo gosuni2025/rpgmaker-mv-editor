@@ -125,10 +125,29 @@ export function createGameRouter(resolvedRuntimePath: string): express.Router {
         }
       }
       try {
+        const mapId = parseInt(match[1], 10);
         const mapFile = `Map${match[1]}.json`;
         const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
         const ext = projectManager.readExtJSON(mapFile);
-        res.json({ ...data, ...ext });
+        const merged = { ...data, ...ext };
+        // __ref 이벤트를 외부 파일에서 병합 + pages 없는 이벤트 방어 처리
+        const events = (merged.events as any[]) || [];
+        merged.events = events.map((ev: any) => {
+          if (!ev) return ev;
+          if (ev.__ref) {
+            try {
+              const extEvent = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
+              const { __ref: _r, __note: _n, ...base } = ev;
+              return { ...base, note: extEvent.note ?? base.note, pages: extEvent.pages ?? [] };
+            } catch {
+              const { __ref: _r, __note: _n, ...base } = ev;
+              return { ...base, pages: base.pages ?? [] };
+            }
+          }
+          if (!ev.pages) return { ...ev, pages: [] };
+          return ev;
+        });
+        res.json(merged);
       } catch (err: unknown) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
         return res.status(500).send((err as Error).message);

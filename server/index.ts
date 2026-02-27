@@ -89,17 +89,20 @@ export function createApp(options: AppOptions = {}) {
         // __ref 마커를 인라인으로 병합 (게임 런타임은 외부 파일을 이해 못함)
         // pages만 외부 파일에서 로드하여 병합, __ref/__note 제거
         const events = (merged.events as any[]) || [];
-        merged.events = events.map(ev => {
-          if (!ev || !ev.__ref) return ev;
-          try {
-            const extEvent = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
-            const { __ref: _r, __note: _n, ...baseEvent } = ev;
-            // 게임 런타임에도 원본 note 복원 (플러그인이 note를 읽는 경우 대비)
-            return { ...baseEvent, note: extEvent.note ?? baseEvent.note, pages: extEvent.pages };
-          } catch {
-            const { __ref: _r, __note: _n, ...baseEvent } = ev;
-            return baseEvent; // 파일 없으면 pages: [] 그대로
+        merged.events = events.map((ev: any) => {
+          if (!ev) return ev;
+          if (ev.__ref) {
+            try {
+              const extEvent = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
+              const { __ref: _r, __note: _n, ...baseEvent } = ev;
+              return { ...baseEvent, note: extEvent.note ?? baseEvent.note, pages: extEvent.pages ?? [] };
+            } catch {
+              const { __ref: _r, __note: _n, ...baseEvent } = ev;
+              return { ...baseEvent, pages: baseEvent.pages ?? [] };
+            }
           }
+          if (!ev.pages) return { ...ev, pages: [] };
+          return ev;
         });
         res.json(merged);
       } catch (err: unknown) {
