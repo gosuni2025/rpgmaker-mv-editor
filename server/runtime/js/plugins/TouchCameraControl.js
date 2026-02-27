@@ -144,7 +144,7 @@
     //=========================================================================
 
     function is3DActive() {
-        return ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera;
+        return !!(ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera);
     }
 
     // 카메라 존 활성화 중이면 true (터치 회전 비활성화 판단에 사용)
