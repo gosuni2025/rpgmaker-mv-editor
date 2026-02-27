@@ -87,14 +87,18 @@ export function createApp(options: AppOptions = {}) {
         const ext = projectManager.readExtJSON(mapFile);
         const merged = { ...data, ...ext };
         // __ref 마커를 인라인으로 병합 (게임 런타임은 외부 파일을 이해 못함)
+        // pages만 외부 파일에서 로드하여 병합, __ref/__note 제거
         const events = (merged.events as any[]) || [];
         merged.events = events.map(ev => {
           if (!ev || !ev.__ref) return ev;
           try {
             const extEvent = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
-            const { __ref: _r, ...cleanEvent } = extEvent;
-            return cleanEvent;
-          } catch { return null; }
+            const { __ref: _r, __note: _n, ...baseEvent } = ev;
+            return { ...baseEvent, pages: extEvent.pages };
+          } catch {
+            const { __ref: _r, __note: _n, ...baseEvent } = ev;
+            return baseEvent; // 파일 없으면 pages: [] 그대로
+          }
         });
         res.json(merged);
       } catch (err: unknown) {

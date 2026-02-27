@@ -135,15 +135,16 @@ router.get('/:id', (req: Request, res: Response) => {
     // ext 데이터를 병합 (ext 우선)
     const merged = { ...data, ...ext };
 
-    // events 배열의 __ref 마커 처리: 외부 파일에서 로드하여 병합 (__ref는 클라이언트에 그대로 전달)
+    // events 배열의 __ref 마커 처리: 외부 파일에서 pages를 읽어서 병합 (__ref는 클라이언트에 그대로 전달)
     const events = (merged.events as any[]) || [];
     merged.events = events.map(ev => {
       if (!ev || !ev.__ref) return ev;
       try {
         const extEvent = projectManager.readEventFile(idNum, ev.id) as Record<string, unknown>;
-        return { ...extEvent, __ref: ev.__ref };
+        // 맵 JSON의 id/name/x/y/note는 유지, pages만 외부 파일에서 로드
+        return { ...ev, pages: extEvent.pages };
       } catch {
-        return ev; // 파일 없으면 마커만 반환
+        return ev; // 파일 없으면 마커만 반환 (pages: [] 상태)
       }
     });
 
@@ -196,8 +197,9 @@ router.put('/:id', (req: Request, res: Response) => {
           x: ev.x ?? 0,
           y: ev.y ?? 0,
           note: ev.note || '',
+          pages: [],  // MV 에디터에서 이벤트 위치/이름은 보이고 실행 내용만 비어있음
           __ref: refPath,
-          __note: `외부 파일 참조 (에디터 전용). MV 기본 에디터에서는 빈 이벤트로 표시됩니다. 파일 경로: data/${refPath}`,
+          __note: `실행 내용(pages)은 외부 파일에 저장됩니다. MV 기본 에디터에서는 이벤트 위치/이름은 보이지만 실행 내용은 비어 있습니다. 파일 경로: data/${refPath}`,
         };
       } else {
         // 인라인으로 복귀 → 기존 외부 파일 삭제
@@ -428,8 +430,9 @@ router.post('/migrate-events', (req: Request, res: Response) => {
             x: ev.x ?? 0,
             y: ev.y ?? 0,
             note: ev.note || '',
+            pages: [],  // MV 에디터에서 이벤트 위치/이름은 보이고 실행 내용만 비어있음
             __ref: refPath,
-            __note: `외부 파일 참조 (에디터 전용). MV 기본 에디터에서는 빈 이벤트로 표시됩니다. 파일 경로: data/${refPath}`,
+            __note: `실행 내용(pages)은 외부 파일에 저장됩니다. MV 기본 에디터에서는 이벤트 위치/이름은 보이지만 실행 내용은 비어 있습니다. 파일 경로: data/${refPath}`,
           };
         });
 

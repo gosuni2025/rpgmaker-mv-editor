@@ -97,14 +97,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
     <div className="db-dialog-overlay" style={dialogPos ? { alignItems: 'flex-start', justifyContent: 'flex-start' } : undefined}>
       <div className="event-editor-dialog" ref={dialogRef} style={dialogStyle}>
         <div className="event-editor-titlebar" onMouseDown={handleTitleMouseDown} style={{ cursor: 'move' }}>
-          <span>ID:{String(editEvent.id).padStart(3, '0')} - {t('eventDetail.title', '이벤트 에디터')}</span>
-          <label className="event-editor-external-check" onMouseDown={e => e.stopPropagation()}>
-            <input type="checkbox" checked={isExternal} onChange={e => setIsExternal(e.target.checked)} />
-            <span className={`event-editor-storage-badge ${isExternal ? 'external' : 'inline'}`}>
-              {isExternal ? '📄 외부 파일' : '📦 내장'}
-            </span>
-            <ExtBadge inline />
-          </label>
+          ID:{String(editEvent.id).padStart(3, '0')} - {t('eventDetail.title', '이벤트 에디터')}
         </div>
 
         <div className="event-editor-namebar">
@@ -169,23 +162,6 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                   onChange={idx => setMinimapMarker(prev => prev ? { ...prev, iconIndex: idx } : null)} />
               )}
             </>)}
-          </div>
-          <div className="event-editor-name-label event-editor-extfile-area">
-            {isExternal && editEvent.__ref && (
-              <button className="event-editor-vscode-btn" onClick={handleOpenInVSCode} title={`VSCode로 열기: data/${editEvent.__ref}`}>
-                VSCode로 열기
-              </button>
-            )}
-            <HelpButton>
-              <strong>외부 파일 분리란?</strong><br /><br />
-              이벤트 데이터를 맵 JSON 내부가 아닌 별도 파일로 저장하는 기능입니다.<br /><br />
-              <strong>저장 위치:</strong> <code>data/MapXXX/NNN-이름.json</code><br /><br />
-              <strong>장점:</strong><br />
-              · Git으로 이벤트를 개별 파일 단위로 추적 가능<br />
-              · VSCode 등 외부 에디터에서 이벤트 JSON을 직접 편집 가능<br />
-              · 대규모 맵에서 이벤트 파일을 독립적으로 관리 가능<br /><br />
-              <strong>주의:</strong> RPG Maker MV 원본 에디터에서는 이벤트 내용이 빈 상태로 표시됩니다. 에디터 전용 기능입니다.
-            </HelpButton>
           </div>
         </div>
 
@@ -315,7 +291,33 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
             </div>
 
             <div className="event-editor-right">
-              <div className="event-editor-right-header">{t('eventCommands.title', '실행 내용')}</div>
+              <div className="event-editor-right-header">
+                <span>{t('eventCommands.title', '실행 내용')}</span>
+                <div className="event-editor-extfile-controls" onMouseDown={e => e.stopPropagation()}>
+                  <label className="event-editor-external-check">
+                    <input type="checkbox" checked={isExternal} onChange={e => setIsExternal(e.target.checked)} />
+                    <span className={`event-editor-storage-badge ${isExternal ? 'external' : 'inline'}`}>
+                      {isExternal ? '📄 외부 파일' : '📦 내장'}
+                    </span>
+                    <ExtBadge inline />
+                  </label>
+                  {isExternal && editEvent.__ref && (
+                    <button className="event-editor-vscode-btn" onClick={handleOpenInVSCode} title={`VSCode로 열기: data/${editEvent.__ref}`}>
+                      VSCode로 열기
+                    </button>
+                  )}
+                  <HelpButton>
+                    <strong>외부 파일 분리란?</strong><br /><br />
+                    이벤트의 실행 내용(pages)을 맵 JSON 내부가 아닌 별도 파일로 저장하는 기능입니다.<br /><br />
+                    <strong>저장 위치:</strong> <code>data/MapXXX/NNN-이름.json</code><br /><br />
+                    <strong>MV 기본 에디터:</strong> 이벤트 위치/이름은 그대로 보이지만, 실행 내용은 비어 있습니다.<br /><br />
+                    <strong>장점:</strong><br />
+                    · Git으로 이벤트를 개별 파일 단위로 추적 가능<br />
+                    · VSCode 등 외부 에디터에서 직접 편집 가능<br />
+                    · 대규모 맵에서 이벤트 파일을 독립 관리 가능
+                  </HelpButton>
+                </div>
+              </div>
               <EventCommandEditor commands={page.list || []} onChange={newList => updatePage(activePage, { list: newList })}
                 context={{ mapId: currentMapId || undefined, eventId: resolvedEventId, pageIndex: activePage }}
                 onWaypointModeStart={handleOk} />
