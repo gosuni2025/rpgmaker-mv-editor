@@ -23,6 +23,8 @@ export type DragState =
   | { type: 'gauge_bg_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startX: number; startY: number; startW: number; startH: number }
   | { type: 'gauge_fill_move'; ox: number; oy: number; startX: number; startY: number }
   | { type: 'gauge_fill_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startX: number; startY: number; startW: number; startH: number }
+  | { type: 'gauge_bg_create'; startX: number; startY: number }
+  | { type: 'gauge_fill_create'; startX: number; startY: number }
   | null;
 
 export function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -90,7 +92,21 @@ export function drawSkin(
     const fX = (gaugeFillX ?? 0) * S, fY = (gaugeFillY ?? 0) * S;
     const fW = (gaugeFillW ?? 0) * S, fH = (gaugeFillH ?? 0) * S;
 
-    if (bgW > 0 && bgH > 0) {
+    const hasBg = bgW > 0 && bgH > 0;
+    const hasFill = fW > 0 && fH > 0;
+
+    // 안내 텍스트: 아직 정의되지 않은 영역 드래그 힌트
+    if (!hasBg || !hasFill) {
+      ctx.fillStyle = 'rgba(180,180,180,0.5)';
+      ctx.font = `${8 * S}px sans-serif`;
+      if (!hasBg) {
+        ctx.fillText('클릭+드래그로 게이지 배경 영역 지정', 4 * S, 14 * S);
+      } else {
+        ctx.fillText('클릭+드래그로 게이지 채움 영역 지정', 4 * S, 14 * S);
+      }
+    }
+
+    if (hasBg) {
       ctx.fillStyle = 'rgba(50,120,255,0.18)';
       ctx.fillRect(bgX, bgY, bgW, bgH);
       ctx.strokeStyle = 'rgba(80,160,255,0.9)';
@@ -103,7 +119,7 @@ export function drawSkin(
       ctx.fillText('gauge bg', bgX + 2 * S, bgY + 9 * S);
     }
 
-    if (fW > 0 && fH > 0) {
+    if (hasFill) {
       ctx.fillStyle = 'rgba(255,120,30,0.18)';
       ctx.fillRect(fX, fY, fW, fH);
       ctx.strokeStyle = 'rgba(255,160,30,0.9)';
@@ -377,6 +393,7 @@ export function getHit(
 export function getCursor(hit: DragState): string {
   if (!hit) return 'default';
   if (hit.type === 'slice') return hit.axis === 'x' ? 'ew-resize' : 'ns-resize';
+  if (hit.type === 'gauge_bg_create' || hit.type === 'gauge_fill_create') return 'crosshair';
   if (hit.type === 'frame_move' || hit.type === 'fill_move' || hit.type === 'cursor_move' || hit.type === 'gauge_bg_move' || hit.type === 'gauge_fill_move') return 'move';
   if (hit.type === 'frame_resize' || hit.type === 'fill_resize' || hit.type === 'cursor_resize' || hit.type === 'gauge_bg_resize' || hit.type === 'gauge_fill_resize') {
     if (hit.edge === 'left' || hit.edge === 'right') return 'ew-resize';

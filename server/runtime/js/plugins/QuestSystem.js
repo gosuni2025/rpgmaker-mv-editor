@@ -560,6 +560,35 @@
     if (SceneCS) SceneManager.push(SceneCS);
   };
 
+  // dataScript 빌더 — Widget_List(dataScript) 에서 호출
+  QS._buildCategoryItems = function () {
+    var db = loadQuestDb();
+    var items = [{ name: '전체', symbol: '__all__', enabled: true }];
+    db.categories.forEach(function (cat) {
+      items.push({ name: cat.name, symbol: cat.id, enabled: true });
+    });
+    return items;
+  };
+
+  QS._buildQuestItems = function () {
+    var db = loadQuestDb();
+    var state = $gameSystem.questState();
+    var cat = window._qs_currentCategory || '__all__';
+    var statusColor = { active: '#6af', completed: '#8f8', failed: '#f88', known: '#fa8' };
+    var items = [];
+    db.quests.forEach(function (q) {
+      var entry = state.quests[q.id];
+      if (!entry || entry.status === 'hidden') return;
+      if (cat !== '__all__' && q.category !== cat) return;
+      items.push({ name: q.title || q.id, symbol: q.id, enabled: true,
+        textColor: statusColor[entry.status] || '#ddd' });
+    });
+    if (items.length === 0) {
+      items.push({ name: '(퀘스트 없음)', symbol: '__no_quests__', enabled: false });
+    }
+    return items;
+  };
+
   // ============================================================
   // 조건 체크 스크립트 헬퍼
   // ============================================================
@@ -576,88 +605,6 @@
     start: function (questId) { QS.startQuest(questId); },
     complete: function (questId) { QS.completeQuest(questId); },
     open: function () { QS._openJournal(); },
-  };
-
-  // ============================================================
-  // 내부 Window 클래스 (커스텀 위젯에서만 사용)
-  // ============================================================
-
-  // ── 카테고리 커맨드창 ────────────────────────────────────────────
-  function _Window_QuestCategoryCmd(x, y, w, h) {
-    this.initialize.apply(this, arguments);
-  }
-  _Window_QuestCategoryCmd.prototype = Object.create(Window_Command.prototype);
-  _Window_QuestCategoryCmd.prototype.constructor = _Window_QuestCategoryCmd;
-  _Window_QuestCategoryCmd.prototype.initialize = function (x, y, w, h) {
-    this._fixedWidth = w;
-    this._fixedHeight = h;
-    Window_Command.prototype.initialize.call(this, x, y);
-    this.deactivate();
-    this.select(0);
-  };
-  _Window_QuestCategoryCmd.prototype.windowWidth = function () {
-    return this._fixedWidth || 180;
-  };
-  _Window_QuestCategoryCmd.prototype.windowHeight = function () {
-    return this._fixedHeight || 624;
-  };
-  _Window_QuestCategoryCmd.prototype.makeCommandList = function () {
-    this.addCommand('전체', '__all__');
-    loadQuestDb().categories.forEach(function (cat) {
-      this.addCommand(cat.name, cat.id);
-    }, this);
-  };
-
-  // ── 퀘스트 목록창 ───────────────────────────────────────────────
-  function _Window_QuestItemList(x, y, w, h) {
-    this.initialize.apply(this, arguments);
-  }
-  _Window_QuestItemList.prototype = Object.create(Window_Selectable.prototype);
-  _Window_QuestItemList.prototype.constructor = _Window_QuestItemList;
-  _Window_QuestItemList.prototype.initialize = function (x, y, w, h) {
-    Window_Selectable.prototype.initialize.call(this, x, y, w, h);
-    this._category = '__all__';
-    this._data = [];
-    this.refresh();
-    this.deactivate();
-  };
-  _Window_QuestItemList.prototype.setCategory = function (cat) {
-    if (this._category !== cat) {
-      this._category = cat;
-      this.refresh();
-      this.select(0);
-    }
-  };
-  _Window_QuestItemList.prototype.maxItems = function () {
-    return this._data.length;
-  };
-  _Window_QuestItemList.prototype.item = function () {
-    return this._data[this.index()] || null;
-  };
-  _Window_QuestItemList.prototype.makeItemList = function () {
-    var db = loadQuestDb();
-    var state = $gameSystem.questState();
-    this._data = db.quests.filter(function (q) {
-      var entry = state.quests[q.id];
-      if (!entry || entry.status === 'hidden') return false;
-      if (this._category !== '__all__' && q.category !== this._category) return false;
-      return true;
-    }, this);
-  };
-  _Window_QuestItemList.prototype.refresh = function () {
-    this.makeItemList();
-    this.createContents();
-    this.drawAllItems();
-  };
-  _Window_QuestItemList.prototype.drawItem = function (index) {
-    var quest = this._data[index];
-    if (!quest) return;
-    var rect = this.itemRect(index);
-    var status = $gameSystem.getQuestStatus(quest.id);
-    var statusColor = { active: '#6af', completed: '#8f8', failed: '#f88', known: '#fa8' };
-    this.changeTextColor(statusColor[status] || '#ddd');
-    this.drawText(quest.title || quest.id, rect.x + 4, rect.y, rect.width - 8, 'left');
-    this.resetTextColor();
   };
 
   // ── 퀘스트 상세창 ───────────────────────────────────────────────
@@ -834,134 +781,6 @@
   // 커스텀 위젯 구현
   // ============================================================
 
-  // ── Widget_QuestCategory — 카테고리 선택 위젯 ────────────────────
-  function Widget_QuestCategory() {}
-  Widget_QuestCategory.prototype = Object.create(Widget_Base.prototype);
-  Widget_QuestCategory.prototype.constructor = Widget_QuestCategory;
-
-  Widget_QuestCategory.prototype.initialize = function (def, parentWidget) {
-    Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._handlersDef = def.handlers || {};
-    var win = new _Window_QuestCategoryCmd(this._x, this._y, this._width, this._height);
-    this._window = win;
-    this._displayObject = win;
-    this._setupHandlers();
-  };
-
-  Widget_QuestCategory.prototype._setupHandlers = function () {
-    var self = this;
-    var win = this._window;
-
-    win.setHandler('ok', function () {
-      // 퀘스트 목록창 카테고리 갱신
-      var scene = SceneManager._scene;
-      if (scene && scene._widgetMap) {
-        for (var id in scene._widgetMap) {
-          if (scene._widgetMap[id]._isQuestItemList) {
-            scene._widgetMap[id].setCategory(win.currentSymbol());
-            break;
-          }
-        }
-      }
-      // JSON 핸들러 실행 (focusWidget: questListWidget 등)
-      var handler = self._handlersDef['ok'];
-      if (handler && scene && scene._executeWidgetHandler) {
-        scene._executeWidgetHandler(handler, self);
-      }
-    });
-
-    win.setCancelHandler(function () {
-      var scene = SceneManager._scene;
-      var handler = self._handlersDef['cancel'];
-      if (handler && scene && scene._executeWidgetHandler) {
-        scene._executeWidgetHandler(handler, self);
-      } else {
-        SceneManager.pop();
-      }
-    });
-  };
-
-  Widget_QuestCategory.prototype.activate = function () {
-    if (this._window) this._window.activate();
-  };
-
-  Widget_QuestCategory.prototype.deactivate = function () {
-    if (this._window) this._window.deactivate();
-  };
-
-  Widget_QuestCategory.prototype.collectFocusable = function (out) {
-    out.push(this);
-  };
-
-  // ── Widget_QuestItemList — 퀘스트 목록 위젯 ──────────────────────
-  function Widget_QuestItemList() {}
-  Widget_QuestItemList.prototype = Object.create(Widget_Base.prototype);
-  Widget_QuestItemList.prototype.constructor = Widget_QuestItemList;
-
-  Widget_QuestItemList.prototype.initialize = function (def, parentWidget) {
-    Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._handlersDef = def.handlers || {};
-    this._isQuestItemList = true;
-    this._selectedQuest = null;
-    var self = this;
-    var win = new _Window_QuestItemList(this._x, this._y, this._width, this._height);
-
-    // 커서 이동 추적 — select 오버라이드
-    var origSelect = win.select.bind(win);
-    win.select = function (index) {
-      origSelect(index);
-      self._selectedQuest = win.item();
-    };
-
-    this._window = win;
-    this._displayObject = win;
-    this._setupHandlers();
-  };
-
-  Widget_QuestItemList.prototype.setCategory = function (cat) {
-    if (this._window) {
-      this._window.setCategory(cat);
-      this._selectedQuest = this._window.item();
-    }
-  };
-
-  Widget_QuestItemList.prototype._setupHandlers = function () {
-    var self = this;
-    var win = this._window;
-
-    win.setHandler('ok', function () {
-      // 선택된 퀘스트를 상세창으로 — polling으로 처리됨, 리스트 유지
-      win.activate();
-    });
-
-    win.setCancelHandler(function () {
-      var scene = SceneManager._scene;
-      var handler = self._handlersDef['cancel'];
-      if (handler && scene && scene._executeWidgetHandler) {
-        scene._executeWidgetHandler(handler, self);
-      }
-    });
-  };
-
-  Widget_QuestItemList.prototype.activate = function () {
-    if (this._window) {
-      this._window.activate();
-      this._window.select(this._lastIndex !== undefined ? this._lastIndex : 0);
-      this._selectedQuest = this._window.item();
-    }
-  };
-
-  Widget_QuestItemList.prototype.deactivate = function () {
-    if (this._window) {
-      this._lastIndex = this._window.index();
-      this._window.deactivate();
-    }
-  };
-
-  Widget_QuestItemList.prototype.collectFocusable = function (out) {
-    out.push(this);
-  };
-
   // ── Widget_QuestDetail — 퀘스트 상세 위젯 ───────────────────────
   function Widget_QuestDetail() {}
   Widget_QuestDetail.prototype = Object.create(Widget_Base.prototype);
@@ -985,20 +804,19 @@
     Widget_Base.prototype.refresh.call(this);
   };
 
-  // polling: 목록 위젯의 선택 변경 감지
+  // 선택 퀘스트 변경 감지 — window._qs_currentQuestId 읽기
   Widget_QuestDetail.prototype.update = function () {
     Widget_Base.prototype.update.call(this);
-    var scene = SceneManager._scene;
-    if (!scene || !scene._widgetMap) return;
-    for (var id in scene._widgetMap) {
-      var w = scene._widgetMap[id];
-      if (w._isQuestItemList) {
-        var q = w._selectedQuest;
-        if (q !== this._quest) {
-          this.setQuest(q);
-        }
-        break;
+    var questId = window._qs_currentQuestId || null;
+    var db = loadQuestDb();
+    var quest = null;
+    if (questId) {
+      for (var i = 0; i < db.quests.length; i++) {
+        if (db.quests[i].id === questId) { quest = db.quests[i]; break; }
       }
+    }
+    if (quest !== this._quest) {
+      this.setQuest(quest);
     }
   };
 
@@ -1039,8 +857,6 @@
   // ============================================================
 
   if (window.__customSceneEngine && window.Widget_Base) {
-    window.__customSceneEngine.registerWidget('questCategory', Widget_QuestCategory);
-    window.__customSceneEngine.registerWidget('questList', Widget_QuestItemList);
     window.__customSceneEngine.registerWidget('questDetail', Widget_QuestDetail);
     window.__customSceneEngine.registerWidget('questTracker', Widget_QuestTracker);
   } else {

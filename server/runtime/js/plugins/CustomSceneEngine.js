@@ -179,6 +179,16 @@
     }
   };
 
+  Window_CustomCommand.prototype.drawItem = function(index) {
+    var cmd = this._winDef.commands && this._winDef.commands[index];
+    var rect = this.itemRectForText(index);
+    this.resetTextColor();
+    if (cmd && cmd.textColor) this.changeTextColor(cmd.textColor);
+    this.changePaintOpacity(this.isCommandEnabled(index));
+    this.drawText(this.commandName(index), rect.x, rect.y, rect.width, 'left');
+    if (cmd && cmd.textColor) this.resetTextColor();
+  };
+
   window.Window_CustomCommand = Window_CustomCommand;
 
   //===========================================================================
@@ -1328,6 +1338,8 @@
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._items = def.items || def.commands || [];
     this._handlersDef = def.handlers || {};
+    this._dataScript = def.dataScript || null;
+    this._onCursorDef = def.onCursor || null;
     var listDef = {
       id: def.id, width: def.width,
       commands: this._items,
@@ -1342,14 +1354,40 @@
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, def.height || 400);
+    // onCursor — 커서 이동 시 코드 실행
+    if (this._onCursorDef && this._onCursorDef.code) {
+      var onCursorCode = this._onCursorDef.code;
+      win.callUpdateHelp = function() {
+        try {
+          var scene = SceneManager._scene;
+          if (scene) { var fn = new Function(onCursorCode); fn.call(scene); }
+        } catch(e) {
+          console.error('[Widget_List] onCursor error:', e);
+        }
+      };
+    }
+  };
+  Widget_List.prototype._rebuildFromScript = function() {
+    if (!this._dataScript || !this._window) return;
+    try {
+      var items = (new Function('return (' + this._dataScript + ')'))();
+      if (!Array.isArray(items)) items = [];
+      this._window._winDef.commands = items;
+      if (this._window.refresh) this._window.refresh();
+    } catch(e) {
+      console.error('[Widget_List] dataScript error:', e);
+    }
   };
   Widget_List.prototype.collectFocusable = function(out) {
     out.push(this);
   };
   Widget_List.prototype.activate = function() {
+    if (this._dataScript) this._rebuildFromScript();
     if (this._window) {
       this._window.activate();
-      var restore = (this._lastIndex !== undefined && this._lastIndex >= 0) ? this._lastIndex : 0;
+      var maxItems = this._window.maxItems();
+      var restore = (this._lastIndex !== undefined && this._lastIndex >= 0 && this._lastIndex < maxItems)
+        ? this._lastIndex : 0;
       this._window.select(restore);
     }
   };
@@ -1360,6 +1398,10 @@
       this._window.deselect();
     }
   };
+  Widget_List.prototype.refresh = function() {
+    if (this._dataScript) this._rebuildFromScript();
+    Widget_Base.prototype.refresh.call(this);
+  };
   Widget_List.prototype.setHandler = function(symbol, fn) {
     if (this._window) this._window.setHandler(symbol, fn);
   };
@@ -1367,13 +1409,16 @@
     if (this._window) this._window.setHandler('cancel', fn);
   };
   Widget_List.prototype.update = function() {
-    var items = this._items;
-    var hasCondition = items && items.some(function(item) {
-      return typeof item.enabledCondition === 'string' && item.enabledCondition;
-    });
-    if (hasCondition) {
-      if (this._updateCount === undefined) this._updateCount = 0;
-      if (++this._updateCount % 60 === 0) {
+    if (this._updateCount === undefined) this._updateCount = 0;
+    ++this._updateCount;
+    if (this._dataScript) {
+      if (this._updateCount % 60 === 0) this._rebuildFromScript();
+    } else {
+      var items = this._items;
+      var hasCondition = items && items.some(function(item) {
+        return typeof item.enabledCondition === 'string' && item.enabledCondition;
+      });
+      if (hasCondition && this._updateCount % 60 === 0) {
         if (this._window) this._window.refresh();
       }
     }
@@ -1767,7 +1812,11 @@
             console.error('[CustomScene] script error:', e);
           }
           if (this._rootWidget) this._rootWidget.refresh();
-          if (widget && widget.activate) widget.activate();
+          if (handler.thenAction) {
+            this._executeWidgetHandler(handler.thenAction, widget);
+          } else {
+            if (widget && widget.activate) widget.activate();
+          }
         }
         break;
       }

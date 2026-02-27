@@ -200,7 +200,19 @@ export default function UIEditorFrameCanvas() {
       }
     } else {
       hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, getActiveTab(s.uiEditSubMode), s.uiSkinGaugeBgX, s.uiSkinGaugeBgY, s.uiSkinGaugeBgW, s.uiSkinGaugeBgH, s.uiSkinGaugeFillX, s.uiSkinGaugeFillY, s.uiSkinGaugeFillW, s.uiSkinGaugeFillH);
-      if (!hit) return;
+      if (!hit) {
+        // 게이지 탭에서 빈 곳 클릭: 드래그로 새 영역 생성
+        if (getActiveTab(s.uiEditSubMode) === 'gauge') {
+          const noBg = s.uiSkinGaugeBgW === 0 || s.uiSkinGaugeBgH === 0;
+          const noFill = s.uiSkinGaugeFillW === 0 || s.uiSkinGaugeFillH === 0;
+          if (noBg) {
+            hit = { type: 'gauge_bg_create', startX: Math.round(coords.ix), startY: Math.round(coords.iy) };
+          } else if (noFill) {
+            hit = { type: 'gauge_fill_create', startX: Math.round(coords.ix), startY: Math.round(coords.iy) };
+          }
+        }
+        if (!hit) return;
+      }
     }
 
     e.preventDefault();
@@ -309,6 +321,18 @@ export default function UIEditorFrameCanvas() {
           const newY = clamp(Math.round(c.iy), 0, startY + startH - MIN_SZ);
           st.setUiSkinGaugeFill(startX, newY, startW, startY + startH - newY);
         }
+      } else if (drag.type === 'gauge_bg_create') {
+        const x = clamp(Math.min(drag.startX, Math.round(c.ix)), 0, iw);
+        const y = clamp(Math.min(drag.startY, Math.round(c.iy)), 0, ih);
+        const w = clamp(Math.abs(Math.round(c.ix) - drag.startX), 1, iw - x);
+        const h = clamp(Math.abs(Math.round(c.iy) - drag.startY), 1, ih - y);
+        st.setUiSkinGaugeBg(x, y, w, h);
+      } else if (drag.type === 'gauge_fill_create') {
+        const x = clamp(Math.min(drag.startX, Math.round(c.ix)), 0, iw);
+        const y = clamp(Math.min(drag.startY, Math.round(c.iy)), 0, ih);
+        const w = clamp(Math.abs(Math.round(c.ix) - drag.startX), 1, iw - x);
+        const h = clamp(Math.abs(Math.round(c.iy) - drag.startY), 1, ih - y);
+        st.setUiSkinGaugeFill(x, y, w, h);
       }
     };
 
@@ -329,8 +353,10 @@ export default function UIEditorFrameCanvas() {
         await saveToServer({ cursorX: st.uiSkinCursorX, cursorY: st.uiSkinCursorY, cursorW: st.uiSkinCursorW, cursorH: st.uiSkinCursorH });
       } else if (drag.type === 'gauge_bg_move' || drag.type === 'gauge_bg_resize') {
         await saveToServer({ gaugeBgX: st.uiSkinGaugeBgX, gaugeBgY: st.uiSkinGaugeBgY, gaugeBgW: st.uiSkinGaugeBgW, gaugeBgH: st.uiSkinGaugeBgH });
-      } else if (drag.type === 'gauge_fill_move' || drag.type === 'gauge_fill_resize') {
+      } else if (drag.type === 'gauge_fill_move' || drag.type === 'gauge_fill_resize' || drag.type === 'gauge_fill_create') {
         await saveToServer({ gaugeFillX: st.uiSkinGaugeFillX, gaugeFillY: st.uiSkinGaugeFillY, gaugeFillW: st.uiSkinGaugeFillW, gaugeFillH: st.uiSkinGaugeFillH });
+      } else if (drag.type === 'gauge_bg_create') {
+        await saveToServer({ gaugeBgX: st.uiSkinGaugeBgX, gaugeBgY: st.uiSkinGaugeBgY, gaugeBgW: st.uiSkinGaugeBgW, gaugeBgH: st.uiSkinGaugeBgH });
       } else {
         await saveToServer({ frameX: st.uiSkinFrameX, frameY: st.uiSkinFrameY, frameW: st.uiSkinFrameW, frameH: st.uiSkinFrameH });
       }
@@ -355,7 +381,14 @@ export default function UIEditorFrameCanvas() {
     if (!coords) return;
     const s = useEditorStore.getState();
     const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, getActiveTab(s.uiEditSubMode), s.uiSkinGaugeBgX, s.uiSkinGaugeBgY, s.uiSkinGaugeBgW, s.uiSkinGaugeBgH, s.uiSkinGaugeFillX, s.uiSkinGaugeFillY, s.uiSkinGaugeFillW, s.uiSkinGaugeFillH);
-    canvas.style.cursor = getCursor(hit);
+    // 게이지 탭: 빈 공간 hover 시 crosshair로 "드래그로 생성 가능" 표시
+    if (!hit && getActiveTab(s.uiEditSubMode) === 'gauge') {
+      const noBg = s.uiSkinGaugeBgW === 0 || s.uiSkinGaugeBgH === 0;
+      const noFill = s.uiSkinGaugeFillW === 0 || s.uiSkinGaugeFillH === 0;
+      canvas.style.cursor = (noBg || noFill) ? 'crosshair' : 'default';
+    } else {
+      canvas.style.cursor = getCursor(hit);
+    }
 
     // slice 호버 하이라이트 갱신
     const prevIsSlice = hoverHitRef.current?.type === 'slice';
