@@ -551,10 +551,9 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   },
 
   reorderWidgetInTree: (sceneId: string, dragId: string, targetId: string, position: 'before' | 'inside') => {
-    console.log('[reorderWidgetInTree]', { dragId, targetId, position });
     set((state) => {
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
-      if (!scene || !scene.root) { console.log('[reorderWidgetInTree] no scene/root'); return {}; }
+      if (!scene || !scene.root) return {};
 
       // 1. dragId 위젯을 트리에서 추출
       let dragged: WidgetDef | null = null;
@@ -568,7 +567,6 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
         return { ...widget, children: widget.children.map(extract) };
       }
       const rootAfterExtract = extract(scene.root);
-      console.log('[reorderWidgetInTree] extracted:', dragged ? (dragged as WidgetDef).id : 'null (not found)');
       if (!dragged) return {};
 
       // 2. targetId 위치에 삽입
@@ -590,7 +588,6 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
         return { ...widget, children: ch.map(insert) };
       }
       const newRoot = insert(rootAfterExtract);
-      console.log('[reorderWidgetInTree] inserted:', inserted, '| root children:', newRoot.children?.map((c: WidgetDef) => c.id));
 
       return {
         customScenes: {

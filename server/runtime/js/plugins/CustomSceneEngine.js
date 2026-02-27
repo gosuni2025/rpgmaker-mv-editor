@@ -580,8 +580,73 @@
     this._children.push(child);
     child._parent = this;
     if (this._displayObject && child.displayObject()) {
+      if (child._decoSprite) this._displayObject.addChild(child._decoSprite);
       this._displayObject.addChild(child.displayObject());
     }
+  };
+
+  // ── 배경/테두리 장식 헬퍼 ─────────────────────────────────────────────────
+  function _decoRoundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+  Widget_Base.prototype._drawDecoBg = function(bmp, w, h, def) {
+    var color = def.bgColor;
+    if (!color) return;
+    var r = def.borderRadius || 0;
+    var ctx = bmp._context;
+    if (!ctx) return;
+    ctx.save();
+    ctx.fillStyle = color;
+    if (r > 0) { _decoRoundRect(ctx, 0, 0, w, h, r); ctx.fill(); }
+    else { ctx.fillRect(0, 0, w, h); }
+    ctx.restore();
+    bmp._setDirty();
+  };
+  Widget_Base.prototype._drawDecoBorder = function(bmp, w, h, def) {
+    var bw = def.borderWidth;
+    if (!bw || bw <= 0) return;
+    var color = def.borderColor || '#ffffff';
+    var r = def.borderRadius || 0;
+    var ctx = bmp._context;
+    if (!ctx) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = bw;
+    var half = bw / 2;
+    if (r > 0) {
+      var ri = Math.max(0, r - half);
+      _decoRoundRect(ctx, half, half, w - bw, h - bw, ri);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(half, half, w - bw, h - bw);
+    }
+    ctx.restore();
+    bmp._setDirty();
+  };
+  // Window 기반 위젯(Panel/Button 등)용: 별도 장식 스프라이트 생성
+  Widget_Base.prototype._createDecoSprite = function(def, w, h) {
+    var hasBg = !!def.bgColor;
+    var hasBorder = !!(def.borderWidth && def.borderWidth > 0);
+    if (!hasBg && !hasBorder) { this._decoSprite = null; return; }
+    var sprite = new Sprite();
+    sprite.x = def.x || 0;
+    sprite.y = def.y || 0;
+    var bmp = new Bitmap(Math.max(1, w), Math.max(1, h));
+    if (hasBg) this._drawDecoBg(bmp, w, h, def);
+    if (hasBorder) this._drawDecoBorder(bmp, w, h, def);
+    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
+    sprite.bitmap = bmp;
+    this._decoSprite = sprite;
   };
   Widget_Base.prototype.update = function() {
     for (var i = 0; i < this._children.length; i++) {
@@ -649,14 +714,24 @@
           window._uiThemeSetWindowOverride(win._customClassName, csOv);
         }
       }
+      if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
       this._displayObject = win;
       this._padding = win._padding;
+      this._createDecoSprite(def, this._width, this._height || 400);
     } else {
       var container = new Sprite();
       container.x = this._x;
       container.y = this._y;
+      if (def.bgAlpha !== undefined) container.opacity = Math.round(def.bgAlpha * 255);
       this._displayObject = container;
       this._padding = 0;
+      // 비-windowed: 장식 스프라이트를 컨테이너의 첫 자식으로 추가 (배경층)
+      this._createDecoSprite(def, this._width, this._height || 400);
+      if (this._decoSprite) {
+        this._decoSprite.x = 0; this._decoSprite.y = 0;
+        this._displayObject.addChild(this._decoSprite);
+        this._decoSprite = null;
+      }
     }
   };
   Widget_Panel.prototype.addChildWidget = function(child) {
@@ -669,7 +744,9 @@
       if (childObj instanceof Window_Base) {
         childObj.x += this._x;
         childObj.y += this._y;
+        if (child._decoSprite) { child._decoSprite.x += this._x; child._decoSprite.y += this._y; }
       } else if (this._displayObject) {
+        if (child._decoSprite) this._displayObject.addChild(child._decoSprite);
         this._displayObject.addChild(childObj);
       }
     }
@@ -691,6 +768,7 @@
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
+    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
     var bitmap = new Bitmap(this._width, this._height);
     bitmap.fontSize = this._fontSize;
     sprite.bitmap = bitmap;
@@ -705,8 +783,10 @@
     if (text === this._lastText) return;
     this._lastText = text;
     this._bitmap.clear();
+    this._drawDecoBg(this._bitmap, this._width, this._height, this._def);
     this._bitmap.textColor = this._color;
     this._bitmap.drawText(text, 0, 0, this._width, this._height, this._align);
+    this._drawDecoBorder(this._bitmap, this._width, this._height, this._def);
     Widget_Base.prototype.refresh.call(this);
   };
   Widget_Label.prototype.update = function() {
@@ -728,6 +808,7 @@
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
+    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
     // actorFace/actorCharacter는 빈 bitmap을 미리 생성해 sprite에 설정
     if (this._imageSource !== 'file') {
       var bmp = new Bitmap(this._width || 144, this._height || 144);
@@ -749,7 +830,20 @@
   };
   Widget_Image.prototype._refreshFile = function(sprite) {
     var def = this._def;
-    if (!def.imageName || typeof ImageManager === 'undefined') return;
+    var w = this._width;
+    var h = this._height || 100;
+    if (!def.imageName) {
+      // 이미지 없음 → bgColor 또는 기본 흰색으로 채움 (Unity-like)
+      if (!this._bitmap) {
+        this._bitmap = new Bitmap(w, h);
+        sprite.bitmap = this._bitmap;
+      }
+      this._bitmap.clear();
+      this._bitmap.fillRect(0, 0, w, h, def.bgColor || '#ffffff');
+      this._drawDecoBorder(this._bitmap, w, h, def);
+      return;
+    }
+    if (typeof ImageManager === 'undefined') return;
     var folder = def.imageFolder || 'img/system/';
     var bitmap = ImageManager.loadBitmap(folder, def.imageName);
     var self = this;
@@ -757,7 +851,9 @@
       var drawW = self._width || bitmap.width;
       var drawH = self._height || bitmap.height;
       var bmp = new Bitmap(drawW, drawH);
+      self._drawDecoBg(bmp, drawW, drawH, def);
       bmp.blt(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, drawW, drawH);
+      self._drawDecoBorder(bmp, drawW, drawH, def);
       sprite.bitmap = bmp;
     });
   };
@@ -849,6 +945,7 @@
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
+    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
     var bitmap = new Bitmap(this._width, this._height || 36);
     sprite.bitmap = bitmap;
     this._sprite = sprite;
@@ -871,7 +968,9 @@
   };
   Widget_Gauge.prototype.refresh = function() {
     if (!this._bitmap) return;
+    var w = this._width; var h = this._height || 36;
     this._bitmap.clear();
+    this._drawDecoBg(this._bitmap, w, h, this._def);
     var actor = null;
     if (typeof $gameParty !== 'undefined') {
       actor = $gameParty.members()[this._actorIndex];
@@ -1012,6 +1111,7 @@
         }
       }
     }
+    this._drawDecoBorder(this._bitmap, w, h, this._def);
     Widget_Base.prototype.refresh.call(this);
   };
   Widget_Gauge.prototype.update = function() {
@@ -1032,12 +1132,15 @@
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
+    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
     var h = this._height || 4;
     var bitmap = new Bitmap(this._width, h);
+    this._drawDecoBg(bitmap, this._width, h, def);
     var lineY = Math.floor(h / 2) - 1;
     bitmap.paintOpacity = 64;
     bitmap.fillRect(0, lineY, this._width, 2, '#ffffff');
     bitmap.paintOpacity = 255;
+    this._drawDecoBorder(bitmap, this._width, h, def);
     sprite.bitmap = bitmap;
     this._displayObject = sprite;
   };
@@ -1071,8 +1174,10 @@
     var win = new Window_RowSelector(this._x, this._y, def);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
+    this._createDecoSprite(def, this._width, this._height || 400);
   };
   Widget_RowSelector.prototype.collectFocusable = function(out) {
     out.push(this);
@@ -1126,8 +1231,10 @@
     var win = new Window_CustomOptions(this._x, this._y, def);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
+    this._createDecoSprite(def, this._width, def.height || 400);
   };
   Widget_Options.prototype.collectFocusable = function(out) {
     out.push(this);
@@ -1178,8 +1285,10 @@
     }
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
+    this._createDecoSprite(def, this._width, this._height || 52);
   };
   Widget_Button.prototype.collectFocusable = function(out) {
     out.push(this);
@@ -1217,8 +1326,10 @@
     var win = new Window_CustomCommand(this._x, this._y, listDef);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    if (def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
+    this._createDecoSprite(def, this._width, def.height || 400);
   };
   Widget_List.prototype.collectFocusable = function(out) {
     out.push(this);
@@ -1454,10 +1565,17 @@
     if (rootObj && !(rootObj instanceof Window_Base)) {
       this.addChildAt(rootObj, 0);
     }
-    // Window_Base 타입 위젯은 addWindow
+    // Window_Base 타입 위젯의 decoSprite를 먼저 추가 (window layer 아래)
     for (var id in this._widgetMap) {
       var w = this._widgetMap[id];
-      var obj = w.displayObject();
+      if (w._decoSprite && w.displayObject() instanceof Window_Base) {
+        this.addChild(w._decoSprite);
+      }
+    }
+    // Window_Base 타입 위젯은 addWindow
+    for (var id2 in this._widgetMap) {
+      var w2 = this._widgetMap[id2];
+      var obj = w2.displayObject();
       if (obj && obj instanceof Window_Base) {
         this.addWindow(obj);
       }

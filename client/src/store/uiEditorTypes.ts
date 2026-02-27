@@ -204,6 +204,16 @@ export interface WidgetDefBase {
   /** false로 설정하면 preview에서 클릭 선택 불가 (로직 위젯 등) */
   previewSelectable?: boolean;
   children?: WidgetDef[];
+  /** 배경 색상 (hex, e.g. '#000000'). Image 위젯은 이미지 없을 때 이 색상으로 채움 (기본 '#ffffff') */
+  bgColor?: string;
+  /** 위젯 전체 불투명도 0~1 (default 1) */
+  bgAlpha?: number;
+  /** 테두리 두께 (px, 0 = 없음) */
+  borderWidth?: number;
+  /** 테두리 색상 (hex, default '#ffffff') */
+  borderColor?: string;
+  /** 테두리 모서리 곡률 (px, default 0 = 직각) */
+  borderRadius?: number;
 }
 
 export interface WidgetDef_Panel extends WidgetDefBase {

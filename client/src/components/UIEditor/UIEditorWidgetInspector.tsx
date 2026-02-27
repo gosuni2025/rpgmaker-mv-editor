@@ -471,6 +471,73 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         </div>
       </div>
 
+      {/* 배경 / 테두리 */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>배경 / 테두리</label>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 60 }}>배경색</span>
+          <input type="color"
+            value={widget.bgColor || '#000000'}
+            onChange={(e) => update({ bgColor: e.target.value } as any)}
+            style={{ width: 28, height: 22, padding: 1, border: '1px solid #555', background: 'none', cursor: 'pointer', borderRadius: 2, flexShrink: 0 }} />
+          <input style={{ ...inputStyle, flex: 1 }}
+            value={widget.bgColor || ''}
+            placeholder="없음"
+            onChange={(e) => update({ bgColor: e.target.value || undefined } as any)} />
+          {widget.bgColor && (
+            <button style={smallBtnStyle} onClick={() => update({ bgColor: undefined } as any)}>×</button>
+          )}
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 60 }}>불투명도</span>
+          <input type="range" min="0" max="1" step="0.01"
+            value={widget.bgAlpha ?? 1}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              update({ bgAlpha: v >= 1 ? undefined : v } as any);
+            }}
+            style={{ flex: 1 }} />
+          <span style={{ fontSize: 11, color: '#ccc', width: 32, textAlign: 'right' }}>
+            {Math.round((widget.bgAlpha ?? 1) * 100)}%
+          </span>
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 두께</span>
+          <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
+            value={widget.borderWidth ?? ''}
+            placeholder="없음"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              update({ borderWidth: v === '' ? undefined : (parseInt(v) || 0) } as any);
+            }} />
+        </div>
+        {!!(widget.borderWidth && widget.borderWidth > 0) && (<>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 색</span>
+            <input type="color"
+              value={widget.borderColor || '#ffffff'}
+              onChange={(e) => update({ borderColor: e.target.value } as any)}
+              style={{ width: 28, height: 22, padding: 1, border: '1px solid #555', background: 'none', cursor: 'pointer', borderRadius: 2, flexShrink: 0 }} />
+            <input style={{ ...inputStyle, flex: 1 }}
+              value={widget.borderColor || '#ffffff'}
+              onChange={(e) => update({ borderColor: e.target.value } as any)} />
+          </div>
+        </>)}
+        {(widget.bgColor || (widget.borderWidth && widget.borderWidth > 0)) && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 60 }}>모서리 곡률</span>
+            <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
+              value={widget.borderRadius ?? ''}
+              placeholder="0"
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                update({ borderRadius: v === '' ? undefined : (parseInt(v) || 0) } as any);
+              }} />
+            <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
+          </div>
+        )}
+      </div>
+
       {/* 타입별 속성 */}
       <div style={sectionStyle}>
         <label style={labelStyle}>타입 속성 ({widget.type})</label>
