@@ -2050,43 +2050,43 @@
         if (!inst) return;
         this._instances[sceneId] = inst;
       }
-      inst.container.visible = true;
+      inst.scene.visible = true;
     },
 
     hide: function (sceneId) {
       var inst = this._instances[sceneId];
-      if (inst) inst.container.visible = false;
+      if (inst) inst.scene.visible = false;
     },
 
     toggle: function (sceneId) {
       var inst = this._instances[sceneId];
-      if (!inst || !inst.container.visible) this.show(sceneId);
+      if (!inst || !inst.scene.visible) this.show(sceneId);
       else this.hide(sceneId);
     },
 
     isVisible: function (sceneId) {
       var inst = this._instances[sceneId];
-      return !!(inst && inst.container.visible);
+      return !!(inst && inst.scene.visible);
     },
 
     destroy: function (sceneId) {
       var inst = this._instances[sceneId];
       if (inst) {
-        if (inst.container.parent) inst.container.parent.removeChild(inst.container);
+        if (inst.scene.parent) inst.scene.parent.removeChild(inst.scene);
         delete this._instances[sceneId];
       }
     },
 
     update: function () {
-      // 씬 전환 감지 — overlay container를 항상 현재 씬에 부착
+      // 씬 전환 감지 — overlay를 항상 현재 씬에 부착
       var currentScene = SceneManager._scene;
       for (var id in this._instances) {
         var inst = this._instances[id];
-        if (currentScene && inst.container.parent !== currentScene) {
-          currentScene.addChild(inst.container);
+        if (currentScene && inst.scene.parent !== currentScene) {
+          currentScene.addChild(inst.scene);
         }
-        if (inst.container.visible) {
-          if (inst.scene && inst.scene.update) inst.scene.update();
+        if (inst.scene.visible) {
+          if (inst.scene.update) inst.scene.update();
         }
       }
     },
@@ -2103,20 +2103,15 @@
       var currentScene = SceneManager._scene;
       if (!currentScene) return null;
 
-      var PIXI = window.PIXI;
-      if (!PIXI || !PIXI.Container) return null;
-
-      var container = new PIXI.Container();
-      currentScene.addChild(container);
-
       var scene = new Scene_OverlayUI();
       scene._sceneId = sceneId;
       if (args && scene.prepare) scene.prepare.apply(scene, args);
       scene.create();
-      container.addChild(scene);
+      // Scene_OverlayUI(Stage)는 _threeObj를 가지므로 직접 addChild
+      currentScene.addChild(scene);
       if (scene.start) scene.start();
 
-      return { container: container, scene: scene };
+      return { scene: scene };
     },
   };
 
