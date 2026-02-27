@@ -189,10 +189,19 @@ router.put('/:id', (req: Request, res: Response) => {
       const hasRef = !!ev.__ref;
       const { __ref: _ref, ...eventData } = ev as Record<string, unknown>;
       if (hasRef) {
-        const newFilename = projectManager.writeEventFile(mapId, ev.id, ev.name || '', eventData);
+        // pages가 없거나 비어있으면 기존 외부 파일에서 복원 (자동저장 등으로 pages가 빠진 경우 대비)
+        let pagesForFile = eventData.pages as any[] | undefined;
+        if (!pagesForFile || pagesForFile.length === 0) {
+          try {
+            const existing = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
+            if (existing.pages) pagesForFile = existing.pages as any[];
+          } catch { /* 외부 파일 없으면 무시 */ }
+        }
+        const eventDataWithPages = { ...eventData, pages: pagesForFile || [] };
+        const newFilename = projectManager.writeEventFile(mapId, ev.id, ev.name || '', eventDataWithPages);
         const refPath = `Map${String(mapId).padStart(3, '0')}/${newFilename}`;
         // 페이지 메타데이터(이미지·조건·이동타입 등)는 유지, 실행 커맨드(list)만 제거
-        const strippedPages = (eventData.pages as any[] || []).map((p: any) => ({
+        const strippedPages = (pagesForFile || []).map((p: any) => ({
           ...p,
           list: [{ code: 0, indent: 0, parameters: [] }],
         }));
