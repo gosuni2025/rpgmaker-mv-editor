@@ -100,6 +100,17 @@
         if (expr === 'gold' && typeof $gameParty !== 'undefined') {
           return String($gameParty.gold());
         }
+        // mapName
+        if (expr === 'mapName') {
+          if (typeof MinimapManager !== 'undefined' && typeof MinimapManager.getMapName === 'function') {
+            return MinimapManager.getMapName();
+          }
+          if (typeof $dataMapInfos !== 'undefined' && typeof $gameMap !== 'undefined') {
+            var info = $dataMapInfos[$gameMap.mapId()];
+            return info ? (info.name || '') : '';
+          }
+          return '';
+        }
         // config.KEY
         var cfgMatch = expr.match(/^config\.(\w+)$/);
         if (cfgMatch && typeof ConfigManager !== 'undefined') {
@@ -112,6 +123,11 @@
       return match;
     });
   }
+
+  //===========================================================================
+  // 외부 플러그인 위젯 레지스트리
+  //===========================================================================
+  var _widgetRegistry = {};
 
   //===========================================================================
   // Window_CustomCommand — Window_Command 상속
@@ -596,7 +612,9 @@
     }
     this._children = [];
   };
-  window.Widget_Base = Widget_Base;
+  window.Widget_Base   = Widget_Base;
+  window.Widget_Panel  = Widget_Panel;
+  window.Widget_Label  = Widget_Label;
 
   //===========================================================================
   // Widget_Panel — 패널 (windowed 또는 투명 컨테이너)
@@ -1460,19 +1478,24 @@
   Scene_CustomUI.prototype._buildWidget = function(def, parentWidget) {
     if (!def || !def.type) return null;
     var widget = null;
-    switch (def.type) {
-      case 'panel':       widget = new Widget_Panel();       break;
-      case 'label':       widget = new Widget_Label();       break;
-      case 'image':       widget = new Widget_Image();       break;
-      case 'gauge':       widget = new Widget_Gauge();       break;
-      case 'separator':   widget = new Widget_Separator();   break;
-      case 'button':      widget = new Widget_Button();      break;
-      case 'list':        widget = new Widget_List();        break;
-      case 'rowSelector':
-      case 'actorList':   widget = new Widget_RowSelector(); break;
-      case 'options':     widget = new Widget_Options();     break;
-      case 'background':  widget = new Widget_Background();  break;
-      default:          return null;
+    // 외부 플러그인이 registerWidget으로 등록한 타입 먼저 확인
+    if (_widgetRegistry[def.type]) {
+      widget = new _widgetRegistry[def.type]();
+    } else {
+      switch (def.type) {
+        case 'panel':       widget = new Widget_Panel();       break;
+        case 'label':       widget = new Widget_Label();       break;
+        case 'image':       widget = new Widget_Image();       break;
+        case 'gauge':       widget = new Widget_Gauge();       break;
+        case 'separator':   widget = new Widget_Separator();   break;
+        case 'button':      widget = new Widget_Button();      break;
+        case 'list':        widget = new Widget_List();        break;
+        case 'rowSelector':
+        case 'actorList':   widget = new Widget_RowSelector(); break;
+        case 'options':     widget = new Widget_Options();     break;
+        case 'background':  widget = new Widget_Background();  break;
+        default:            return null;
+      }
     }
     widget.initialize(def, parentWidget);
 
@@ -1948,8 +1971,10 @@
   //===========================================================================
   // 씬 리다이렉트 — SceneManager.goto/push 후킹
   //===========================================================================
+  var _activeRedirects = {}; // 현재 활성화된 redirects (reloadCustomScenes가 덮어쓰지 않도록 별도 보관)
+
   function installSceneRedirects(redirects) {
-    console.log('[CustomSceneEngine] installSceneRedirects 호출 | redirects:', JSON.stringify(redirects), '| 호출 스택:', new Error().stack.split('\n').slice(1, 4).join(' ← '));
+    _activeRedirects = redirects || {};
     // 기존 패치 제거
     if (SceneManager._csOrigGoto) {
       SceneManager.goto = SceneManager._csOrigGoto;
@@ -1960,10 +1985,7 @@
       delete SceneManager._csOrigPush;
     }
 
-    if (!redirects || Object.keys(redirects).length === 0) {
-      console.log('[CustomSceneEngine] installSceneRedirects: redirects 없음 → 후킹 제거됨');
-      return;
-    }
+    if (!redirects || Object.keys(redirects).length === 0) return;
 
     SceneManager._csOrigGoto = SceneManager.goto;
     SceneManager._csOrigPush = SceneManager.push;
@@ -1972,11 +1994,9 @@
       if (!SceneCtor) return SceneCtor;
       var name = SceneCtor.name || '';
       var target = redirects[name];
-      console.log('[CustomSceneEngine] resolve:', name, '→', target ? target : '(리다이렉트 없음)', '| target 클래스 존재:', target ? !!window[target] : 'N/A');
       if (target) {
         var RedirCtor = window[target];
         if (RedirCtor) return RedirCtor;
-        console.warn('[CustomSceneEngine] resolve: target 클래스 없음:', target);
       }
       return SceneCtor;
     }
@@ -1987,15 +2007,19 @@
     SceneManager.push = function (SceneCtor) {
       return SceneManager._csOrigPush.call(this, resolve(SceneCtor));
     };
-    console.log('[CustomSceneEngine] installSceneRedirects 완료 | 후킹 설치됨 ✓');
   }
 
   function reloadCustomScenes() {
     _scenesData = loadJSON('data/UIEditorScenes.json');
     _configData = loadJSON('data/UIEditorConfig.json');
-    console.log('[CustomSceneEngine] reloadCustomScenes | configData.sceneRedirects:', JSON.stringify(_configData.sceneRedirects));
     registerCustomScenes();
-    installSceneRedirects(_configData.sceneRedirects || {});
+    // 파일에 저장된 sceneRedirects가 있으면 그것을 사용, 없으면 메모리의 _activeRedirects 유지
+    var fileRedirects = _configData.sceneRedirects;
+    if (fileRedirects && Object.keys(fileRedirects).length > 0) {
+      installSceneRedirects(fileRedirects);
+    } else {
+      installSceneRedirects(_activeRedirects);
+    }
   }
 
   //===========================================================================
@@ -2141,5 +2165,13 @@
       installSceneRedirects(redirects || {});
     },
     overlayManager: OverlayManager,
+    /**
+     * 외부 플러그인이 커스텀 위젯 타입을 등록합니다.
+     * @param {string} type - 위젯 타입 식별자 (예: 'minimap')
+     * @param {Function} WidgetClass - Widget_Base를 상속하는 생성자 함수
+     */
+    registerWidget: function (type, WidgetClass) {
+      _widgetRegistry[type] = WidgetClass;
+    },
   };
 })();

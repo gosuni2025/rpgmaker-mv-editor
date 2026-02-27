@@ -38,17 +38,13 @@ function SceneRedirectSection({ scene }: { scene: string }) {
     setSceneRedirects(next);
     setUiEditorDirty(true);
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-    console.log('[SceneRedirect] handleChange | scene:', scene, '| target:', target, '| next:', JSON.stringify(next));
-    console.log('[SceneRedirect] iframe 존재:', !!iframe, '| contentWindow:', !!iframe?.contentWindow);
-    iframe?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: next }, '*');
-    console.log('[SceneRedirect] postMessage(updateSceneRedirects) 전송 완료');
-    // 현재 프리뷰 씬이 교체 대상이면 씬 재로드 (리다이렉트 즉시 반영)
+    // reloadCustomScenes를 먼저 보내서 씬 클래스를 등록한 뒤,
+    // updateSceneRedirects로 올바른 redirects를 설치 (순서 중요 — 역순이면 파일 기준으로 덮어써짐)
     if (target?.startsWith('Scene_CS_')) {
       iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
-      console.log('[SceneRedirect] postMessage(reloadCustomScenes) 전송 완료 ← 이후 파일의 sceneRedirects로 훅 덮어쓰기 위험!');
     }
+    iframe?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: next }, '*');
     iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: scene }, '*');
-    console.log('[SceneRedirect] postMessage(loadScene:', scene, ') 전송 완료');
   };
 
   return (
