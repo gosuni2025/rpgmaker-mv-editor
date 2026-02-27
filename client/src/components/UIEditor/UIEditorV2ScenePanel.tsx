@@ -111,14 +111,6 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
           <input style={{ ...inputStyle, flex: 1 }} value={scene.displayName}
             onChange={(e) => updateCustomScene(sceneId, { displayName: e.target.value })} />
         </div>
-        <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', width: 50 }}>기반</span>
-          <select style={{ ...selectStyle, flex: 1 }} value={scene.baseScene}
-            onChange={(e) => updateCustomScene(sceneId, { baseScene: e.target.value as 'Base' | 'MenuBase' })}>
-            <option value="MenuBase">MenuBase</option>
-            <option value="Base">Base</option>
-          </select>
-        </div>
         <button style={{ ...deleteBtnStyle, width: '100%', marginTop: 4 }} onClick={handleDeleteScene}>
           씬 삭제
         </button>

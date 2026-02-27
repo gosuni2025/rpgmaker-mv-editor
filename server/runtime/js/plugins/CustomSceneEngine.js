@@ -866,6 +866,22 @@
   window.Widget_Separator = Widget_Separator;
 
   //===========================================================================
+  // Widget_Background — 씬 배경 (맵 스크린샷) 위젯
+  //===========================================================================
+  function Widget_Background() {}
+  Widget_Background.prototype = Object.create(Widget_Base.prototype);
+  Widget_Background.prototype.constructor = Widget_Background;
+  Widget_Background.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    sprite.bitmap = SceneManager.backgroundBitmap();
+    this._displayObject = sprite;
+  };
+  window.Widget_Background = Widget_Background;
+
+  //===========================================================================
   // Widget_ActorList — 파티 멤버 선택 위젯 (focusable)
   //===========================================================================
   function Widget_ActorList() {}
@@ -1149,17 +1165,17 @@
   window.NavigationManager = NavigationManager;
 
   //===========================================================================
-  // Scene_CustomUI — Scene_MenuBase 상속
+  // Scene_CustomUI — Scene_Base 상속 (배경은 Widget_Background 위젯으로 처리)
   //===========================================================================
   function Scene_CustomUI() {
     this.initialize.apply(this, arguments);
   }
 
-  Scene_CustomUI.prototype = Object.create(Scene_MenuBase.prototype);
+  Scene_CustomUI.prototype = Object.create(Scene_Base.prototype);
   Scene_CustomUI.prototype.constructor = Scene_CustomUI;
 
   Scene_CustomUI.prototype.initialize = function () {
-    Scene_MenuBase.prototype.initialize.call(this);
+    Scene_Base.prototype.initialize.call(this);
     this._sceneId = '';
     this._prepareData = {};
     this._customWindows = {};
@@ -1185,7 +1201,7 @@
   };
 
   Scene_CustomUI.prototype.create = function () {
-    Scene_MenuBase.prototype.create.call(this);
+    Scene_Base.prototype.create.call(this);
     var sceneDef = this._getSceneDef();
     if (!sceneDef) return;
 
@@ -1290,6 +1306,7 @@
       case 'list':        widget = new Widget_List();        break;
       case 'actorList':   widget = new Widget_ActorList();   break;
       case 'options':     widget = new Widget_Options();     break;
+      case 'background':  widget = new Widget_Background();  break;
       default:          return null;
     }
     widget.initialize(def, parentWidget);
@@ -1533,7 +1550,7 @@
   };
 
   Scene_CustomUI.prototype.terminate = function() {
-    Scene_MenuBase.prototype.terminate.call(this);
+    Scene_Base.prototype.terminate.call(this);
     var sceneDef = this._getSceneDef();
     if (sceneDef && sceneDef.saveConfigOnExit) {
       if (typeof ConfigManager !== 'undefined' && typeof ConfigManager.save === 'function') {
@@ -1569,7 +1586,7 @@
   };
 
   Scene_CustomUI.prototype.start = function () {
-    Scene_MenuBase.prototype.start.call(this);
+    Scene_Base.prototype.start.call(this);
     var sceneDef = this._getSceneDef();
     if (!sceneDef) return;
 
@@ -1590,7 +1607,7 @@
   };
 
   Scene_CustomUI.prototype.update = function() {
-    Scene_MenuBase.prototype.update.call(this);
+    Scene_Base.prototype.update.call(this);
     if (this._navManager) this._navManager.update();
     if (this._rootWidget) this._rootWidget.update();
   };

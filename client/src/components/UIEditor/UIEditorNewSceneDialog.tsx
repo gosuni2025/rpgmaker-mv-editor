@@ -9,7 +9,6 @@ interface Props {
 export default function UIEditorNewSceneDialog({ onClose, onCreated }: Props) {
   const [sceneId, setSceneId] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [baseScene, setBaseScene] = useState<'Base' | 'MenuBase'>('MenuBase');
   const [error, setError] = useState('');
 
   const customScenes = useEditorStore((s) => s.customScenes);
@@ -25,7 +24,6 @@ export default function UIEditorNewSceneDialog({ onClose, onCreated }: Props) {
     addCustomScene({
       id,
       displayName: displayName.trim() || id,
-      baseScene,
       prepareArgs: [],
       windows: [],
       windowLinks: {},
@@ -67,18 +65,6 @@ export default function UIEditorNewSceneDialog({ onClose, onCreated }: Props) {
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="나의 메뉴"
           />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 12, color: '#aaa', marginBottom: 4 }}>기반 씬</label>
-          <select
-            style={{ width: '100%', background: '#3c3c3c', border: '1px solid #555', color: '#ddd', padding: '6px 8px', borderRadius: 2 }}
-            value={baseScene}
-            onChange={(e) => setBaseScene(e.target.value as 'Base' | 'MenuBase')}
-          >
-            <option value="MenuBase">MenuBase (배경에 맵 표시)</option>
-            <option value="Base">Base (빈 배경)</option>
-          </select>
         </div>
 
         {error && <div style={{ color: '#f88', fontSize: 12, marginBottom: 12 }}>{error}</div>}

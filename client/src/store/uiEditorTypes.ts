@@ -162,7 +162,6 @@ export interface PrepareArgDef {
 export interface CustomSceneDef {
   id: string;
   displayName: string;
-  baseScene: 'Base' | 'MenuBase';
   prepareArgs: PrepareArgDef[];
   windows: CustomWindowDef[];
   windowLinks: Record<string, { activateDefault?: boolean }>;
@@ -188,7 +187,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList' | 'options';
+export type WidgetType = 'background' | 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList' | 'options';
 
 export interface WidgetDefBase {
   id: string;
@@ -238,6 +237,10 @@ export interface WidgetDef_Gauge extends WidgetDefBase {
   actorIndex: number;
 }
 
+export interface WidgetDef_Background extends WidgetDefBase {
+  type: 'background';
+}
+
 export interface WidgetDef_Separator extends WidgetDefBase {
   type: 'separator';
 }
@@ -273,6 +276,7 @@ export interface WidgetDef_Options extends WidgetDefBase {
 }
 
 export type WidgetDef =
+  | WidgetDef_Background
   | WidgetDef_Panel
   | WidgetDef_Label
   | WidgetDef_Image
