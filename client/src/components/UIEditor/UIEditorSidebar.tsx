@@ -209,8 +209,11 @@ function SkinList() {
     setUiSkinCursorPadding(skin.cursorPadding ?? 2);
     setUiSkinCursorTone(skin.cursorToneR ?? 0, skin.cursorToneG ?? 0, skin.cursorToneB ?? 0);
     setUiSkinGaugeFile(skin.gaugeFile ?? '');
-    setUiSkinGaugeBg(skin.gaugeBgX ?? 0, skin.gaugeBgY ?? 0, skin.gaugeBgW ?? 0, skin.gaugeBgH ?? 0);
-    setUiSkinGaugeFill(skin.gaugeFillX ?? 0, skin.gaugeFillY ?? 0, skin.gaugeFillW ?? 0, skin.gaugeFillH ?? 0);
+    // 게이지 기본값: RPG Maker MV 표준 Window.png 색상 팔레트 위치
+    //   textColor(19) = gaugeBackColor  → block (132, 168, 12, 12)
+    //   textColor(20-21) = hpGaugeColor → block (144, 168, 24, 12)
+    setUiSkinGaugeBg(skin.gaugeBgX ?? 132, skin.gaugeBgY ?? 168, skin.gaugeBgW ?? 12, skin.gaugeBgH ?? 12);
+    setUiSkinGaugeFill(skin.gaugeFillX ?? 144, skin.gaugeFillY ?? 168, skin.gaugeFillW ?? 24, skin.gaugeFillH ?? 12);
     setUiSkinGaugeFillDir(skin.gaugeFillDir ?? 'horizontal');
   };
 
