@@ -165,6 +165,12 @@
  * @type boolean
  * @default true
  *
+ * @param overlaySceneId
+ * @text 오버레이 씬 ID
+ * @desc UIEditor에서 만든 오버레이 씬의 ID. show/hide 커맨드가 이 씬을 OVERLAY SHOW/HIDE로 연동합니다.
+ * @type string
+ * @default minimap_hud
+ *
  * @command show
  * @text 미니맵 표시
  * @desc 미니맵을 화면에 표시합니다.
@@ -335,14 +341,10 @@
     eventMarkerColor: p['eventMarkerColor'] || '#ffcc00',
     showEvents:       p['showEvents'] !== 'false',
     iconFixedSize:    p['iconFixedSize'] !== 'false',
-    borderColor:          p['borderColor'] || '#aabbcc',
-    borderWidth:          parseInt(p['borderWidth']) || 2,
-    showMapName:          p['showMapName'] !== 'false',
-    mapNameFontSize:      parseInt(p['mapNameFontSize']) || 13,
-    mapNameFont:          p['mapNameFont'] || '',
-    mapNameColor:         p['mapNameColor'] || '#ffffff',
-    mapNamePosition:      p['mapNamePosition'] || 'bottom',
-    resetNameOnTransfer:  p['resetNameOnTransfer'] !== 'false',
+    borderColor:      p['borderColor'] || '#aabbcc',
+    borderWidth:      parseInt(p['borderWidth']) || 2,
+    overlaySceneId:   p['overlaySceneId'] || 'minimap_hud',
+    resetNameOnTransfer: p['resetNameOnTransfer'] !== 'false',
     regionColors:     {},
     terrainColors:    {},
   };
@@ -350,9 +352,7 @@
   try { CFG.regionColors  = JSON.parse(p['regionColors']  || '{}'); } catch(e) {}
   try { CFG.terrainColors = JSON.parse(p['terrainColors'] || '{}'); } catch(e) {}
 
-  const BTN_SIZE = 26; // +/- 버튼 크기 (px)
-  const BTN_GAP  = 24; // 버튼 사이 간격
-  const N_PAD    = 16; // 북쪽 N 표시를 위한 비트맵 여백 (px)
+  const N_PAD = 16; // 북쪽 N 표시를 위한 비트맵 여백 (px)
 
   // ============================================================
   // Game_System — 세이브 데이터
@@ -421,14 +421,7 @@
   const _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
   Scene_Map.prototype.createAllWindows = function () {
     _Scene_Map_createAllWindows.call(this);
-    // 재호출 시(VisualNovelMode 등이 createDisplayObjects를 재실행할 때) 이전 가시성 보존
-    var hasPrevSprite = !!MinimapManager._sprite;
-    // 기존 sprite가 있으면 현재 _visible(setVisible로 설정된 최신 상태)을 우선 사용.
-    // 없으면(맵 이동 등으로 sprite가 파괴된 경우) $gameSystem._minimapVisible 사용.
-    var savedVisible = hasPrevSprite
-      ? MinimapManager._visible
-      : ($gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart);
-    MinimapManager.destroySprite();
+    var savedVisible = ($gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart);
     MinimapManager.createSprite(this);
     MinimapManager.setVisible(savedVisible);
   };
@@ -445,23 +438,12 @@
     MinimapManager.destroySprite();
   };
 
-  // 미니맵 버튼 위에서 발생한 터치/클릭이 맵 이동으로 이어지지 않도록
-  // processMapTouch보다 먼저 버튼 영역을 검사해서 차단
-  const _Scene_Map_processMapTouch = Scene_Map.prototype.processMapTouch;
-  Scene_Map.prototype.processMapTouch = function () {
-    if (MinimapManager._isOnButton(TouchInput.x, TouchInput.y)) return;
-    _Scene_Map_processMapTouch.call(this);
-  };
-
   // ============================================================
   // MinimapManager
   // ============================================================
 
   const MinimapManager = {
     _bitmap:         null,
-    _sprite:         null,
-    _btnPlus:        null,
-    _btnMinus:       null,
     _scene:          null,
     _dirty:          true,
     _lastPx:         -999,
@@ -472,8 +454,6 @@
     _visible:        true,
     _pendingExplore: false,
     _lastEventPos:   {},  // { eventId: 'x,y' }
-    _nameSprite:     null,
-    _lastMapId:      -1,
 
     UPDATE_INTERVAL: 3,
 
@@ -870,171 +850,32 @@
     },
 
     // ----------------------------------------------------------
-    // +/- 버튼 생성
-    // ----------------------------------------------------------
-    _makeButton(label) {
-      const bm  = new Bitmap(BTN_SIZE, BTN_SIZE);
-      const ctx = bm._context;
-
-      // 배경
-      ctx.fillStyle = 'rgba(20,30,50,0.85)';
-      ctx.fillRect(0, 0, BTN_SIZE, BTN_SIZE);
-      // 테두리
-      ctx.strokeStyle = '#7799aa';
-      ctx.lineWidth   = 1;
-      ctx.strokeRect(0.5, 0.5, BTN_SIZE - 1, BTN_SIZE - 1);
-
-      bm.fontSize   = 15;
-      bm.textColor  = '#ffffff';
-      bm.drawText(label, 0, 0, BTN_SIZE, BTN_SIZE, 'center');
-
-      bm._dirty = true;
-      if (bm._baseTexture) bm._baseTexture.update();
-
-      const sp    = new Sprite(bm);
-      sp.opacity  = 180;
-      return sp;
-    },
-
-    _btnX(side) {
-      // side: 'minus' | 'plus'
-      const gw = Graphics.width || Graphics.boxWidth;
-      const cx = gw - CFG.margin - CFG.size / 2; // 미니맵 수평 중앙
-      const totalW = BTN_SIZE * 2 + BTN_GAP;
-      const left   = cx - totalW / 2;
-      return side === 'minus' ? left : left + BTN_SIZE + BTN_GAP;
-    },
-
-    _btnY() {
-      return CFG.margin + CFG.size + 4;
-    },
-
-    _isInRect(sprite, tx, ty) {
-      return tx >= sprite.x && tx < sprite.x + BTN_SIZE &&
-             ty >= sprite.y && ty < sprite.y + BTN_SIZE;
-    },
-
-    _isOnButton(tx, ty) {
-      if (!this._visible) return false;
-      if (this._btnPlus  && this._isInRect(this._btnPlus,  tx, ty)) return true;
-      if (this._btnMinus && this._isInRect(this._btnMinus, tx, ty)) return true;
-      return false;
-    },
-
-    // ----------------------------------------------------------
-    // 스프라이트 생성
+    // 초기화 (맵 진입 시) — 비트맵 생성만 담당, 스프라이트는 Widget_Minimap이 처리
     // ----------------------------------------------------------
     createSprite(scene) {
       this._scene = scene;
-      if (!this._bitmap) this.initialize();
-
-      this._sprite = new Sprite(this._bitmap);
-      const gw = Graphics.width || Graphics.boxWidth;
-      this._sprite.x = gw - CFG.size - CFG.margin - N_PAD;
-      // N_PAD만큼 위로 올려서 "N" 표시가 미니맵 원 위에 오도록 하되,
-      // OrthographicCamera(top=0)의 클리핑을 방지하기 위해 y >= 0 보장
-      this._sprite.y = Math.max(0, CFG.margin - N_PAD);
-      this._sprite.opacity = CFG.opacity;
-
-      // _windowLayer 바로 위에 삽입 — _fadeSprite는 항상 맨 끝에 추가되므로
-      // 이 위치에 넣으면 항상 fade 아래, 일반 UI 위에 렌더링됨
-      const baseIdx = scene._windowLayer
-        ? scene.getChildIndex(scene._windowLayer) + 1
-        : scene.children.length;
-      scene.addChildAt(this._sprite, baseIdx);
-
-      // +/- 버튼
-      this._btnMinus = this._makeButton('－');
-      this._btnMinus.x = this._btnX('minus');
-      this._btnMinus.y = this._btnY();
-      scene.addChildAt(this._btnMinus, baseIdx + 1);
-
-      this._btnPlus = this._makeButton('＋');
-      this._btnPlus.x = this._btnX('plus');
-      this._btnPlus.y = this._btnY();
-      scene.addChildAt(this._btnPlus, baseIdx + 2);
-
-      // 맵 이름 스프라이트
-      if (CFG.showMapName) {
-        const nameH  = CFG.mapNameFontSize + 10;
-        const nameBm = new Bitmap(CFG.size + N_PAD * 2, nameH);
-        this._nameSprite   = new Sprite(nameBm);
-        this._nameSprite.x = this._sprite.x;
-        if (CFG.mapNamePosition === 'top') {
-          this._nameSprite.y = Math.max(0, this._sprite.y + N_PAD - nameH);
-        } else {
-          this._nameSprite.y = this._btnY() + BTN_SIZE + 4;
-        }
-        scene.addChildAt(this._nameSprite, baseIdx + 3);
-        this._lastMapId = -1;
-        this._renderNameSprite();
-      }
-
-      // _visible은 건드리지 않음 — setVisible()이 이후에 올바른 값으로 설정함
-      this._dirty   = true;
+      this.initialize();
+      this._dirty = true;
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
     },
 
     // ----------------------------------------------------------
-    // 스프라이트 해제
+    // 해제
     // ----------------------------------------------------------
     destroySprite() {
-      if (this._scene) {
-        if (this._sprite)     this._scene.removeChild(this._sprite);
-        if (this._btnMinus)   this._scene.removeChild(this._btnMinus);
-        if (this._btnPlus)    this._scene.removeChild(this._btnPlus);
-        if (this._nameSprite) this._scene.removeChild(this._nameSprite);
-      }
-      this._sprite     = null;
-      this._btnMinus   = null;
-      this._btnPlus    = null;
-      this._nameSprite = null;
-      this._scene      = null;
-    },
-
-    // ----------------------------------------------------------
-    // 버튼 입력 처리 (매 프레임)
-    // ----------------------------------------------------------
-    _updateButtons() {
-      if (!this._btnPlus || !this._btnMinus || !this._visible) return;
-
-      const tx = TouchInput.x, ty = TouchInput.y;
-      const overPlus  = this._isInRect(this._btnPlus,  tx, ty);
-      const overMinus = this._isInRect(this._btnMinus, tx, ty);
-
-      // hover 피드백
-      this._btnPlus.opacity  = overPlus  ? 255 : 180;
-      this._btnMinus.opacity = overMinus ? 255 : 180;
-
-      if (!TouchInput.isTriggered()) return;
-
-      if (overPlus) {
-        this.setTileSize(CFG.tileSize + 1);
-        TouchInput._triggered = false; // 맵 이동으로 전파 방지
-      } else if (overMinus) {
-        this.setTileSize(CFG.tileSize - 1);
-        TouchInput._triggered = false; // 맵 이동으로 전파 방지
-      }
+      this._scene = null;
     },
 
     // ----------------------------------------------------------
     // 매 프레임 갱신
     // ----------------------------------------------------------
     update() {
-      if (!this._sprite || !$gamePlayer) return;
-
-      // 버튼은 UPDATE_INTERVAL 무관하게 매 프레임 체크
-      this._updateButtons();
+      if (!this._bitmap || !$gamePlayer) return;
 
       if (this._pendingExplore) {
         this._pendingExplore = false;
         this.explore($gamePlayer.x, $gamePlayer.y);
         this._dirty = true;
-      }
-
-      if (CFG.showMapName && $gameMap && $gameMap.mapId() !== this._lastMapId) {
-        this._lastMapId = $gameMap.mapId();
-        this._renderNameSprite();
       }
 
       this._frameCount++;
@@ -1081,16 +922,15 @@
     setVisible(visible) {
       this._visible = visible;
       if ($gameSystem) $gameSystem._minimapVisible = visible;
-      if (this._sprite)     this._sprite.visible     = visible;
-      if (this._btnMinus)   this._btnMinus.visible    = visible;
-      if (this._btnPlus)    this._btnPlus.visible     = visible;
-      if (this._nameSprite) this._nameSprite.visible  = visible;
-      this._checkedAncestor = false; // 가시성 변경 시 조상 체인 재확인
       if (visible) {
-        // 즉시 렌더링하여 빈 캔버스로 인해 투명하게 보이는 현상 방지
         this._dirty = true;
         this._frameCount = this.UPDATE_INTERVAL;
         if ($gameMap && $gamePlayer) this._render();
+      }
+      // 오버레이 씬 연동
+      if (typeof OverlayManager !== 'undefined') {
+        if (visible) OverlayManager.show(CFG.overlaySceneId);
+        else OverlayManager.hide(CFG.overlaySceneId);
       }
     },
 
@@ -1152,45 +992,85 @@
     // ----------------------------------------------------------
     // 맵 이름
     // ----------------------------------------------------------
-    _getCurrentMapName() {
+    getMapName() {
+      if ($gameSystem && $gameSystem._minimapCustomName != null) {
+        return $gameSystem._minimapCustomName;
+      }
       if (!$gameMap) return '';
       const info = $dataMapInfos && $dataMapInfos[$gameMap.mapId()];
       return info ? (info.name || '') : '';
     },
 
-    _renderNameSprite() {
-      if (!this._nameSprite) return;
-      const name = ($gameSystem && $gameSystem._minimapCustomName != null)
-        ? $gameSystem._minimapCustomName
-        : this._getCurrentMapName();
-      const bm  = this._nameSprite.bitmap;
-      const ctx = bm._context;
-      const w   = bm.width;
-      const h   = bm.height;
-      ctx.clearRect(0, 0, w, h);
-      if (name) {
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(N_PAD, 2, CFG.size, h - 4);
-        bm.fontSize  = CFG.mapNameFontSize;
-        bm.fontFace  = CFG.mapNameFont || 'GameFont';
-        bm.textColor = CFG.mapNameColor;
-        bm.drawText(name, N_PAD, 0, CFG.size, h, 'center');
-      }
-      bm._dirty = true;
-      if (bm._baseTexture) bm._baseTexture.update();
-    },
-
     setMapName(name) {
       if ($gameSystem) $gameSystem._minimapCustomName = (name || null);
-      this._renderNameSprite();
     },
 
     resetMapName() {
       if ($gameSystem) $gameSystem._minimapCustomName = null;
-      this._renderNameSprite();
+    },
+
+    // ----------------------------------------------------------
+    // 확대/축소 공개 API (Button 위젯 등에서 호출)
+    // ----------------------------------------------------------
+    zoomIn() {
+      this.setTileSize(CFG.tileSize + 1);
+    },
+
+    zoomOut() {
+      this.setTileSize(CFG.tileSize - 1);
     },
   };
 
   window.MinimapManager = MinimapManager;
+
+  // ============================================================
+  // Widget_Minimap — CustomSceneEngine 위젯 레지스트리에 등록
+  // ============================================================
+
+  function Widget_Minimap() {}
+
+  // Widget_Base 상속 (CustomSceneEngine이 먼저 로드되어야 함)
+  Widget_Minimap.prototype = Object.create((window.Widget_Base || Object).prototype);
+  Widget_Minimap.prototype.constructor = Widget_Minimap;
+
+  Widget_Minimap.prototype.initialize = function (def, parentWidget) {
+    if (window.Widget_Base) window.Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    else {
+      this._def = def || {};
+      this._id = def ? def.id : '';
+      this._x = def ? (def.x || 0) : 0;
+      this._y = def ? (def.y || 0) : 0;
+      this._width  = def ? (def.width  || 192) : 192;
+      this._height = def ? (def.height || 192) : 192;
+      this._visible = true;
+      this._children = [];
+    }
+
+    var sprite = new Sprite();
+    sprite.x = this._x;
+    sprite.y = this._y;
+    this._displayObject = sprite;
+    this._minimapSprite = sprite;
+  };
+
+  Widget_Minimap.prototype.displayObject = function () {
+    return this._displayObject;
+  };
+
+  Widget_Minimap.prototype.update = function () {
+    // MinimapManager가 렌더링한 최신 비트맵을 스프라이트에 연결
+    if (this._minimapSprite && typeof MinimapManager !== 'undefined' && MinimapManager._bitmap) {
+      this._minimapSprite.bitmap = MinimapManager._bitmap;
+    }
+  };
+
+  Widget_Minimap.prototype.refresh = function () {};
+
+  Widget_Minimap.prototype.collectFocusable = function () {};
+
+  // CustomSceneEngine에 등록 (엔진이 로드된 경우)
+  if (window.__customSceneEngine && window.__customSceneEngine.registerWidget) {
+    window.__customSceneEngine.registerWidget('minimap', Widget_Minimap);
+  }
 
 })();

@@ -191,7 +191,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'background' | 'panel' | 'label' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options';
+export type WidgetType = 'background' | 'panel' | 'label' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options' | 'minimap';
 
 export interface WidgetDefBase {
   id: string;
@@ -292,6 +292,10 @@ export interface WidgetDef_Options extends WidgetDefBase {
   options: OptionItemDef[];
 }
 
+export interface WidgetDef_Minimap extends WidgetDefBase {
+  type: 'minimap';
+}
+
 export type WidgetDef =
   | WidgetDef_Background
   | WidgetDef_Panel
@@ -302,7 +306,8 @@ export type WidgetDef =
   | WidgetDef_Button
   | WidgetDef_List
   | WidgetDef_RowSelector
-  | WidgetDef_Options;
+  | WidgetDef_Options
+  | WidgetDef_Minimap;
 
 export interface NavigationConfig {
   defaultFocus?: string;

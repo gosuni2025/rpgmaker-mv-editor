@@ -9,6 +9,7 @@ const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
   panel: '#4a6fa5', label: '#5a8a5a', image: '#8a5a8a',
   gauge: '#8a4a3a', separator: '#555',
   button: '#2675bf', list: '#2a7a3a', rowSelector: '#7a3a7a', options: '#7a5a2a',
+  minimap: '#2a6a7a',
 };
 
 const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
@@ -16,6 +17,7 @@ const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   panel: 'PANEL', label: 'LABEL', image: 'IMG',
   gauge: 'GAUGE', separator: 'SEP',
   button: 'BTN', list: 'LIST', rowSelector: 'SELECT', options: 'OPTS',
+  minimap: 'MAP',
 };
 
 export { WIDGET_TYPE_COLORS, WIDGET_TYPE_LABELS };
@@ -176,6 +178,7 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
         { name: 'ME 볼륨', symbol: 'meVolume' },
         { name: 'SE 볼륨', symbol: 'seVolume' },
       ] }; break;
+      case 'minimap': def = { id, type, x: 0, y: 0, width: 192, height: 192 }; break;
       default: return;
     }
     pushCustomSceneUndo();
@@ -184,13 +187,14 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
     onClose();
   };
 
-  const types: WidgetType[] = ['background', 'panel', 'label', 'image', 'gauge', 'separator', 'button', 'list', 'rowSelector', 'options'];
+  const types: WidgetType[] = ['background', 'panel', 'label', 'image', 'gauge', 'separator', 'button', 'list', 'rowSelector', 'options', 'minimap'];
   const typeLabels: Record<WidgetType, string> = {
     background: '배경 (맵 스크린샷)',
     panel: '패널', label: '레이블', image: '이미지',
     gauge: '게이지', separator: '구분선',
     button: '버튼', list: '리스트', rowSelector: '행 선택',
     options: '옵션(블랙박스)',
+    minimap: '미니맵 (Minimap 플러그인 필요)',
   };
 
   return (
