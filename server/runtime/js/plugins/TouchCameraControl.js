@@ -201,24 +201,23 @@
             ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
             ' _active=' + Mode3D._active +
             ' _perspCamera=' + !!Mode3D._perspCamera);
-        if (is3DActive()) {
-            var x = Graphics.pageToCanvasX(event.pageX);
-            var y = Graphics.pageToCanvasY(event.pageY);
-            if (Graphics.isInsideCanvas(x, y)) {
-                _dragState.active = true;
-                _dragState.startX = event.pageX;
-                _dragState.startY = event.pageY;
-                _dragState.lastX = event.pageX;
-                _dragState.lastY = event.pageY;
-                _dragState.moved = false;
-                _suppressNextDestination = false;
-                // 맵에서 실제로 이동 가능한 상태일 때만 터치 다운으로 기록
-                // (이벤트/선택지 등 다른 UI 처리 중에는 이동 불가 상태이므로 기록 안 함)
-                var scene = SceneManager._scene;
-                var mapTouchOk = scene && scene.isActive &&
-                                 scene.isActive() && $gamePlayer && $gamePlayer.canMove();
-                _mapTouchTriggered = !!mapTouchOk;
-            }
+        // is3DActive() 여부와 무관하게 항상 dragState 초기화
+        // 이유: mousedown 시점에 mode3d=false여도(타이틀→맵 전환 중 등),
+        // 이후 mousemove 시점에 is3DActive()=true가 되어 있으면 회전이 가능해야 함
+        var x = Graphics.pageToCanvasX(event.pageX);
+        var y = Graphics.pageToCanvasY(event.pageY);
+        if (Graphics.isInsideCanvas(x, y)) {
+            _dragState.active = true;
+            _dragState.startX = event.pageX;
+            _dragState.startY = event.pageY;
+            _dragState.lastX = event.pageX;
+            _dragState.lastY = event.pageY;
+            _dragState.moved = false;
+            _suppressNextDestination = false;
+            var scene = SceneManager._scene;
+            var mapTouchOk = scene && scene.isActive &&
+                             scene.isActive() && $gamePlayer && $gamePlayer.canMove();
+            _mapTouchTriggered = !!mapTouchOk;
         }
         _orig_onLeftButtonDown.call(this, event);
     };
@@ -248,6 +247,16 @@
         }
         // event.buttons & 1: 현재 왼쪽 버튼이 눌려있는지 직접 확인
         // (iframe 환경에서 _mousePressed가 설정되지 않는 경우 대응)
+        // mousedown이 mode3d=false 시점에 발생해 _dragState.active=false인 경우 복구
+        if (is3DActive() && (event.buttons & 1) && !_dragState.active) {
+            _dragState.active = true;
+            _dragState.startX = event.pageX;
+            _dragState.startY = event.pageY;
+            _dragState.lastX  = event.pageX;
+            _dragState.lastY  = event.pageY;
+            _dragState.moved  = false;
+            _suppressNextDestination = false;
+        }
         if (is3DActive() && _dragState.active && (event.buttons & 1)) {
             var dx = event.pageX - _dragState.lastX;
             var dy = event.pageY - _dragState.lastY;
