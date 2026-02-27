@@ -4,7 +4,7 @@ import { WindowInspector } from './UIEditorWindowInspector';
 import { ElementInspector } from './UIEditorElementInspector';
 import { useFontEditorData } from './UIEditorFontEditor';
 import { WidgetInspector } from './UIEditorCustomScenePanel';
-import type { WidgetDef, WidgetDef_Panel, WidgetDef_Button } from '../../store/uiEditorTypes';
+import type { WidgetDef, WidgetDef_Panel, WidgetDef_Button, CustomSceneDefV2 } from '../../store/uiEditorTypes';
 import './UIEditor.css';
 
 const ALL_FONTS = [
@@ -38,12 +38,17 @@ function SceneRedirectSection({ scene }: { scene: string }) {
     setSceneRedirects(next);
     setUiEditorDirty(true);
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    console.log('[SceneRedirect] handleChange | scene:', scene, '| target:', target, '| next:', JSON.stringify(next));
+    console.log('[SceneRedirect] iframe 존재:', !!iframe, '| contentWindow:', !!iframe?.contentWindow);
     iframe?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: next }, '*');
+    console.log('[SceneRedirect] postMessage(updateSceneRedirects) 전송 완료');
     // 현재 프리뷰 씬이 교체 대상이면 씬 재로드 (리다이렉트 즉시 반영)
     if (target?.startsWith('Scene_CS_')) {
       iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+      console.log('[SceneRedirect] postMessage(reloadCustomScenes) 전송 완료 ← 이후 파일의 sceneRedirects로 훅 덮어쓰기 위험!');
     }
     iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: scene }, '*');
+    console.log('[SceneRedirect] postMessage(loadScene:', scene, ') 전송 완료');
   };
 
   return (
@@ -110,11 +115,13 @@ function SceneInspector() {
   const customScenes = useEditorStore((s) => s.customScenes);
   const removeCustomScene = useEditorStore((s) => s.removeCustomScene);
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+  const updateCustomScene = useEditorStore((s) => s.updateCustomScene);
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
 
   const isCustomScene = uiEditorScene.startsWith('Scene_CS_');
   const customSceneId = isCustomScene ? uiEditorScene.replace('Scene_CS_', '') : null;
   const customScene = customSceneId ? customScenes.scenes[customSceneId] : null;
+  const isOverlay = !!(customScene as CustomSceneDefV2 | null)?.overlay;
 
   const handleDeleteCustomScene = async () => {
     if (!customSceneId || !customScene) return;
@@ -122,6 +129,15 @@ function SceneInspector() {
     removeCustomScene(customSceneId);
     await saveCustomScenes();
     setUiEditorScene('Scene_Menu');
+  };
+
+  const handleToggleOverlay = async () => {
+    if (!customSceneId) return;
+    updateCustomScene(customSceneId, { overlay: !isOverlay } as any);
+    await saveCustomScenes();
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
+    useEditorStore.getState().showToast(isOverlay ? '오버레이 모드 해제' : '오버레이 모드 활성화');
   };
 
   const [showFontPicker, setShowFontPicker] = useState(false);
@@ -167,10 +183,26 @@ function SceneInspector() {
             창을 선택하면 해당 창의 설정을 편집합니다
           </div>
           {isCustomScene && (
-            <div style={{ padding: '0 12px 8px' }}>
+            <div style={{ padding: '0 12px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: '#ccc', padding: '4px 0' }}>
+                <input
+                  type="checkbox"
+                  checked={isOverlay}
+                  onChange={handleToggleOverlay}
+                  style={{ accentColor: '#2675bf' }}
+                />
+                <span>오버레이 모드</span>
+                {isOverlay && <span style={{ fontSize: 10, background: '#2675bf', color: '#fff', padding: '1px 5px', borderRadius: 3 }}>OVERLAY</span>}
+              </label>
+              {isOverlay && (
+                <div style={{ fontSize: 11, color: '#888', lineHeight: 1.5, paddingLeft: 22 }}>
+                  씬 전환 없이 인게임 위에 표시됩니다.<br />
+                  플러그인 커맨드: <code style={{ color: '#adf' }}>OVERLAY SHOW {customSceneId}</code>
+                </div>
+              )}
               <button
                 className="ui-canvas-toolbar-btn"
-                style={{ width: '100%', fontSize: 11, color: '#f88' }}
+                style={{ width: '100%', fontSize: 11, color: '#f88', marginTop: 4 }}
                 onClick={handleDeleteCustomScene}
               >
                 이 커스텀 씬 삭제
@@ -179,7 +211,7 @@ function SceneInspector() {
           )}
         </div>
 
-        <SceneRedirectSection scene={uiEditorScene} />
+        {!isCustomScene && <SceneRedirectSection scene={uiEditorScene} />}
 
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">이 씬의 기본 폰트 설정</div>

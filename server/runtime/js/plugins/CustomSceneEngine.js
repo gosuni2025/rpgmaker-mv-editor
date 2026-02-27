@@ -13,6 +13,21 @@
  * ● 기본 동작
  *   UIEditorScenes.json이 없으면 아무 씬도 등록하지 않습니다.
  *
+ * ● 오버레이 씬 (Overlay Scene)
+ *   에디터에서 커스텀 씬의 "오버레이 모드"를 활성화하면,
+ *   씬 전환 없이 인게임 맵 위에 UI를 표시할 수 있습니다.
+ *   여러 오버레이를 동시에 표시할 수 있습니다.
+ *
+ *   플러그인 커맨드:
+ *     OVERLAY SHOW <sceneId>    — 오버레이 표시 (없으면 생성)
+ *     OVERLAY HIDE <sceneId>    — 오버레이 숨김
+ *     OVERLAY TOGGLE <sceneId>  — 토글
+ *     OVERLAY DESTROY <sceneId> — 오버레이 제거 (다음 SHOW 시 재생성)
+ *
+ *   커스텀 씬 내에서 customScene/gotoScene 액션의 target이 오버레이 씬이면
+ *   SceneManager.push 대신 OverlayManager.show를 자동 사용합니다.
+ *   popScene 액션은 오버레이를 숨깁니다.
+ *
  * ● 호환성
  *   RPG Maker MV 1.6.x 이상, NW.js 및 웹 브라우저 배포 모두 지원.
  *   이 플러그인은 에디터에서 자동으로 관리됩니다.
@@ -1539,8 +1554,14 @@
     if (!handler || !handler.action) return;
     switch (handler.action) {
       case 'gotoScene': {
-        var SceneCtor = window[handler.target];
-        if (SceneCtor) SceneManager.push(SceneCtor);
+        var gotoTarget = handler.target || '';
+        var gotoCsId = gotoTarget.startsWith('Scene_CS_') ? gotoTarget.replace('Scene_CS_', '') : '';
+        if (gotoCsId && OverlayManager._isOverlaySce(gotoCsId)) {
+          OverlayManager.show(gotoCsId);
+        } else {
+          var SceneCtor = window[gotoTarget];
+          if (SceneCtor) SceneManager.push(SceneCtor);
+        }
         break;
       }
       case 'popScene':
@@ -1556,9 +1577,14 @@
       }
       case 'customScene': {
         var target = handler.target || '';
-        var csName = target.startsWith('Scene_CS_') ? target : 'Scene_CS_' + target;
-        var CSCtor = window[csName];
-        if (CSCtor) SceneManager.push(CSCtor);
+        var csCsId = target.startsWith('Scene_CS_') ? target.replace('Scene_CS_', '') : target;
+        if (OverlayManager._isOverlaySce(csCsId)) {
+          OverlayManager.show(csCsId);
+        } else {
+          var csName = target.startsWith('Scene_CS_') ? target : 'Scene_CS_' + target;
+          var CSCtor = window[csName];
+          if (CSCtor) SceneManager.push(CSCtor);
+        }
         break;
       }
       case 'focusWidget': {
@@ -1810,9 +1836,13 @@
 
     switch (handler.action) {
       case 'gotoScene': {
-        var SceneCtor = window[handler.target];
-        if (SceneCtor) {
-          SceneManager.push(SceneCtor);
+        var gotoTarget2 = handler.target || '';
+        var gotoCsId2 = gotoTarget2.startsWith('Scene_CS_') ? gotoTarget2.replace('Scene_CS_', '') : '';
+        if (gotoCsId2 && OverlayManager._isOverlaySce(gotoCsId2)) {
+          OverlayManager.show(gotoCsId2);
+        } else {
+          var SceneCtor2 = window[gotoTarget2];
+          if (SceneCtor2) SceneManager.push(SceneCtor2);
         }
         break;
       }
@@ -1829,10 +1859,13 @@
       }
       case 'customScene': {
         var target = handler.target || '';
-        var csName = target.startsWith('Scene_CS_') ? target : 'Scene_CS_' + target;
-        var CSCtor = window[csName];
-        if (CSCtor) {
-          SceneManager.push(CSCtor);
+        var csCsId2 = target.startsWith('Scene_CS_') ? target.replace('Scene_CS_', '') : target;
+        if (OverlayManager._isOverlaySce(csCsId2)) {
+          OverlayManager.show(csCsId2);
+        } else {
+          var csName2 = target.startsWith('Scene_CS_') ? target : 'Scene_CS_' + target;
+          var CSCtor2 = window[csName2];
+          if (CSCtor2) SceneManager.push(CSCtor2);
         }
         break;
       }
@@ -1916,6 +1949,7 @@
   // 씬 리다이렉트 — SceneManager.goto/push 후킹
   //===========================================================================
   function installSceneRedirects(redirects) {
+    console.log('[CustomSceneEngine] installSceneRedirects 호출 | redirects:', JSON.stringify(redirects), '| 호출 스택:', new Error().stack.split('\n').slice(1, 4).join(' ← '));
     // 기존 패치 제거
     if (SceneManager._csOrigGoto) {
       SceneManager.goto = SceneManager._csOrigGoto;
@@ -1926,7 +1960,10 @@
       delete SceneManager._csOrigPush;
     }
 
-    if (!redirects || Object.keys(redirects).length === 0) return;
+    if (!redirects || Object.keys(redirects).length === 0) {
+      console.log('[CustomSceneEngine] installSceneRedirects: redirects 없음 → 후킹 제거됨');
+      return;
+    }
 
     SceneManager._csOrigGoto = SceneManager.goto;
     SceneManager._csOrigPush = SceneManager.push;
@@ -1935,9 +1972,11 @@
       if (!SceneCtor) return SceneCtor;
       var name = SceneCtor.name || '';
       var target = redirects[name];
+      console.log('[CustomSceneEngine] resolve:', name, '→', target ? target : '(리다이렉트 없음)', '| target 클래스 존재:', target ? !!window[target] : 'N/A');
       if (target) {
         var RedirCtor = window[target];
         if (RedirCtor) return RedirCtor;
+        console.warn('[CustomSceneEngine] resolve: target 클래스 없음:', target);
       }
       return SceneCtor;
     }
@@ -1948,16 +1987,150 @@
     SceneManager.push = function (SceneCtor) {
       return SceneManager._csOrigPush.call(this, resolve(SceneCtor));
     };
+    console.log('[CustomSceneEngine] installSceneRedirects 완료 | 후킹 설치됨 ✓');
   }
 
   function reloadCustomScenes() {
     _scenesData = loadJSON('data/UIEditorScenes.json');
     _configData = loadJSON('data/UIEditorConfig.json');
+    console.log('[CustomSceneEngine] reloadCustomScenes | configData.sceneRedirects:', JSON.stringify(_configData.sceneRedirects));
     registerCustomScenes();
     installSceneRedirects(_configData.sceneRedirects || {});
   }
 
+  //===========================================================================
+  // Scene_OverlayUI — OverlayManager가 관리하는 오버레이 씬
+  //===========================================================================
+  function Scene_OverlayUI() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Scene_OverlayUI.prototype = Object.create(Scene_CustomUI.prototype);
+  Scene_OverlayUI.prototype.constructor = Scene_OverlayUI;
+
+  // 오버레이에서 popScene → OverlayManager.hide (SceneManager 스택과 무관)
+  Scene_OverlayUI.prototype.popScene = function () {
+    OverlayManager.hide(this._sceneId);
+  };
+
+  //===========================================================================
+  // OverlayManager — 씬 스택과 독립적인 오버레이 레이어 관리
+  //===========================================================================
+  var OverlayManager = {
+    _instances: {}, // sceneId -> { container, scene }
+
+    _getStage: function () {
+      if (typeof Graphics === 'undefined') return null;
+      if (Graphics._app && Graphics._app.stage) return Graphics._app.stage;
+      if (Graphics._renderer && Graphics._renderer.stage) return Graphics._renderer.stage;
+      return null;
+    },
+
+    show: function (sceneId, args) {
+      var inst = this._instances[sceneId];
+      if (!inst) {
+        inst = this._create(sceneId, args);
+        if (!inst) return;
+        this._instances[sceneId] = inst;
+      }
+      inst.container.visible = true;
+    },
+
+    hide: function (sceneId) {
+      var inst = this._instances[sceneId];
+      if (inst) inst.container.visible = false;
+    },
+
+    toggle: function (sceneId) {
+      var inst = this._instances[sceneId];
+      if (!inst || !inst.container.visible) this.show(sceneId);
+      else this.hide(sceneId);
+    },
+
+    isVisible: function (sceneId) {
+      var inst = this._instances[sceneId];
+      return !!(inst && inst.container.visible);
+    },
+
+    destroy: function (sceneId) {
+      var inst = this._instances[sceneId];
+      if (inst) {
+        var stage = this._getStage();
+        if (stage && inst.container.parent === stage) stage.removeChild(inst.container);
+        delete this._instances[sceneId];
+      }
+    },
+
+    update: function () {
+      for (var id in this._instances) {
+        var inst = this._instances[id];
+        if (inst.container.visible) {
+          if (inst.scene.update) inst.scene.update();
+        }
+      }
+    },
+
+    _isOverlaySce: function (sceneId) {
+      var scenes = _scenesData.scenes || {};
+      var def = scenes[sceneId];
+      return !!(def && def.overlay);
+    },
+
+    _create: function (sceneId, args) {
+      if (!this._isOverlaySce(sceneId)) return null;
+
+      var stage = this._getStage();
+      if (!stage) return null;
+
+      var PIXI = window.PIXI;
+      if (!PIXI || !PIXI.Container) return null;
+
+      var container = new PIXI.Container();
+      stage.addChild(container);
+
+      var scene = new Scene_OverlayUI();
+      scene._sceneId = sceneId;
+      if (args && scene.prepare) scene.prepare.apply(scene, args);
+      scene.create();
+      container.addChild(scene);
+      if (scene.start) scene.start();
+
+      return { container: container, scene: scene };
+    },
+  };
+
+  window.OverlayManager = OverlayManager;
+
+  //===========================================================================
+  // SceneManager.update 훅 — 오버레이 업데이트
+  //===========================================================================
+  var _SceneManager_update = SceneManager.update;
+  SceneManager.update = function () {
+    _SceneManager_update.call(this);
+    OverlayManager.update();
+  };
+
+  //===========================================================================
+  // 플러그인 커맨드: OVERLAY SHOW/HIDE/TOGGLE/DESTROY <sceneId>
+  //===========================================================================
+  var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+  Game_Interpreter.prototype.pluginCommand = function (command, args) {
+    _Game_Interpreter_pluginCommand.call(this, command, args);
+    if (command.toUpperCase() === 'OVERLAY') {
+      var action = (args[0] || '').toUpperCase();
+      var sceneId = args[1] || '';
+      switch (action) {
+        case 'SHOW':    OverlayManager.show(sceneId);    break;
+        case 'HIDE':    OverlayManager.hide(sceneId);    break;
+        case 'TOGGLE':  OverlayManager.toggle(sceneId);  break;
+        case 'DESTROY': OverlayManager.destroy(sceneId); break;
+      }
+    }
+  };
+
+  //===========================================================================
   // 초기 등록
+  //===========================================================================
   registerCustomScenes();
   installSceneRedirects(_configData.sceneRedirects || {});
 
@@ -1967,5 +2140,6 @@
     updateSceneRedirects: function (redirects) {
       installSceneRedirects(redirects || {});
     },
+    overlayManager: OverlayManager,
   };
 })();

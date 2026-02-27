@@ -315,4 +315,6 @@ export interface CustomSceneDefV2 extends Omit<CustomSceneDef, 'windows'> {
   root?: WidgetDef;
   navigation?: NavigationConfig;
   windows?: CustomWindowDef[];
+  /** true: 씬 전환 없이 인게임 위에 그리는 오버레이 모드 */
+  overlay?: boolean;
 }
