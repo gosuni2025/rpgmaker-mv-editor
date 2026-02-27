@@ -540,11 +540,12 @@ export async function buildDeployZipWithProgress(
     const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
     const zipExcludeDirs = opts.bundle ? ['img', 'audio', 'data'] : [];
     // bundle=false이면 img/, audio/를 원본에서 직접 archive에 스트리밍 (staging 복사 없음)
+    // imgInStaging=true이면 img/는 staging에 있으므로 archive.directory가 처리 — directEntries 제외
     const directEntries: { src: string; name: string }[] = [];
     if (!opts.bundle) {
       for (const rel of largeFiles) {
-        const inStaging = rel.startsWith('img/') && imgInStaging;
-        directEntries.push({ src: path.join(inStaging ? stagingDir : srcPath, rel), name: rel });
+        if (rel.startsWith('img/') && imgInStaging) continue;
+        directEntries.push({ src: path.join(srcPath, rel), name: rel });
       }
     }
     await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot, name) => {
