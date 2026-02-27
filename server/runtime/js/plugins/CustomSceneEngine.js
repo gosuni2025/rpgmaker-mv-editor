@@ -1059,7 +1059,10 @@
   };
   Widget_Gauge.prototype.refresh = function() {
     if (!this._bitmap) return;
-    var w = this._width; var h = this._height || 36;
+    var w = this._width;
+    var h = this._height || 36;
+    var barH = this._barH || Math.max(6, Math.round(h * 0.35));
+    var barY = (this._textH !== undefined) ? this._textH : (h - barH);
     this._bitmap.clear();
     this._drawDecoBg(this._bitmap, w, h, this._def);
     var label = '', cur = 0, max = 1;
@@ -1090,30 +1093,21 @@
         var fX = sd.gaugeFillX || 0, fY = sd.gaugeFillY || 0;
         var fW = sd.gaugeFillW || 0, fH = sd.gaugeFillH || 0;
         var fillDir = sd.gaugeFillDir || 'horizontal';
-        // 배경
+        // 배경 (bar 영역)
         if (bgW > 0 && bgH > 0) {
-          this._bitmap.blt(this._skinBitmap, bgX, bgY, bgW, bgH, 0, 0, w, h);
+          this._bitmap.blt(this._skinBitmap, bgX, bgY, bgW, bgH, 0, barY, w, barH);
         }
         // 채움 (rate에 따라 클리핑)
         if (fW > 0 && fH > 0) {
           if (fillDir === 'horizontal') {
             var fillW = Math.floor(w * rate);
             var srcFillW = Math.floor(fW * rate);
-            if (fillW > 0) this._bitmap.blt(this._skinBitmap, fX, fY, srcFillW, fH, 0, 0, fillW, h);
+            if (fillW > 0) this._bitmap.blt(this._skinBitmap, fX, fY, srcFillW, fH, 0, barY, fillW, barH);
           } else {
-            var fillH = Math.floor(h * rate);
+            var fillH = Math.floor(barH * rate);
             var srcFillH = Math.floor(fH * rate);
-            if (fillH > 0) this._bitmap.blt(this._skinBitmap, fX, fY + fH - srcFillH, fW, srcFillH, 0, h - fillH, w, fillH);
+            if (fillH > 0) this._bitmap.blt(this._skinBitmap, fX, fY + fH - srcFillH, fW, srcFillH, 0, barY + barH - fillH, w, fillH);
           }
-        }
-        // 레이블 / 수치
-        this._bitmap.fontSize = 20;
-        this._bitmap.textColor = '#ffffff';
-        if (this._showLabel) {
-          this._bitmap.drawText(label, 0, 0, 60, h, 'left');
-        }
-        if (this._showValue) {
-          this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h, 'right');
         }
       } else if (this._gaugeRenderMode === 'palette' && this._skinData && this._skinBitmap && this._skinBitmap.isReady()) {
         // 팔레트 모드 — 스킨 이미지에서 색상 샘플링 → gradientFillRect
@@ -1123,9 +1117,9 @@
         var fX2 = sd2.gaugeFillX || 0, fY2 = sd2.gaugeFillY || 0;
         var fW2 = sd2.gaugeFillW || 0, fH2 = sd2.gaugeFillH || 0;
         var fillDir2 = sd2.gaugeFillDir || 'horizontal';
-        // 배경 blt
+        // 배경 blt (bar 영역)
         if (bgW2 > 0 && bgH2 > 0) {
-          this._bitmap.blt(this._skinBitmap, bgX2, bgY2, bgW2, bgH2, 0, 0, w, h);
+          this._bitmap.blt(this._skinBitmap, bgX2, bgY2, bgW2, bgH2, 0, barY, w, barH);
         }
         // fill 영역에서 색상 샘플링 (horizontal: 좌/우 픽셀, vertical: 상/하 픽셀)
         var color1P, color2P;
@@ -1142,27 +1136,15 @@
         }
         if (!color1P) color1P = '#20c020';
         if (!color2P) color2P = '#60e060';
-        var fillW3 = Math.floor(w * rate);
-        if (fillW3 > 0) {
-          if (fillDir2 === 'vertical') {
-            var fillH3 = Math.floor(h * rate);
-            this._bitmap.gradientFillRect(0, h - fillH3, w, fillH3, color1P, color2P, true);
-          } else {
-            this._bitmap.gradientFillRect(0, 0, fillW3, h, color1P, color2P);
-          }
-        }
-        this._bitmap.fontSize = 20;
-        this._bitmap.textColor = '#ffffff';
-        if (this._showLabel) {
-          this._bitmap.drawText(label, 0, 0, 60, h, 'left');
-        }
-        if (this._showValue) {
-          this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h, 'right');
+        if (fillDir2 === 'vertical') {
+          var fillH3 = Math.floor(barH * rate);
+          if (fillH3 > 0) this._bitmap.gradientFillRect(0, barY + barH - fillH3, w, fillH3, color1P, color2P, true);
+        } else {
+          var fillW3 = Math.floor(w * rate);
+          if (fillW3 > 0) this._bitmap.gradientFillRect(0, barY, fillW3, barH, color1P, color2P);
         }
       } else {
         // 팔레트 폴백 — 스킨 없을 때 Window.png textColor 기반 그라디언트
-        var gaugeH = 6;
-        var gaugeY = h - gaugeH - 2;
         var color1, color2, bgColor;
         if (this._windowSkin && this._windowSkin.isReady()) {
           var ws = this._windowSkin;
@@ -1193,18 +1175,41 @@
             default:   color1 = '#20c020'; color2 = '#60e060'; break;
           }
         }
-        this._bitmap.fillRect(0, gaugeY, w, gaugeH, bgColor || '#202020');
+        this._bitmap.fillRect(0, barY, w, barH, bgColor || '#202020');
         var fillW2 = Math.floor(w * rate);
         if (fillW2 > 0) {
-          this._bitmap.gradientFillRect(0, gaugeY, fillW2, gaugeH, color1, color2);
+          this._bitmap.gradientFillRect(0, barY, fillW2, barH, color1, color2);
         }
-        this._bitmap.fontSize = 20;
-        this._bitmap.textColor = '#ffffff';
-        if (this._showLabel) {
-          this._bitmap.drawText(label, 0, 0, 60, h - gaugeH - 4, 'left');
+      }
+    }
+    // 서브스프라이트(이름/현재값/최대값) 갱신
+    if (this._nameSprite || this._curSprite || this._maxSprite) {
+      var fs = Math.max(10, (this._textH || 16) - 4);
+      if (this._nameSprite) {
+        this._nameSprite.bitmap.clear();
+        this._nameSprite.visible = !!(this._showLabel && hasValue);
+        if (this._showLabel && hasValue) {
+          this._nameSprite.bitmap.fontSize = fs;
+          this._nameSprite.bitmap.textColor = '#ffffff';
+          this._nameSprite.bitmap.drawText(label, 2, 0, this._nSprW - 2, this._textH, 'left');
         }
-        if (this._showValue) {
-          this._bitmap.drawText(cur + '/' + max, 60, 0, w - 60, h - gaugeH - 4, 'right');
+      }
+      if (this._curSprite) {
+        this._curSprite.bitmap.clear();
+        this._curSprite.visible = !!(this._showValue && hasValue);
+        if (this._showValue && hasValue) {
+          this._curSprite.bitmap.fontSize = fs;
+          this._curSprite.bitmap.textColor = '#ffffff';
+          this._curSprite.bitmap.drawText(String(cur), 0, 0, this._cSprW, this._textH, 'right');
+        }
+      }
+      if (this._maxSprite) {
+        this._maxSprite.bitmap.clear();
+        this._maxSprite.visible = !!(this._showValue && hasValue);
+        if (this._showValue && hasValue) {
+          this._maxSprite.bitmap.fontSize = fs;
+          this._maxSprite.bitmap.textColor = '#aaaaaa';
+          this._maxSprite.bitmap.drawText('/' + String(max), 2, 0, this._mSprW - 2, this._textH, 'left');
         }
       }
     }

@@ -69,12 +69,12 @@ export function computeUpdates(
     updates.width = Math.max(32, Math.round(ww + dx));
   }
   if (dir === 'n' || dir === 'nw' || dir === 'ne') {
-    const newH = Math.max(32, wh - dy);
+    const newH = Math.max(8, wh - dy);
     updates.y = Math.round(wy + wh - newH);
     updates.height = Math.round(newH);
   }
   if (dir === 's' || dir === 'sw' || dir === 'se') {
-    updates.height = Math.max(32, Math.round(wh + dy));
+    updates.height = Math.max(8, Math.round(wh + dy));
   }
   return updates;
 }
