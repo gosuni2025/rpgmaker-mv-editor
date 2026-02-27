@@ -496,20 +496,26 @@ export async function buildDeployZipWithProgress(
       projectIsWebp = !hasPng(srcImgDir) && hasWebp(srcImgDir);
     }
 
-    // WebP 변환이 필요하면 img/만 staging에 복사 후 변환
+    // WebP 변환: PNG 파일만 staging에 복사해서 변환
+    // 이미 WebP인 파일은 복사하지 않고 srcPath에서 직접 스트리밍
     let imgInStaging = false;
+    const imgWebpSrcRels: string[] = []; // 변환 불필요한 원본 WebP 파일 (srcPath에 위치)
     if (opts.convertWebp && !projectIsWebp) {
-      onEvent({ type: 'status', phase: 'patching' });
-      onEvent({ type: 'log', message: '── WebP 변환 중 ──' });
-      for (const rel of largeFiles.filter(r => r.startsWith('img/'))) {
-        const dest = path.join(stagingDir, rel);
-        fs.mkdirSync(path.dirname(dest), { recursive: true });
-        fs.copyFileSync(path.join(srcPath, rel), dest);
+      const imgPngRels = largeFiles.filter(r => r.startsWith('img/') && r.toLowerCase().endsWith('.png'));
+      imgWebpSrcRels.push(...largeFiles.filter(r => r.startsWith('img/') && !r.toLowerCase().endsWith('.png')));
+      if (imgPngRels.length > 0) {
+        onEvent({ type: 'status', phase: 'patching' });
+        onEvent({ type: 'log', message: '── WebP 변환 중 ──' });
+        for (const rel of imgPngRels) {
+          const dest = path.join(stagingDir, rel);
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.copyFileSync(path.join(srcPath, rel), dest);
+        }
+        const webpCount = await convertImagesToWebP(stagingDir, onEvent);
+        onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개)` });
+        projectIsWebp = webpCount > 0;
+        imgInStaging = webpCount > 0;
       }
-      const webpCount = await convertImagesToWebP(stagingDir, onEvent);
-      onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개)` });
-      projectIsWebp = webpCount > 0;
-      imgInStaging = webpCount > 0;
     } else if (projectIsWebp) {
       onEvent({ type: 'log', message: '✓ 이미 WebP로 변환된 프로젝트 — 변환 생략' });
     }
@@ -519,14 +525,20 @@ export async function buildDeployZipWithProgress(
     applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
 
     if (opts.bundle) {
-      // staging에 없는 img/, audio/는 원본에서 직접 읽어 번들 생성
       const extDirs = new Map<string, BundleFileEntry[]>();
-      if (!imgInStaging) {
-        const imgEntries = largeFiles
-          .filter(r => r.startsWith('img/'))
-          .map(r => ({ absPath: path.join(srcPath, r), zipName: r.slice(4), size: fs.statSync(path.join(srcPath, r)).size }));
-        if (imgEntries.length > 0) extDirs.set('img', imgEntries);
+      // img/: staging 변환 파일(PNG→WebP) + srcPath 원본 WebP 파일 합산
+      const imgExtEntries: BundleFileEntry[] = [];
+      if (imgInStaging) {
+        const stagingImgDir = path.join(stagingDir, 'img');
+        if (fs.existsSync(stagingImgDir)) imgExtEntries.push(...collectBundleEntries(stagingImgDir));
       }
+      const imgSrcRels = imgInStaging
+        ? imgWebpSrcRels                            // 변환됐으면 원본 WebP만
+        : largeFiles.filter(r => r.startsWith('img/')); // 변환 없으면 전체
+      for (const rel of imgSrcRels) {
+        imgExtEntries.push({ absPath: path.join(srcPath, rel), zipName: rel.slice(4), size: fs.statSync(path.join(srcPath, rel)).size });
+      }
+      if (imgExtEntries.length > 0) extDirs.set('img', imgExtEntries);
       const audioEntries = largeFiles
         .filter(r => r.startsWith('audio/'))
         .map(r => ({ absPath: path.join(srcPath, r), zipName: r.slice(6), size: fs.statSync(path.join(srcPath, r)).size }));
@@ -539,12 +551,14 @@ export async function buildDeployZipWithProgress(
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
     const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
     const zipExcludeDirs = opts.bundle ? ['img', 'audio', 'data'] : [];
-    // bundle=false이면 img/, audio/를 원본에서 직접 archive에 스트리밍 (staging 복사 없음)
-    // imgInStaging=true이면 img/는 staging에 있으므로 archive.directory가 처리 — directEntries 제외
+    // bundle=false: img/audio를 srcPath에서 직접 스트리밍
+    // imgInStaging=true인 경우 PNG→WebP 변환된 파일은 staging에 있으므로 archive.directory가 처리,
+    // srcPath의 원본 WebP 파일(imgWebpSrcRels)만 directEntries에 추가
+    const imgWebpSrcSet = new Set(imgWebpSrcRels);
     const directEntries: { src: string; name: string }[] = [];
     if (!opts.bundle) {
       for (const rel of largeFiles) {
-        if (rel.startsWith('img/') && imgInStaging) continue;
+        if (rel.startsWith('img/') && imgInStaging && !imgWebpSrcSet.has(rel)) continue;
         directEntries.push({ src: path.join(srcPath, rel), name: rel });
       }
     }
