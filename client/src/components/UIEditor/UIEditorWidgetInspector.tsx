@@ -450,6 +450,10 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
             <input type="checkbox" checked={widget.visible !== false}
               onChange={(e) => update({ visible: e.target.checked } as any)} /> 표시
           </label>
+          <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12 }}>
+            <input type="checkbox" checked={widget.previewSelectable !== false}
+              onChange={(e) => update({ previewSelectable: e.target.checked ? undefined : false } as any)} /> preview 선택
+          </label>
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import type { UIWindowInfo, UIWindowOverride } from '../../store/types';
-import type { WidgetDef_Panel } from '../../store/uiEditorTypes';
+import type { WidgetDef, WidgetDef_Panel } from '../../store/uiEditorTypes';
 import {
   GAME_W, GAME_H, RESIZE_HANDLES,
   type HandleDir, type DragState, type WidgetAbsPos, type WidgetDragState,
@@ -57,6 +57,13 @@ export default function UIEditorCanvas() {
   const widgetOrderedIds = useMemo(() => {
     if (!customScene?.root) return [] as string[];
     return flattenWidgetIds(customScene.root as WidgetDef_Panel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customScene?.root]);
+  const widgetById = useMemo(() => {
+    const map = new Map<string, WidgetDef>();
+    function walk(w: WidgetDef) { map.set(w.id, w); (w.children || []).forEach(walk); }
+    if (customScene?.root) walk(customScene.root as WidgetDef);
+    return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customScene?.root]);
 
@@ -398,6 +405,7 @@ export default function UIEditorCanvas() {
               .map(id => {
                 const pos = widgetPositions.get(id);
                 if (!pos) return null;
+                if (widgetById.get(id)?.previewSelectable === false) return null;
                 const isSel = id === customSceneSelectedWidget;
                 return (
                   <div

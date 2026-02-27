@@ -201,6 +201,8 @@ export interface WidgetDefBase {
   width: number;
   height?: number;
   visible?: boolean;
+  /** false로 설정하면 preview에서 클릭 선택 불가 (로직 위젯 등) */
+  previewSelectable?: boolean;
   children?: WidgetDef[];
 }
 
