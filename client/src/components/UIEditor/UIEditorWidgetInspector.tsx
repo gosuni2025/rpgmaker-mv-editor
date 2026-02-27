@@ -611,34 +611,50 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
               <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0 = 커서 정렬</span>
             </div>
             <label style={{ ...labelStyle, marginTop: 6 }}>OK 핸들러 <span style={{ color: '#666', fontWeight: 'normal' }}>(비워두면 selectActor 동작)</span></label>
-            <ActionHandlerEditor
-              handler={(widget as WidgetDef_RowSelector).handlers?.['ok'] || null as any}
-              onChange={(updates) => {
-                const h = (widget as WidgetDef_RowSelector).handlers || {};
-                update({ handlers: { ...h, ok: { ...(h['ok'] || { action: 'popScene' as CommandActionType }), ...updates } } } as any);
-              }}
-            />
-            {(widget as WidgetDef_RowSelector).handlers?.['ok'] && (
-              <button style={{ ...smallBtnStyle, color: '#c66', marginTop: 2 }}
+            {(widget as WidgetDef_RowSelector).handlers?.['ok'] ? (
+              <>
+                <ActionHandlerEditor
+                  handler={(widget as WidgetDef_RowSelector).handlers!['ok']}
+                  onChange={(updates) => {
+                    const h = (widget as WidgetDef_RowSelector).handlers || {};
+                    update({ handlers: { ...h, ok: { ...h['ok']!, ...updates } } } as any);
+                  }}
+                />
+                <button style={{ ...smallBtnStyle, color: '#c66', marginTop: 2 }}
+                  onClick={() => {
+                    const { ok: _ok, ...rest } = (widget as WidgetDef_RowSelector).handlers || {};
+                    update({ handlers: Object.keys(rest).length ? rest : undefined } as any);
+                  }}>OK 핸들러 제거</button>
+              </>
+            ) : (
+              <button style={{ ...smallBtnStyle, marginTop: 2 }}
                 onClick={() => {
-                  const { ok: _ok, ...rest } = (widget as WidgetDef_RowSelector).handlers || {};
-                  update({ handlers: Object.keys(rest).length ? rest : undefined } as any);
-                }}>OK 핸들러 제거</button>
+                  const h = (widget as WidgetDef_RowSelector).handlers || {};
+                  update({ handlers: { ...h, ok: { action: 'popScene' as CommandActionType } } } as any);
+                }}>+ OK 핸들러 추가</button>
             )}
             <label style={{ ...labelStyle, marginTop: 6 }}>Cancel 핸들러 <span style={{ color: '#666', fontWeight: 'normal' }}>(비워두면 기본 네비게이션)</span></label>
-            <ActionHandlerEditor
-              handler={(widget as WidgetDef_RowSelector).handlers?.['cancel'] || null as any}
-              onChange={(updates) => {
-                const h = (widget as WidgetDef_RowSelector).handlers || {};
-                update({ handlers: { ...h, cancel: { ...(h['cancel'] || { action: 'popScene' as CommandActionType }), ...updates } } } as any);
-              }}
-            />
-            {(widget as WidgetDef_RowSelector).handlers?.['cancel'] && (
-              <button style={{ ...smallBtnStyle, color: '#c66', marginTop: 2 }}
+            {(widget as WidgetDef_RowSelector).handlers?.['cancel'] ? (
+              <>
+                <ActionHandlerEditor
+                  handler={(widget as WidgetDef_RowSelector).handlers!['cancel']}
+                  onChange={(updates) => {
+                    const h = (widget as WidgetDef_RowSelector).handlers || {};
+                    update({ handlers: { ...h, cancel: { ...h['cancel']!, ...updates } } } as any);
+                  }}
+                />
+                <button style={{ ...smallBtnStyle, color: '#c66', marginTop: 2 }}
+                  onClick={() => {
+                    const { cancel: _cancel, ...rest } = (widget as WidgetDef_RowSelector).handlers || {};
+                    update({ handlers: Object.keys(rest).length ? rest : undefined } as any);
+                  }}>Cancel 핸들러 제거</button>
+              </>
+            ) : (
+              <button style={{ ...smallBtnStyle, marginTop: 2 }}
                 onClick={() => {
-                  const { cancel: _cancel, ...rest } = (widget as WidgetDef_RowSelector).handlers || {};
-                  update({ handlers: Object.keys(rest).length ? rest : undefined } as any);
-                }}>Cancel 핸들러 제거</button>
+                  const h = (widget as WidgetDef_RowSelector).handlers || {};
+                  update({ handlers: { ...h, cancel: { action: 'popScene' as CommandActionType } } } as any);
+                }}>+ Cancel 핸들러 추가</button>
             )}
           </>
         )}
