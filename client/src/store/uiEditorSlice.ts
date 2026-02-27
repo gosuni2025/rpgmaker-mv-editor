@@ -54,7 +54,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'addWidget' | 'removeWidget' | 'updateWidget' | 'moveWidgetWithChildren' | 'reorderWidgetInTree' | 'updateNavigation' | 'updateSceneRoot'
 >> = (set, get) => ({
   editorMode: 'map',
-  uiEditorScene: 'Scene_Options',
+  uiEditorScene: (() => { try { const tb = JSON.parse(localStorage.getItem(TOOLBAR_STORAGE_KEY) || '{}'); return tb.uiEditorScene || 'Scene_Options'; } catch { return 'Scene_Options'; } })(),
   uiEditorIframeReady: false,
   uiEditorWindows: [],
   uiEditorOriginalWindows: [],
@@ -117,7 +117,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   customScenesRedoStack: [],
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
-  setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorOriginalWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
+  setUiEditorScene: (scene) => { saveToolbarKeys({ uiEditorScene: scene }); set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorOriginalWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }); },
   setUiEditorIframeReady: (ready) => set({ uiEditorIframeReady: ready }),
   setUiEditorWindows: (windows: UIWindowInfo[]) => set({ uiEditorWindows: windows }),
   setUiEditorOriginalWindows: (windows: UIWindowInfo[]) => set({ uiEditorOriginalWindows: windows }),
