@@ -256,9 +256,14 @@ export interface WidgetDef_Image extends WidgetDefBase {
 
 export interface WidgetDef_Gauge extends WidgetDefBase {
   type: 'gauge';
-  gaugeType: 'hp' | 'mp' | 'tp';
-  actorIndex: number;
-  gaugeRenderMode?: 'palette' | 'image';  // palette: Window.png 팔레트 기반, image: 스킨 이미지 기반
+  // expr 방식 (우선): JS 표현식으로 값을 동적으로 평가
+  valueExpr?: string;   // e.g. "$gameParty.members()[0].hp"
+  maxExpr?: string;     // e.g. "$gameParty.members()[0].mhp"
+  labelExpr?: string;   // e.g. "'HP'"
+  // 레거시 방식 (하위 호환): hp/mp/tp + actorIndex
+  gaugeType?: 'hp' | 'mp' | 'tp';
+  actorIndex?: number;
+  gaugeRenderMode?: 'palette' | 'image';
   gaugeSkinId?: string;
   showLabel?: boolean;
   showValue?: boolean;

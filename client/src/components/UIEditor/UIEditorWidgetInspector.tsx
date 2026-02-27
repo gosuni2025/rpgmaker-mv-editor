@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType, ImageSource,
@@ -429,7 +429,16 @@ const SCENE_W = 816, SCENE_H = 624;
 export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetDef }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const moveWidgetWithChildren = useEditorStore((s) => s.moveWidgetWithChildren);
+  const projectPath = useEditorStore((s) => s.projectPath);
   const update = (updates: Partial<WidgetDef>) => updateWidget(sceneId, widget.id, updates);
+
+  const [gaugeSkinNames, setGaugeSkinNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!projectPath || widget.type !== 'gauge') return;
+    fetch('/api/ui-editor/skins').then(r => r.json()).then(d => {
+      setGaugeSkinNames((d.skins || []).map((s: { name: string }) => s.name));
+    }).catch(() => {});
+  }, [projectPath, widget.type]);
 
   const w = widget.width;
   const h = widget.height ?? 0;
@@ -601,62 +610,55 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
             </div>
           </div>
         )}
-        {widget.type === 'gauge' && (
-          <div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 타입</span>
-              <select style={{ ...selectStyle, flex: 1 }}
-                value={(widget as WidgetDef_Gauge).gaugeType}
-                onChange={(e) => update({ gaugeType: e.target.value as any } as any)}>
-                <option value="hp">HP</option>
-                <option value="mp">MP</option>
-                <option value="tp">TP</option>
-              </select>
-            </div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 70 }}>액터 인덱스</span>
-              <input style={{ ...inputStyle, width: 60 }} type="number"
-                value={(widget as WidgetDef_Gauge).actorIndex}
-                onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
-            </div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 70 }}>렌더 방식</span>
-              <select style={{ ...selectStyle, flex: 1 }}
-                value={(widget as WidgetDef_Gauge).gaugeRenderMode || 'palette'}
-                onChange={(e) => update({ gaugeRenderMode: e.target.value as any } as any)}>
-                <option value="palette">팔레트 (Window.png 색상)</option>
-                <option value="image">이미지 (스킨 파일)</option>
-              </select>
-            </div>
-            {((widget as WidgetDef_Gauge).gaugeRenderMode || 'palette') === 'image' && (
+        {widget.type === 'gauge' && (() => {
+          const g = widget as WidgetDef_Gauge;
+          return (
+            <div>
               <div style={rowStyle}>
-                <span style={{ fontSize: 11, color: '#888', width: 70 }}>스킨 ID</span>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>현재값 식</span>
                 <input style={{ ...inputStyle, flex: 1 }}
-                  placeholder="UIEditorSkins.json의 스킨 name"
-                  value={(widget as WidgetDef_Gauge).gaugeSkinId || ''}
-                  onChange={(e) => update({ gaugeSkinId: e.target.value || undefined } as any)} />
+                  placeholder="e.g. $gameParty.members()[0].hp"
+                  value={g.valueExpr || ''}
+                  onChange={(e) => update({ valueExpr: e.target.value || undefined } as any)} />
               </div>
-            )}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
-              <input
-                type="checkbox"
-                checked={(widget as WidgetDef_Gauge).showLabel !== false}
-                onChange={(e) => update({ showLabel: e.target.checked } as any)}
-                style={{ accentColor: '#4af', cursor: 'pointer' }}
-              />
-              레이블 표시 (HP/MP/TP)
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
-              <input
-                type="checkbox"
-                checked={(widget as WidgetDef_Gauge).showValue !== false}
-                onChange={(e) => update({ showValue: e.target.checked } as any)}
-                style={{ accentColor: '#4af', cursor: 'pointer' }}
-              />
-              수치 표시 (현재/최대)
-            </label>
-          </div>
-        )}
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>최대값 식</span>
+                <input style={{ ...inputStyle, flex: 1 }}
+                  placeholder="e.g. $gameParty.members()[0].mhp"
+                  value={g.maxExpr || ''}
+                  onChange={(e) => update({ maxExpr: e.target.value || undefined } as any)} />
+              </div>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>레이블 식</span>
+                <input style={{ ...inputStyle, flex: 1 }}
+                  placeholder="e.g. 'HP'"
+                  value={g.labelExpr || ''}
+                  onChange={(e) => update({ labelExpr: e.target.value || undefined } as any)} />
+              </div>
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 스킨</span>
+                <select style={{ ...selectStyle, flex: 1 }}
+                  value={g.gaugeSkinId || ''}
+                  onChange={(e) => update({ gaugeSkinId: e.target.value || undefined } as any)}>
+                  <option value="">(없음 — Window.png 폴백)</option>
+                  {gaugeSkinNames.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={g.showLabel !== false}
+                  onChange={(e) => update({ showLabel: e.target.checked } as any)}
+                  style={{ accentColor: '#4af', cursor: 'pointer' }} />
+                레이블 표시
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={g.showValue !== false}
+                  onChange={(e) => update({ showValue: e.target.checked } as any)}
+                  style={{ accentColor: '#4af', cursor: 'pointer' }} />
+                수치 표시 (현재/최대)
+              </label>
+            </div>
+          );
+        })()}
         {widget.type === 'image' && (() => {
           const img = widget as WidgetDef_Image;
           const src: ImageSource = img.imageSource || 'file';

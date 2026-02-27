@@ -998,7 +998,10 @@
   Widget_Gauge.prototype.constructor = Widget_Gauge;
   Widget_Gauge.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._gaugeType = def.gaugeType || 'hp';
+    this._valueExpr  = def.valueExpr  || null;
+    this._maxExpr    = def.maxExpr    || null;
+    this._labelExpr  = def.labelExpr  || null;
+    this._gaugeType  = def.gaugeType  || 'hp';
     this._actorIndex = def.actorIndex || 0;
     this._gaugeRenderMode = def.gaugeRenderMode || 'palette';
     this._gaugeSkinId = def.gaugeSkinId || null;
@@ -1036,19 +1039,25 @@
     var w = this._width; var h = this._height || 36;
     this._bitmap.clear();
     this._drawDecoBg(this._bitmap, w, h, this._def);
-    var actor = null;
-    if (typeof $gameParty !== 'undefined') {
-      actor = $gameParty.members()[this._actorIndex];
-    }
-    if (actor) {
-      var w = this._width;
-      var h = this._height || 36;
-      var label = '', cur = 0, max = 1;
-      switch (this._gaugeType) {
-        case 'hp': label='HP'; cur=actor.hp; max=actor.mhp; break;
-        case 'mp': label='MP'; cur=actor.mp; max=actor.mmp; break;
-        case 'tp': label='TP'; cur=actor.tp; max=actor.maxTp(); break;
+    var label = '', cur = 0, max = 1;
+    var hasValue = false;
+    if (this._valueExpr) {
+      try { cur = Number(eval(this._valueExpr)) || 0; } catch(e) { cur = 0; }
+      try { max = Number(eval(this._maxExpr))   || 1; } catch(e) { max = 1; }
+      try { label = this._labelExpr ? String(eval(this._labelExpr)) : ''; } catch(e) { label = ''; }
+      hasValue = true;
+    } else if (typeof $gameParty !== 'undefined') {
+      var actor = $gameParty.members()[this._actorIndex];
+      if (actor) {
+        switch (this._gaugeType) {
+          case 'hp': label='HP'; cur=actor.hp; max=actor.mhp; break;
+          case 'mp': label='MP'; cur=actor.mp; max=actor.mmp; break;
+          case 'tp': label='TP'; cur=actor.tp; max=actor.maxTp(); break;
+        }
+        hasValue = true;
       }
+    }
+    if (hasValue) {
       var rate = max > 0 ? cur / max : 0;
       // 이미지 기반 게이지 렌더링
       if (this._gaugeRenderMode === 'image' && this._skinData && this._skinBitmap && this._skinBitmap.isReady()) {
