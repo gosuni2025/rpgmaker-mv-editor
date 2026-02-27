@@ -1032,6 +1032,29 @@
     if (!this._skinData) {
       this._windowSkin = ImageManager.loadSystem('Window');
     }
+    // 텍스트 서브스프라이트 (이름/현재값/최대값)
+    var h0 = this._height || 36;
+    var barH0 = Math.max(6, Math.round(h0 * 0.35));
+    var textH0 = h0 - barH0;
+    this._barH = barH0;
+    this._textH = textH0;
+    if (textH0 >= 8) {
+      var nw = Math.max(24, Math.round(this._width * 0.28));
+      var cw = Math.max(24, Math.round(this._width * 0.36));
+      var mw = Math.max(8, this._width - nw - cw);
+      this._nameSprite = new Sprite(new Bitmap(nw, textH0));
+      this._nameSprite.x = 0; this._nameSprite.y = 0;
+      sprite.addChild(this._nameSprite);
+      this._curSprite = new Sprite(new Bitmap(cw, textH0));
+      this._curSprite.x = nw; this._curSprite.y = 0;
+      sprite.addChild(this._curSprite);
+      this._maxSprite = new Sprite(new Bitmap(mw, textH0));
+      this._maxSprite.x = nw + cw; this._maxSprite.y = 0;
+      sprite.addChild(this._maxSprite);
+      this._nSprW = nw; this._cSprW = cw; this._mSprW = mw;
+    } else {
+      this._nameSprite = this._curSprite = this._maxSprite = null;
+    }
     this.refresh();
   };
   Widget_Gauge.prototype.refresh = function() {
@@ -1396,6 +1419,7 @@
     this._handlersDef = def.handlers || {};
     this._dataScript = def.dataScript || null;
     this._onCursorDef = def.onCursor || null;
+    this._autoHeight = def.autoHeight || false;
     var listDef = {
       id: def.id, width: def.width,
       commands: this._items,
@@ -1429,6 +1453,9 @@
       var items = (new Function('return (' + this._dataScript + ')'))();
       if (!Array.isArray(items)) items = [];
       this._window._winDef.commands = items;
+      if (this._autoHeight) {
+        this._window.height = items.length > 0 ? this._window.fittingHeight(items.length) : 0;
+      }
       if (this._window.refresh) this._window.refresh();
     } catch(e) {
       console.error('[Widget_List] dataScript error:', e);

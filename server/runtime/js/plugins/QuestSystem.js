@@ -689,40 +689,15 @@
   };
 
 
-  // ── 추적창 ──────────────────────────────────────────────────────
-  function _Window_QuestTracker(x, y, w) {
-    this.initialize.apply(this, arguments);
-  }
-  _Window_QuestTracker.prototype = Object.create(Window_Base.prototype);
-  _Window_QuestTracker.prototype.constructor = _Window_QuestTracker;
-  _Window_QuestTracker.prototype.initialize = function (x, y, w) {
-    var h = this.fittingHeight(8);
-    Window_Base.prototype.initialize.call(this, x, y, w, h);
-    this.opacity = 180;
-    this.refresh();
-  };
-  _Window_QuestTracker.prototype.refresh = function () {
-    this.contents.clear();
+  // ── 추적창 데이터 빌더 ──────────────────────────────────────────
+  QS._buildTrackerItems = function () {
     var trackedId = $gameSystem.questState().trackedQuest;
-    if (!trackedId) {
-      this.height = 0;
-      return;
-    }
+    if (!trackedId) return [];
     var quest = getQuestData(trackedId);
     var entry = $gameSystem.getQuestEntry(trackedId);
-    if (!quest || !entry || entry.status !== 'active') {
-      this.height = 0;
-      return;
-    }
-
-    var lh = this.lineHeight();
-    var y = 0;
-
-    this.changeTextColor(this.systemColor());
-    this.drawText(quest.title, 0, y, this.contentsWidth(), 'left');
-    this.resetTextColor();
-    y += lh;
-
+    if (!quest || !entry || entry.status !== 'active') return [];
+    var items = [];
+    items.push({ name: quest.title, symbol: 'tracker_title', enabled: false, textColor: '#e8d080' });
     quest.objectives.forEach(function (obj) {
       var oe = entry.objectives[obj.id];
       if (!oe || oe.status === 'hidden' || oe.status === 'completed') return;
@@ -731,61 +706,10 @@
         var target = obj.config.count || obj.config.amount || 1;
         progressStr = ' (' + (oe.progress || 0) + '/' + target + ')';
       }
-      this.drawText('○ ' + obj.text + progressStr, 0, y, this.contentsWidth(), 'left');
-      y += lh;
-    }, this);
-
-    var newHeight = this.standardPadding() * 2 + y;
-    if (this.height !== newHeight) {
-      this.height = newHeight;
-    }
+      items.push({ name: '○ ' + obj.text + progressStr, symbol: 'obj_' + obj.id, enabled: false });
+    });
+    return items;
   };
-
-  // ============================================================
-  // 커스텀 위젯 구현
-  // ============================================================
-
-  // ── Widget_QuestTracker — 맵 추적 위젯 (오버레이 전용) ────────────
-  function Widget_QuestTracker() {}
-  Widget_QuestTracker.prototype = Object.create(Widget_Base.prototype);
-  Widget_QuestTracker.prototype.constructor = Widget_QuestTracker;
-
-  Widget_QuestTracker.prototype.initialize = function (def, parentWidget) {
-    // 플러그인 파라미터로 위치/너비 오버라이드
-    var d = {
-      id: def.id, type: def.type,
-      x: trackerX, y: trackerY,
-      width: trackerWidth, height: def.height || 200
-    };
-    Widget_Base.prototype.initialize.call(this, d, parentWidget);
-    var win = new _Window_QuestTracker(this._x, this._y, this._width);
-    this._window = win;
-    this._displayObject = win;
-  };
-
-  Widget_QuestTracker.prototype.refresh = function () {
-    if (this._window && this._window.refresh) this._window.refresh();
-    Widget_Base.prototype.refresh.call(this);
-  };
-
-  Widget_QuestTracker.prototype.update = function () {
-    Widget_Base.prototype.update.call(this);
-    // 30프레임마다 자동 갱신
-    if (this._updateCount === undefined) this._updateCount = 0;
-    if (++this._updateCount % 30 === 0) {
-      this.refresh();
-    }
-  };
-
-  // ============================================================
-  // 위젯 등록 (CustomSceneEngine)
-  // ============================================================
-
-  if (window.__customSceneEngine && window.Widget_Base) {
-    window.__customSceneEngine.registerWidget('questTracker', Widget_QuestTracker);
-  } else {
-    console.warn('[QuestSystem] CustomSceneEngine를 찾을 수 없음 — Quest Journal UI가 비활성화됩니다.');
-  }
 
   // ============================================================
   // Scene_Map 훅 — 추적창 오버레이 + 단축키
