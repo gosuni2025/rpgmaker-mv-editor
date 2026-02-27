@@ -190,7 +190,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'background' | 'panel' | 'label' | 'image' | 'actorFace' | 'gauge' | 'separator' | 'button' | 'list' | 'actorList' | 'options';
+export type WidgetType = 'background' | 'panel' | 'label' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options';
 
 export interface WidgetDefBase {
   id: string;
@@ -236,11 +236,6 @@ export interface WidgetDef_Image extends WidgetDefBase {
   actorIndex?: number;
 }
 
-export interface WidgetDef_ActorFace extends WidgetDefBase {
-  type: 'actorFace';
-  actorIndex: number;
-}
-
 export interface WidgetDef_Gauge extends WidgetDefBase {
   type: 'gauge';
   gaugeType: 'hp' | 'mp' | 'tp';
@@ -273,13 +268,12 @@ export interface WidgetDef_List extends WidgetDefBase {
   handlers: Record<string, CustomCommandHandler>;
 }
 
-export interface WidgetDef_ActorList extends WidgetDefBase {
-  type: 'actorList';
-  numVisibleRows?: number;
+export interface WidgetDef_RowSelector extends WidgetDefBase {
+  type: 'rowSelector';
+  /** 행 수. 'party'면 $gameParty.size() 동적 */
+  numRows?: number | 'party';
   /** true: 프레임/배경 없는 투명 선택 커서만 표시 (display는 개별 위젯으로 구성) */
   transparent?: boolean;
-  showFace?: boolean;
-  showStatus?: boolean;
   /** transparent 모드 시 0 권장 — 커서 위치가 개별 위젯과 정확히 정렬됨 */
   padding?: number;
 }
@@ -299,12 +293,11 @@ export type WidgetDef =
   | WidgetDef_Panel
   | WidgetDef_Label
   | WidgetDef_Image
-  | WidgetDef_ActorFace
   | WidgetDef_Gauge
   | WidgetDef_Separator
   | WidgetDef_Button
   | WidgetDef_List
-  | WidgetDef_ActorList
+  | WidgetDef_RowSelector
   | WidgetDef_Options;
 
 export interface NavigationConfig {
