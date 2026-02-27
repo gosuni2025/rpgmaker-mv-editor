@@ -197,10 +197,6 @@
 
     var _orig_onLeftButtonDown = TouchInput._onLeftButtonDown;
     TouchInput._onLeftButtonDown = function(event) {
-        console.log('[TCC] mousedown is3D=' + is3DActive() +
-            ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
-            ' _active=' + Mode3D._active +
-            ' _perspCamera=' + !!Mode3D._perspCamera);
         // is3DActive() 여부와 무관하게 항상 dragState 초기화
         // 이유: mousedown 시점에 mode3d=false여도(타이틀→맵 전환 중 등),
         // 이후 mousemove 시점에 is3DActive()=true가 되어 있으면 회전이 가능해야 함
@@ -230,8 +226,6 @@
     // 플러그인 교체가 반영되지 않음. 직접 addEventListener로 우회.
     // =========================================================================
 
-    var _mouseMovLogCount = 0;
-
     // iframe 경계 밖으로 드래그해도 mousemove를 계속 받기 위해 pointer capture 설정
     document.addEventListener('pointerdown', function(event) {
         if (event.button === 0) {
@@ -240,14 +234,6 @@
     });
 
     document.addEventListener('mousemove', function(event) {
-        if (_mouseMovLogCount < 5) {
-            _mouseMovLogCount++;
-            console.log('[TCC] direct-mousemove #' + _mouseMovLogCount +
-                ' buttons=' + event.buttons +
-                ' is3D=' + is3DActive() +
-                ' drag.active=' + _dragState.active +
-                ' drag.moved=' + _dragState.moved);
-        }
         if (!is3DActive()) return;
 
         // dragState 복구 (mousedown이 mode3d=false 시점에 발생한 경우)
@@ -280,7 +266,6 @@
                     }
                 }
                 if (_dragState.moved) {
-                    console.log('[TCC] applyYaw dx=' + dx.toFixed(1) + ' dy=' + dy.toFixed(1));
                     applyYaw(-dx * ROTATION_SPEED);
                     applyTilt(dy * ROTATION_SPEED);
                 }
@@ -328,12 +313,6 @@
         if (canvas && typeof canvas.focus === 'function') {
             try { canvas.focus(); } catch(e) {}
         }
-
-        console.log('[TCC] touchstart cnt=' + event.touches.length +
-            ' is3D=' + is3DActive() +
-            ' mode3d=' + (typeof ConfigManager !== 'undefined' ? ConfigManager.mode3d : '?') +
-            ' _active=' + Mode3D._active +
-            ' _perspCamera=' + !!Mode3D._perspCamera);
 
         for (var i = 0; i < event.changedTouches.length; i++) {
             var t = event.changedTouches[i];
@@ -383,19 +362,8 @@
     // passive: false 필수 (event.preventDefault() 호출을 위해)
     // =========================================================================
 
-    var _touchMoveLogCount = 0;
-
     document.addEventListener('touchmove', function(event) {
         event.preventDefault(); // pan/scroll 원천 차단
-
-        if (_touchMoveLogCount < 5) {
-            _touchMoveLogCount++;
-            console.log('[TCC] direct-touchmove #' + _touchMoveLogCount +
-                ' cnt=' + event.touches.length +
-                ' is3D=' + is3DActive() +
-                ' drag.active=' + _dragState.active +
-                ' drag.moved=' + _dragState.moved);
-        }
 
         if (!is3DActive()) {
             // 이동 좌표 갱신
@@ -454,7 +422,6 @@
                     }
                 }
                 if (_dragState.moved) {
-                    console.log('[TCC] touch-applyYaw dx=' + dx.toFixed(1) + ' dy=' + dy.toFixed(1));
                     applyYaw(-dx * ROTATION_SPEED);
                     applyTilt(dy * ROTATION_SPEED);
                     _dragState.lastX = touch.pageX;
@@ -484,7 +451,6 @@
     });
 
     document.addEventListener('touchcancel', function() {
-        console.warn('[TCC] touchcancel! drag.active=' + _dragState.active);
         _dragState.active  = false;
         _dragState.moved   = false;
         _pinchState.active = false;
