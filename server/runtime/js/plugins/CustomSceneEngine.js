@@ -1696,9 +1696,12 @@
             });
           })(symbol, handlersDef[symbol], widget);
         }
-        widget.setCancelHandler(function() {
-          self._executeWidgetHandler({ action: 'cancel' }, widget);
-        });
+        // cancel이 handlersDef에 없을 때만 기본 핸들러 설정
+        if (!handlersDef['cancel']) {
+          widget.setCancelHandler(function() {
+            self._executeWidgetHandler({ action: 'cancel' }, widget);
+          });
+        }
       } else if (widget instanceof Widget_RowSelector) {
         (function(w) {
           w.setHandler('ok', function() {
