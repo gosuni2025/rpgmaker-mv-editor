@@ -2716,7 +2716,7 @@
     return null;
   }
 
-  function addMenuCommand(sceneId, widgetId, item, handlerDef) {
+  function addMenuCommand(sceneId, widgetId, item, handlerDef, options) {
     var scenes = _scenesData.scenes || {};
     var scene = scenes[sceneId];
     if (!scene || !scene.root) return false;
@@ -2724,7 +2724,22 @@
     if (!widgetDef) return false;
     if (!widgetDef.items) widgetDef.items = widgetDef.commands || [];
     var exists = widgetDef.items.some(function(it) { return it.symbol === item.symbol; });
-    if (!exists) widgetDef.items.push(item);
+    if (!exists) {
+      var insertBefore = options && options.insertBefore;
+      if (insertBefore) {
+        var idx = -1;
+        for (var i = 0; i < widgetDef.items.length; i++) {
+          if (widgetDef.items[i].symbol === insertBefore) { idx = i; break; }
+        }
+        if (idx >= 0) {
+          widgetDef.items.splice(idx, 0, item);
+        } else {
+          widgetDef.items.push(item);
+        }
+      } else {
+        widgetDef.items.push(item);
+      }
+    }
     if (handlerDef) {
       if (!widgetDef.handlers) widgetDef.handlers = {};
       if (!widgetDef.handlers[item.symbol]) {
@@ -2755,6 +2770,7 @@
      * @param {string} widgetId   - list 위젯 ID (예: 'cmd_main')
      * @param {Object} item       - { name, symbol, enabled }
      * @param {Object} handlerDef - { action, target } 또는 null
+     * @param {Object} [options]  - { insertBefore: 'symbol' } — 지정 symbol 앞에 삽입
      */
     addMenuCommand: addMenuCommand,
   };

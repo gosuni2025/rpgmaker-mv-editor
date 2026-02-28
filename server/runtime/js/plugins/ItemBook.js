@@ -529,7 +529,8 @@
             window.__customSceneEngine.addMenuCommand(
                 'menu_v2', 'cmd_main',
                 { name: menuText, symbol: 'itemBook', enabled: true },
-                { action: 'gotoScene', target: 'Scene_CS_item_book' }
+                { action: 'gotoScene', target: 'Scene_CS_item_book' },
+                { insertBefore: 'gameEnd' }
             );
         }
     }
