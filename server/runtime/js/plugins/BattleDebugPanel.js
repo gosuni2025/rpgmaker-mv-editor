@@ -16,6 +16,8 @@
     var BUTTONS = [
         { label: '몬스터 전체 피해 100', symbol: 'enemyDamage' },
         { label: '아군 전체 피해 100',   symbol: 'allyDamage'  },
+        { label: '아군 MP 전체 회복',    symbol: 'allyMpFull'  },
+        { label: '아군 TP 전체 충전',    symbol: 'allyTpFull'  },
     ];
 
     //------------------------------------------------------------
@@ -61,14 +63,17 @@
     Window_BattleDebug.prototype.update = function() {
         Window_Base.prototype.update.call(this);
 
-        // hover 감지
-        var pad = this.standardPadding();
-        var lx = TouchInput.x - this.x - pad;
-        var ly = TouchInput.y - this.y - pad;
-        var lh = this.lineHeight();
-        var hover = (lx >= 0 && lx < this.contentsWidth() && ly >= 0 && ly < this.contentsHeight())
-            ? Math.floor(ly / lh) : -1;
-        if (hover >= BUTTONS.length) hover = -1;
+        // 창 전체 영역 히트 테스트 (padding 포함)
+        var hit = TouchInput.x >= this.x && TouchInput.x < this.x + this.width &&
+                  TouchInput.y >= this.y && TouchInput.y < this.y + this.height;
+        var hover = -1;
+        if (hit) {
+            var ly = TouchInput.y - this.y - this.standardPadding();
+            if (ly >= 0) {
+                hover = Math.floor(ly / this.lineHeight());
+                if (hover >= BUTTONS.length) hover = -1;
+            }
+        }
 
         if (hover !== this._hoverIndex) {
             this._hoverIndex = hover;
@@ -94,6 +99,12 @@
         });
         this._battleDebugWindow.setHandler('allyDamage', function() {
             $gameParty.aliveMembers().forEach(function(m) { m.gainHp(-100); m.refresh(); });
+        });
+        this._battleDebugWindow.setHandler('allyMpFull', function() {
+            $gameParty.members().forEach(function(m) { m.setMp(m.mmp); m.refresh(); });
+        });
+        this._battleDebugWindow.setHandler('allyTpFull', function() {
+            $gameParty.members().forEach(function(m) { m.setTp(m.maxTp()); m.refresh(); });
         });
         this.addWindow(this._battleDebugWindow);
     };
