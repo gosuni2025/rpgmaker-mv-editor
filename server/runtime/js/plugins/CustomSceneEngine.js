@@ -295,7 +295,7 @@
       } else {
         isEnabled = cmd.enabled !== false;
       }
-      this.addCommand(cmd.name, cmd.symbol, isEnabled);
+      this.addCommand(cmd.name, cmd.symbol, isEnabled, cmd.ext !== undefined ? cmd.ext : null);
     }
   };
 
@@ -1021,7 +1021,7 @@
     this._useTextEx = def.useTextEx === true;
     if (this._useTextEx) {
       // Window_Base 기반: drawTextEx로 \c[N] 색상 코드 지원
-      var win = new Window_Base(this._x, this._y, this._width + 36, this._height + 36);
+      var win = new Window_Base(this._x, this._y, this._width, this._height);
       win._padding = 0;
       win.opacity = 0;
       win.backOpacity = 0;
@@ -1800,6 +1800,50 @@
   window.Widget_Button = Widget_Button;
 
   //===========================================================================
+  // Widget_ShopNumber — 상점 수량 입력 위젯 (Window_ShopNumber 래퍼, focusable)
+  //===========================================================================
+  function Widget_ShopNumber() {}
+  Widget_ShopNumber.prototype = Object.create(Widget_Base.prototype);
+  Widget_ShopNumber.prototype.constructor = Widget_ShopNumber;
+  Widget_ShopNumber.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._handlersDef = def.handlers || {};
+    var h = def.height || 400;
+    var win = new Window_ShopNumber(this._x, this._y, h);
+    win._customClassName = 'Widget_CS_' + this._id;
+    win.deactivate();
+    this._applyWindowStyle(win, def);
+    this._window = win;
+    this._displayObject = win;
+  };
+  Widget_ShopNumber.prototype.collectFocusable = function(out) {
+    out.push(this);
+  };
+  Widget_ShopNumber.prototype.activate = function() {
+    if (this._window) this._window.activate();
+  };
+  Widget_ShopNumber.prototype.deactivate = function() {
+    if (this._window) this._window.deactivate();
+  };
+  Widget_ShopNumber.prototype.setup = function(item, max, price) {
+    if (!this._window) return;
+    this._window.setup(item, Math.max(1, Math.floor(max)), price);
+    if (typeof TextManager !== 'undefined') {
+      this._window.setCurrencyUnit(TextManager.currencyUnit);
+    }
+  };
+  Widget_ShopNumber.prototype.number = function() {
+    return this._window ? this._window.number() : 0;
+  };
+  Widget_ShopNumber.prototype.setHandler = function(symbol, fn) {
+    if (this._window) this._window.setHandler(symbol, fn);
+  };
+  Widget_ShopNumber.prototype.setCancelHandler = function(fn) {
+    if (this._window) this._window.setHandler('cancel', fn);
+  };
+  window.Widget_ShopNumber = Widget_ShopNumber;
+
+  //===========================================================================
   // Widget_List — 커맨드 리스트 (focusable)
   //===========================================================================
   function Widget_List() {}
@@ -2202,10 +2246,17 @@
         case 'actorList':   widget = new Widget_RowSelector(); break;
         case 'options':     widget = new Widget_Options();     break;
         case 'background':  widget = new Widget_Background();  break;
+        case 'shopNumber':  widget = new Widget_ShopNumber();  break;
         default:            return null;
       }
     }
     widget.initialize(def, parentWidget);
+
+    // visible: false 처리 — 초기 숨김 위젯
+    if (def.visible === false) {
+      var dObj = widget.displayObject();
+      if (dObj) dObj.visible = false;
+    }
 
     // 자식 위젯 재귀 빌드
     if (def.children && def.children.length) {
@@ -2276,6 +2327,15 @@
         widget.setCancelHandler(function() {
           self._executeWidgetHandler({ action: 'cancel' }, widget);
         });
+      } else if (widget instanceof Widget_ShopNumber) {
+        var snHandlers = widget._handlersDef || {};
+        (function(w, handlers) {
+          if (handlers['ok']) {
+            w.setHandler('ok', function() { self._executeWidgetHandler(handlers['ok'], w); });
+          }
+          var cancelH = handlers['cancel'] || { action: 'cancel' };
+          w.setCancelHandler(function() { self._executeWidgetHandler(cancelH, w); });
+        })(widget, snHandlers);
       }
       for (var i = 0; i < widget._children.length; i++) {
         traverse(widget._children[i]);
@@ -2743,6 +2803,182 @@
   };
 
   window.Scene_CustomUI = Scene_CustomUI;
+
+  //===========================================================================
+  // Scene_CSBattle — Scene_Battle 기반 커스텀 UI 버전
+  //   createPartyCommandWindow / createActorCommandWindow 만 위젯으로 대체
+  //   나머지 배틀 로직 및 창(BattleLog, BattleStatus, Skill, Item, Actor, Enemy 등)은 원본 유지
+  //===========================================================================
+  function Scene_CSBattle() {
+    this.initialize.apply(this, arguments);
+  }
+  Scene_CSBattle.prototype = Object.create(Scene_Battle.prototype);
+  Scene_CSBattle.prototype.constructor = Scene_CSBattle;
+
+  Scene_CSBattle.prototype.initialize = function() {
+    Scene_Battle.prototype.initialize.call(this);
+    this._sceneId = 'battle';
+    this._ctx = {};
+    this._battleWidgets = []; // 생성한 위젯 목록 (update/destroy용)
+  };
+
+  Scene_CSBattle.prototype._getSceneDef = function() {
+    var scenes = _scenesData.scenes || {};
+    return scenes['battle'] || null;
+  };
+
+  // 위젯 def 트리에서 id로 검색
+  Scene_CSBattle.prototype._findWidgetDef = function(node, id) {
+    if (!node) return null;
+    if (node.id === id) return node;
+    var children = node.children || [];
+    for (var i = 0; i < children.length; i++) {
+      var found = this._findWidgetDef(children[i], id);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  // 위젯에서 Window를 추출해 addWindow, 위젯을 _battleWidgets에 등록
+  Scene_CSBattle.prototype._addBattleWidget = function(widget) {
+    if (!widget) return null;
+    this._battleWidgets.push(widget);
+    var obj = widget.displayObject ? widget.displayObject() : null;
+    if (obj && obj instanceof Window_Base) {
+      this.addWindow(obj);
+    }
+    return obj instanceof Window_Base ? obj : null;
+  };
+
+  // list 위젯 생성 — 성공 시 Window_CustomCommand 반환, 실패 시 null
+  Scene_CSBattle.prototype._buildListWidget = function(id) {
+    var sceneDef = this._getSceneDef();
+    var def = sceneDef && this._findWidgetDef(sceneDef.root, id);
+    if (!def) return null;
+    var widget = new Widget_List();
+    widget.initialize(def, null);
+    return this._addBattleWidget(widget) ? widget : null;
+  };
+
+  // ── createPartyCommandWindow override ──────────────────────────────────────
+  Scene_CSBattle.prototype.createPartyCommandWindow = function() {
+    var widget = this._buildListWidget('partyCommand');
+    if (widget) {
+      var win = widget._window;
+      // Window_PartyCommand.setup() 호환 메서드 주입
+      win.setup = function() {
+        this.refresh();
+        this.select(0);
+        this.activate();
+        this.open();
+      };
+      this._partyCommandWindow = win;
+    } else {
+      // 폴백: 원본 Window_PartyCommand
+      this._partyCommandWindow = new Window_PartyCommand();
+      this.addWindow(this._partyCommandWindow);
+    }
+    this._partyCommandWindow.setHandler('fight',  this.commandFight.bind(this));
+    this._partyCommandWindow.setHandler('escape', this.commandEscape.bind(this));
+    this._partyCommandWindow.deselect();
+  };
+
+  // ── createActorCommandWindow override ──────────────────────────────────────
+  Scene_CSBattle.prototype.createActorCommandWindow = function() {
+    var widget = this._buildListWidget('actorCommand');
+    if (widget) {
+      var win = widget._window;
+      var actorWidget = widget;
+      // Window_ActorCommand.setup(actor) 호환 메서드 주입
+      win.setup = function(actor) {
+        // dataScript가 BattleManager.actor()를 참조하므로 rebuild
+        if (actorWidget._rebuildFromScript) actorWidget._rebuildFromScript();
+        this.select(0);
+        this.activate();
+        this.open();
+      };
+      this._actorCommandWindow = win;
+    } else {
+      // 폴백: 원본 Window_ActorCommand
+      this._actorCommandWindow = new Window_ActorCommand();
+      this.addWindow(this._actorCommandWindow);
+    }
+    this._actorCommandWindow.setHandler('attack', this.commandAttack.bind(this));
+    this._actorCommandWindow.setHandler('skill',  this.commandSkill.bind(this));
+    this._actorCommandWindow.setHandler('guard',  this.commandGuard.bind(this));
+    this._actorCommandWindow.setHandler('item',   this.commandItem.bind(this));
+    this._actorCommandWindow.setHandler('cancel', this.selectPreviousCommand.bind(this));
+  };
+
+  // ── commandSkill override: dataScript ext로 stypeId 취득 ───────────────────
+  Scene_CSBattle.prototype.commandSkill = function() {
+    var actor = BattleManager.actor();
+    var stypeId = 1;
+    if (this._actorCommandWindow && typeof this._actorCommandWindow.currentExt === 'function') {
+      var ext = this._actorCommandWindow.currentExt();
+      if (typeof ext === 'number') stypeId = ext;
+    }
+    this._ctx.lastActorCommand = 'skill';
+    this._skillWindow.setActor(actor);
+    this._skillWindow.setStypeId(stypeId);
+    this._skillWindow.refresh();
+    this._skillWindow.show();
+    this._skillWindow.activate();
+  };
+
+  // ── commandItem override: lastActorCommand 기록 ────────────────────────────
+  Scene_CSBattle.prototype.commandItem = function() {
+    this._ctx.lastActorCommand = 'item';
+    this._itemWindow.refresh();
+    this._itemWindow.show();
+    this._itemWindow.activate();
+  };
+
+  // ── onActorCancel / onEnemyCancel: lastActorCommand 기반 ───────────────────
+  Scene_CSBattle.prototype.onActorCancel = function() {
+    this._actorWindow.hide();
+    var last = this._ctx.lastActorCommand;
+    if (last === 'skill') {
+      this._skillWindow.show();
+      this._skillWindow.activate();
+    } else if (last === 'item') {
+      this._itemWindow.show();
+      this._itemWindow.activate();
+    } else {
+      this._actorCommandWindow.activate();
+    }
+  };
+
+  Scene_CSBattle.prototype.onEnemyCancel = function() {
+    this._enemyWindow.hide();
+    var last = this._ctx.lastActorCommand || 'attack';
+    if (last === 'attack') {
+      this._actorCommandWindow.activate();
+    } else if (last === 'skill') {
+      this._skillWindow.show();
+      this._skillWindow.activate();
+    } else if (last === 'item') {
+      this._itemWindow.show();
+      this._itemWindow.activate();
+    }
+  };
+
+  // ── commandAttack override: lastActorCommand 기록 ─────────────────────────
+  Scene_CSBattle.prototype.commandAttack = function() {
+    this._ctx.lastActorCommand = 'attack';
+    BattleManager.inputtingAction().setAttack();
+    this.selectEnemySelection();
+  };
+
+  // ── update: 위젯 업데이트 추가 ────────────────────────────────────────────
+  Scene_CSBattle.prototype.update = function() {
+    Scene_Battle.prototype.update.call(this);
+    for (var i = 0; i < this._battleWidgets.length; i++) {
+      this._battleWidgets[i].update();
+    }
+  };
+
+  window.Scene_CSBattle = Scene_CSBattle;
 
   //===========================================================================
   // 커스텀 씬 등록
