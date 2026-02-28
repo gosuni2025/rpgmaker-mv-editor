@@ -48,3 +48,27 @@ export const dragState = {
   /** 드래그 위젯의 모든 자손 ID (순환 참조 방지용) */
   descendantIds: new Set<string>(),
 };
+
+/** 위젯 트리에서 id로 위젯 찾기 */
+export function findWidgetById(root: WidgetDef, id: string): WidgetDef | null {
+  if (root.id === id) return root;
+  for (const c of root.children || []) {
+    const found = findWidgetById(c, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+let _regenCounter = 0;
+/** 위젯 트리 전체의 ID를 새로 생성 (붙여넣기 시 ID 충돌 방지) */
+export function regenerateWidgetIds(widget: WidgetDef): WidgetDef {
+  const newId = `${widget.type}_${Date.now()}${++_regenCounter}`;
+  const children = widget.children?.map(regenerateWidgetIds);
+  if (children !== undefined) {
+    return { ...widget, id: newId, children } as WidgetDef;
+  }
+  return { ...widget, id: newId } as WidgetDef;
+}
+
+/** 시스템 클립보드 위젯 데이터 마커 */
+export const WIDGET_CLIPBOARD_MARKER = 'RPGMV_WIDGET_V1';

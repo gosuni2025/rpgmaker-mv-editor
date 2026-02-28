@@ -5,6 +5,7 @@ import type { CustomSceneDefV2, NavigationConfig, WidgetDef } from '../../store/
 import { WidgetTreeNode, AddWidgetMenu } from './UIEditorWidgetTree';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
 import UIEditorDuplicateSceneDialog from './UIEditorDuplicateSceneDialog';
+import { regenerateWidgetIds, WIDGET_CLIPBOARD_MARKER } from './UIEditorSceneUtils';
 
 // ── NavigationConfigSection ──────────────────────────────────
 
@@ -45,6 +46,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
   const selectedId = useEditorStore((s) => s.customSceneSelectedWidget);
   const setSelectedId = useEditorStore((s) => s.setCustomSceneSelectedWidget);
   const removeWidget = useEditorStore((s) => s.removeWidget);
+  const addWidget = useEditorStore((s) => s.addWidget);
   const pushCustomSceneUndo = useEditorStore((s) => s.pushCustomSceneUndo);
   const reorderWidgetInTree = useEditorStore((s) => s.reorderWidgetInTree);
   const updateCustomScene = useEditorStore((s) => s.updateCustomScene);
@@ -53,6 +55,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
   const customSceneDirty = useEditorStore((s) => s.customSceneDirty);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
+  const showToast = useEditorStore((s) => s.showToast);
   const [addMenuParent, setAddMenuParent] = React.useState<string | null>(null);
   const [addMenuBtnRect, setAddMenuBtnRect] = React.useState<DOMRect | null>(null);
   const addBtnRef = React.useRef<HTMLButtonElement>(null);
@@ -74,6 +77,56 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedId, sceneId, removeWidget, pushCustomSceneUndo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ctrl+C: 위젯 복사 / Ctrl+V: 위젯 붙여넣기
+  React.useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if (e.key === 'c' && !isInput) {
+        if (!selectedId || !scene.root) return;
+        function findW(w: WidgetDef): WidgetDef | null {
+          if (w.id === selectedId) return w;
+          for (const c of w.children || []) { const r = findW(c); if (r) return r; }
+          return null;
+        }
+        const widget = findW(scene.root);
+        if (!widget) return;
+        e.preventDefault();
+        try {
+          await navigator.clipboard.writeText(
+            JSON.stringify({ _type: WIDGET_CLIPBOARD_MARKER, widget })
+          );
+          showToast(`"${widget.id}" 복사됨`);
+        } catch {
+          showToast('클립보드 복사 실패');
+        }
+        return;
+      }
+
+      if (e.key === 'v' && !isInput) {
+        e.preventDefault();
+        try {
+          const text = await navigator.clipboard.readText();
+          const parsed = JSON.parse(text);
+          if (parsed?._type === WIDGET_CLIPBOARD_MARKER && parsed.widget) {
+            const parentId = selectedId && scene.root ? selectedId : (scene.root?.id || 'root');
+            const newWidget = regenerateWidgetIds(parsed.widget);
+            pushCustomSceneUndo();
+            addWidget(sceneId, parentId, newWidget);
+            setSelectedId(newWidget.id);
+            showToast(`위젯 붙여넣기 완료`);
+          }
+        } catch {
+          // 클립보드에 위젯 데이터 없음 — 무시
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sceneId, selectedId, scene.root, addWidget, pushCustomSceneUndo, setSelectedId, showToast]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // dirty 상태 감지 → debounce 자동저장 + iframe 프리뷰 갱신
   React.useEffect(() => {
