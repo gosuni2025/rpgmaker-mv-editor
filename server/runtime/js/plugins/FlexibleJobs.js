@@ -414,6 +414,242 @@
   };
 
   //===========================================================================
+  // FJ 헬퍼 네임스페이스 — CustomSceneEngine dataScript/템플릿 바인딩용
+  //===========================================================================
+  window.FJ = {
+    _actorIdx  : 0,
+    _slot      : 0,      // 0=주직업, 1~N=서브슬롯
+    _curClassId: 0,
+    _curSkillId: 0,
+    _classData : [],
+    _skillData : [],
+
+    actor: function () {
+      return $gameParty.members()[FJ._actorIdx] || $gameParty.members()[0];
+    },
+
+    // ── dataScript 함수 ────────────────────────────────────────────────────
+
+    actorItems: function () {
+      return $gameParty.members().map(function (actor, i) {
+        var cls = $dataClasses[actor._classId];
+        return {
+          name   : actor.name() + (cls ? '  [' + cls.name + ']' : ''),
+          symbol : 'actor_' + i,
+          enabled: true
+        };
+      });
+    },
+
+    slotItems: function () {
+      var actor = FJ.actor();
+      if (!actor) return [];
+      var items = [];
+      var pri = $dataClasses[actor._classId];
+      items.push({
+        name   : '주직업  ' + (pri ? pri.name + ' Lv.' + actor._level : '없음'),
+        symbol : 'slot_0',
+        enabled: true
+      });
+      var subs = actor.fjSubIds();
+      for (var i = 0; i < subs.length; i++) {
+        var subId = subs[i];
+        var sub   = subId > 0 ? $dataClasses[subId] : null;
+        var lv    = subId > 0 ? actor.fjClassLevel(subId) : 0;
+        items.push({
+          name   : '서브 ' + (i + 1) + '  ' + (sub ? sub.name + ' Lv.' + lv : '없음'),
+          symbol : 'slot_' + (i + 1),
+          enabled: true
+        });
+      }
+      return items;
+    },
+
+    classItems: function () {
+      var actor = FJ.actor();
+      if (!actor) { FJ._classData = []; return []; }
+      var forPrimary = (FJ._slot === 0);
+      var ids        = actor.fjAvailableClasses(forPrimary);
+      FJ._classData  = ids;
+      var currentId  = forPrimary
+        ? actor._classId
+        : (actor.fjSubIds()[FJ._slot - 1] || 0);
+      return ids.map(function (classId) {
+        var cls = $dataClasses[classId];
+        var slv = actor.fjClassLevel(classId);
+        return {
+          name   : (classId === currentId ? '★ ' : '') + cls.name + '  Lv.' + slv,
+          symbol : 'cls_' + classId,
+          enabled: true
+        };
+      });
+    },
+
+    skillItems: function () {
+      var actor = FJ.actor();
+      if (!actor) { FJ._skillData = []; return []; }
+      var res = [], seen = {};
+      actor.fjActiveClassIds().forEach(function (classId) {
+        var cls = $dataClasses[classId];
+        if (!cls || !cls.learnings) return;
+        cls.learnings.forEach(function (l) {
+          if (!seen[l.skillId] && Note.skill(l.skillId).learnJp !== null) {
+            res.push(l.skillId);
+            seen[l.skillId] = true;
+          }
+        });
+      });
+      FJ._skillData = res;
+      var jp = actor.fjJp();
+      return res.map(function (skillId) {
+        var skill   = $dataSkills[skillId];
+        var sd      = Note.skill(skillId);
+        var learned = (actor._fjLearnedSk || []).indexOf(skillId) >= 0;
+        var afford  = !learned && jp >= sd.learnJp;
+        var costStr = learned ? '★ 습득 완료' : (sd.learnJp + ' ' + JP_NAME);
+        return {
+          name   : skill.name + '  ' + costStr,
+          symbol : 'sk_' + skillId,
+          enabled: afford
+        };
+      });
+    },
+
+    // ── 액터 정보 ─────────────────────────────────────────────────────────
+
+    actorName: function () {
+      var a = FJ.actor(); if (!a) return '';
+      var c = $dataClasses[a._classId];
+      return a.name() + (c ? '  [' + c.name + ']' : '');
+    },
+
+    actorJp: function () {
+      var a = FJ.actor();
+      return a ? (a.fjJp() + ' ' + JP_NAME) : '';
+    },
+
+    // ── 직업 상세 ─────────────────────────────────────────────────────────
+
+    classDetailName: function () {
+      if (!FJ._curClassId) return '직업을 선택하세요';
+      var cls = $dataClasses[FJ._curClassId];
+      return cls ? cls.name : '—';
+    },
+
+    classDetailLv: function () {
+      if (!FJ._curClassId) return '';
+      var a = FJ.actor(); if (!a) return '';
+      return 'Lv. ' + a.fjClassLevel(FJ._curClassId);
+    },
+
+    classDetailJp: function () {
+      if (!FJ._curClassId) return '';
+      var a = FJ.actor(); if (!a) return '';
+      return a.fjJp(FJ._curClassId) + ' ' + JP_NAME;
+    },
+
+    classDetailDesc: function () {
+      if (!FJ._curClassId) return '';
+      var cls = $dataClasses[FJ._curClassId];
+      return cls ? (cls.description || '') : '';
+    },
+
+    classDetailExpBar: function () {
+      if (!FJ._curClassId) return '';
+      var a = FJ.actor(); if (!a) return '';
+      var classId = FJ._curClassId;
+      var lv  = a.fjClassLevel(classId);
+      var exp = (a._exp && a._exp[classId]) || 0;
+      var origId = a._classId;
+      a._classId = classId;
+      var curFloor  = a.expForLevel(lv);
+      var nextFloor = a.expForLevel(lv + 1);
+      a._classId = origId;
+      if (nextFloor <= curFloor) return 'MAX';
+      return (exp - curFloor) + ' / ' + (nextFloor - curFloor);
+    },
+
+    statCompare: function (paramId) {
+      var a = FJ.actor(); if (!a || !FJ._curClassId) return '';
+      var newCls = $dataClasses[FJ._curClassId];
+      if (!newCls) return '';
+      var newLv   = a.fjClassLevel(FJ._curClassId);
+      var current = a.param(paramId);
+      var diff;
+      if (FJ._slot === 0) {
+        var oldCls = $dataClasses[a._classId];
+        var oldLv  = a._level;
+        diff = newCls.params[paramId][newLv] - (oldCls ? oldCls.params[paramId][oldLv] : 0);
+      } else {
+        var curSubId   = a.fjSubIds()[FJ._slot - 1] || 0;
+        var oldContrib = 0;
+        if (curSubId > 0) {
+          var oldSub = $dataClasses[curSubId];
+          if (oldSub) oldContrib = Math.floor(oldSub.params[paramId][a.fjClassLevel(curSubId)] * SUB_RATE);
+        }
+        var newContrib = Math.floor(newCls.params[paramId][newLv] * SUB_RATE);
+        diff = newContrib - oldContrib;
+      }
+      var after = current + diff;
+      if (diff > 0) return current + ' → ' + after + '  (▲' + diff + ')';
+      if (diff < 0) return current + ' → ' + after + '  (▼' + (-diff) + ')';
+      return String(current);
+    },
+
+    // ── 스킬 상세 ─────────────────────────────────────────────────────────
+
+    skillDetailName: function () {
+      if (!FJ._curSkillId) return '스킬을 선택하세요';
+      var sk = $dataSkills[FJ._curSkillId];
+      return sk ? sk.name : '—';
+    },
+
+    skillDetailDesc: function () {
+      if (!FJ._curSkillId) return '';
+      var sk = $dataSkills[FJ._curSkillId];
+      return sk ? (sk.description || '') : '';
+    },
+
+    skillDetailCost: function () {
+      if (!FJ._curSkillId) return '';
+      var sd = Note.skill(FJ._curSkillId);
+      var a  = FJ.actor();
+      if (!a || sd.learnJp === null) return '';
+      var learned = (a._fjLearnedSk || []).indexOf(FJ._curSkillId) >= 0;
+      if (learned) return '이미 습득한 스킬입니다.';
+      var has = a.fjJp();
+      var color = has >= sd.learnJp ? '' : '(부족)';
+      return '필요 ' + JP_NAME + ': ' + sd.learnJp + '   보유: ' + has + ' ' + color;
+    },
+
+    // ── 전직 / 스킬 적용 ──────────────────────────────────────────────────
+
+    applySlotChange: function () {
+      var a = FJ.actor();
+      if (!a || !FJ._curClassId) return false;
+      if (FJ._slot === 0) {
+        a.fjChangePrimary(FJ._curClassId);
+      } else {
+        a.fjSetSub(FJ._slot - 1, FJ._curClassId);
+      }
+      SoundManager.playEquip();
+      return true;
+    },
+
+    applySkillLearn: function () {
+      var a = FJ.actor();
+      if (!a || !FJ._curSkillId) return false;
+      if (!a.fjCanLearnByJp(FJ._curSkillId)) {
+        SoundManager.playBuzzer();
+        return false;
+      }
+      a.fjLearnByJp(FJ._curSkillId);
+      SoundManager.playEquip();
+      return true;
+    }
+  };
+
+  //===========================================================================
   // 메뉴 통합
   //===========================================================================
   var _addOriginalCmds = Window_MenuCommand.prototype.addOriginalCommands;
@@ -429,361 +665,17 @@
     this._commandWindow.setHandler('fjClassChange', this.onFjClassChange.bind(this));
     this._commandWindow.setHandler('fjSkillLearn',  this.onFjSkillLearn.bind(this));
   };
-  Scene_Menu.prototype.onFjClassChange = function () { SceneManager.push(Scene_ClassChange); };
-  Scene_Menu.prototype.onFjSkillLearn  = function () { SceneManager.push(Scene_SkillLearn);  };
 
-  //===========================================================================
-  // Scene_ClassChange — 전직 화면
-  //===========================================================================
-  function Scene_ClassChange() { this.initialize.apply(this, arguments); }
-  Scene_ClassChange.prototype = Object.create(Scene_MenuBase.prototype);
-  Scene_ClassChange.prototype.constructor = Scene_ClassChange;
-
-  Scene_ClassChange.prototype.initialize = function () {
-    Scene_MenuBase.prototype.initialize.call(this);
+  Scene_Menu.prototype.onFjClassChange = function () {
+    FJ._slot = 0; FJ._curClassId = 0; FJ._actorIdx = 0;
+    var SceneCC = window['Scene_CS_fj_classChange'];
+    if (SceneCC) { SceneManager.push(SceneCC); } else { this.activateMenuWindow(); }
   };
 
-  Scene_ClassChange.prototype.create = function () {
-    Scene_MenuBase.prototype.create.call(this);
-
-    this._helpWindow = new Window_Help(2);
-    this.addWindow(this._helpWindow);
-
-    var wy = this._helpWindow.height;
-    this._slotWindow = new Window_ClassSlot(0, wy);
-    this._slotWindow.setHandler('ok',     this.onSlotOk.bind(this));
-    this._slotWindow.setHandler('cancel', this.popScene.bind(this));
-    this.addWindow(this._slotWindow);
-
-    var ly = wy + this._slotWindow.height;
-    var lh = Graphics.boxHeight - ly;
-    var lw = Math.floor(Graphics.boxWidth / 2);
-    this._listWindow = new Window_ClassList(0, ly, lw, lh);
-    this._listWindow.setHandler('ok',     this.onListOk.bind(this));
-    this._listWindow.setHandler('cancel', this.onListCancel.bind(this));
-    this._listWindow.setHelpWindow(this._helpWindow);
-    this._listWindow.hide();
-    this.addWindow(this._listWindow);
-
-    this._statusWindow = new Window_ClassStatus(lw, ly, Graphics.boxWidth - lw, lh);
-    this._statusWindow.hide();
-    this.addWindow(this._statusWindow);
-
-    this._slotWindow.setActor($gameParty.menuActor());
-    this._slotWindow.activate();
-  };
-
-  Scene_ClassChange.prototype.onSlotOk = function () {
-    var actor = $gameParty.menuActor();
-    this._currentSlot = this._slotWindow.index();
-    var forPrimary = (this._currentSlot === 0);
-    this._listWindow.setup(actor, forPrimary);
-    this._listWindow.show();
-    this._listWindow.activate();
-    this._statusWindow.show();
-  };
-
-  Scene_ClassChange.prototype.onListOk = function () {
-    var actor   = $gameParty.menuActor();
-    var classId = this._listWindow.selectedId();
-    if (classId) {
-      if (this._currentSlot === 0) {
-        actor.fjChangePrimary(classId);
-      } else {
-        actor.fjSetSub(this._currentSlot - 1, classId);
-      }
-      SoundManager.playEquip();
-      this._slotWindow.refresh();
-    }
-    this.onListCancel();
-  };
-
-  Scene_ClassChange.prototype.onListCancel = function () {
-    this._listWindow.hide();
-    this._statusWindow.hide();
-    this._slotWindow.activate();
-  };
-
-  //===========================================================================
-  // Window_ClassSlot — 주직업 + 서브 슬롯 목록
-  //===========================================================================
-  function Window_ClassSlot(x, y) { this.initialize.apply(this, arguments); }
-  Window_ClassSlot.prototype = Object.create(Window_Selectable.prototype);
-  Window_ClassSlot.prototype.constructor = Window_ClassSlot;
-
-  Window_ClassSlot.prototype.initialize = function (x, y) {
-    var h = this.fittingHeight(1 + SUB_SLOTS);
-    Window_Selectable.prototype.initialize.call(this, x, y, Graphics.boxWidth, h);
-    this._actor = null;
-  };
-
-  Window_ClassSlot.prototype.setActor = function (actor) {
-    this._actor = actor;
-    this.refresh();
-  };
-
-  Window_ClassSlot.prototype.maxItems = function () { return 1 + SUB_SLOTS; };
-
-  Window_ClassSlot.prototype.drawItem = function (index) {
-    var actor = this._actor;
-    if (!actor) return;
-    var rect = this.itemRectForText(index);
-    var label, classId, lv;
-    if (index === 0) {
-      label   = '주직업';
-      classId = actor._classId;
-      lv      = actor._level;
-    } else {
-      label   = '서브 ' + index;
-      classId = actor.fjSubIds()[index - 1];
-      lv      = classId > 0 ? actor.fjClassLevel(classId) : 0;
-    }
-    var cls  = classId > 0 ? $dataClasses[classId] : null;
-    var name = cls ? cls.name + '  Lv.' + lv : '없음';
-    this.changeTextColor(this.systemColor());
-    this.drawText(label, rect.x, rect.y, 80);
-    this.resetTextColor();
-    this.drawText(name, rect.x + 90, rect.y, rect.width - 90);
-  };
-
-  Window_ClassSlot.prototype.refresh = function () {
-    this.contents.clear();
-    for (var i = 0; i < this.maxItems(); i++) this.drawItem(i);
-  };
-
-  //===========================================================================
-  // Window_ClassList — 전직 가능 직업 목록
-  //===========================================================================
-  function Window_ClassList(x, y, w, h) { this.initialize.apply(this, arguments); }
-  Window_ClassList.prototype = Object.create(Window_Selectable.prototype);
-  Window_ClassList.prototype.constructor = Window_ClassList;
-
-  Window_ClassList.prototype.initialize = function (x, y, w, h) {
-    Window_Selectable.prototype.initialize.call(this, x, y, w, h);
-    this._actor = null;
-    this._data  = [];
-  };
-
-  Window_ClassList.prototype.setup = function (actor, forPrimary) {
-    this._actor = actor;
-    this._data  = actor.fjAvailableClasses(forPrimary);
-    this.refresh();
-    this.select(0);
-  };
-
-  Window_ClassList.prototype.maxItems  = function () { return this._data.length; };
-  Window_ClassList.prototype.selectedId = function () { return this._data[this.index()] || 0; };
-
-  Window_ClassList.prototype.drawItem = function (index) {
-    var classId = this._data[index];
-    var cls     = $dataClasses[classId];
-    if (!cls) return;
-    var rect = this.itemRectForText(index);
-    var lv   = this._actor.fjClassLevel(classId);
-    this.drawText(cls.name, rect.x, rect.y, rect.width - 80);
-    this.changeTextColor(this.systemColor());
-    this.drawText('Lv.' + lv, rect.x + rect.width - 80, rect.y, 80, 'right');
-    this.resetTextColor();
-  };
-
-  Window_ClassList.prototype.updateHelp = function () {
-    var id  = this.selectedId();
-    var cls = id ? $dataClasses[id] : null;
-    this._helpWindow.setText(cls ? (cls.description || cls.name) : '');
-  };
-
-  Window_ClassList.prototype.refresh = function () {
-    this.contents.clear();
-    for (var i = 0; i < this.maxItems(); i++) this.drawItem(i);
-  };
-
-  //===========================================================================
-  // Window_ClassStatus — 선택 직업 상세 (JP, 레벨)
-  //===========================================================================
-  function Window_ClassStatus(x, y, w, h) { this.initialize.apply(this, arguments); }
-  Window_ClassStatus.prototype = Object.create(Window_Base.prototype);
-  Window_ClassStatus.prototype.constructor = Window_ClassStatus;
-
-  Window_ClassStatus.prototype.initialize = function (x, y, w, h) {
-    Window_Base.prototype.initialize.call(this, x, y, w, h);
-    this._actor = null;
-    this._classId = 0;
-  };
-
-  Window_ClassStatus.prototype.setup = function (actor, classId) {
-    this._actor   = actor;
-    this._classId = classId;
-    this.refresh();
-  };
-
-  Window_ClassStatus.prototype.refresh = function () {
-    this.contents.clear();
-    var cls = this._classId ? $dataClasses[this._classId] : null;
-    if (!cls || !this._actor) return;
-    var lh = this.lineHeight();
-    var lv = this._actor.fjClassLevel(this._classId);
-    var jp = this._actor.fjJp(this._classId);
-    this.drawText(cls.name, 0, 0, this.contentsWidth());
-    this.changeTextColor(this.systemColor());
-    this.drawText('Lv',   0, lh,     40); this.resetTextColor();
-    this.drawText(lv,    44, lh,     60, 'right');
-    this.changeTextColor(this.systemColor());
-    this.drawText(JP_NAME, 0, lh * 2, 40); this.resetTextColor();
-    this.drawText(jp,    44, lh * 2, 60, 'right');
-  };
-
-  //===========================================================================
-  // Scene_SkillLearn — JP 스킬 습득 화면
-  //===========================================================================
-  function Scene_SkillLearn() { this.initialize.apply(this, arguments); }
-  Scene_SkillLearn.prototype = Object.create(Scene_MenuBase.prototype);
-  Scene_SkillLearn.prototype.constructor = Scene_SkillLearn;
-
-  Scene_SkillLearn.prototype.initialize = function () {
-    Scene_MenuBase.prototype.initialize.call(this);
-  };
-
-  Scene_SkillLearn.prototype.create = function () {
-    Scene_MenuBase.prototype.create.call(this);
-
-    this._helpWindow = new Window_Help(2);
-    this.addWindow(this._helpWindow);
-
-    var sy = this._helpWindow.height;
-    this._statusWindow = new Window_SkillLearnStatus(0, sy);
-    this.addWindow(this._statusWindow);
-
-    var ly = sy + this._statusWindow.height;
-    this._listWindow = new Window_SkillLearnList(0, ly, Graphics.boxWidth, Graphics.boxHeight - ly);
-    this._listWindow.setHelpWindow(this._helpWindow);
-    this._listWindow.setHandler('ok',     this.onLearnOk.bind(this));
-    this._listWindow.setHandler('cancel', this.popScene.bind(this));
-    this.addWindow(this._listWindow);
-
-    var actor = $gameParty.menuActor();
-    this._statusWindow.setActor(actor);
-    this._listWindow.setActor(actor);
-  };
-
-  Scene_SkillLearn.prototype.onLearnOk = function () {
-    var actor   = $gameParty.menuActor();
-    var skillId = this._listWindow.selectedId();
-    if (skillId && actor.fjCanLearnByJp(skillId)) {
-      actor.fjLearnByJp(skillId);
-      SoundManager.playEquip();
-      this._statusWindow.refresh();
-      this._listWindow.refresh();
-    } else {
-      SoundManager.playBuzzer();
-    }
-    this._listWindow.activate();
-  };
-
-  //===========================================================================
-  // Window_SkillLearnStatus — 액터명 + 현재 JP 표시
-  //===========================================================================
-  function Window_SkillLearnStatus(x, y) { this.initialize.apply(this, arguments); }
-  Window_SkillLearnStatus.prototype = Object.create(Window_Base.prototype);
-  Window_SkillLearnStatus.prototype.constructor = Window_SkillLearnStatus;
-
-  Window_SkillLearnStatus.prototype.initialize = function (x, y) {
-    Window_Base.prototype.initialize.call(this, x, y, Graphics.boxWidth, this.fittingHeight(1));
-    this._actor = null;
-  };
-
-  Window_SkillLearnStatus.prototype.setActor = function (actor) {
-    this._actor = actor;
-    this.refresh();
-  };
-
-  Window_SkillLearnStatus.prototype.refresh = function () {
-    this.contents.clear();
-    if (!this._actor) return;
-    var cls  = $dataClasses[this._actor._classId];
-    var name = this._actor.name() + (cls ? '  [' + cls.name + ']' : '');
-    var jp   = this._actor.fjJp();
-    var hw   = Math.floor(this.contentsWidth() / 2);
-    this.drawText(name, 0, 0, hw);
-    this.changeTextColor(this.systemColor());
-    this.drawText(JP_NAME, hw, 0, 60);
-    this.resetTextColor();
-    this.drawText(jp, hw + 64, 0, 100, 'right');
-  };
-
-  //===========================================================================
-  // Window_SkillLearnList — JP로 구입 가능한 스킬 목록
-  //===========================================================================
-  function Window_SkillLearnList(x, y, w, h) { this.initialize.apply(this, arguments); }
-  Window_SkillLearnList.prototype = Object.create(Window_Selectable.prototype);
-  Window_SkillLearnList.prototype.constructor = Window_SkillLearnList;
-
-  Window_SkillLearnList.prototype.initialize = function (x, y, w, h) {
-    Window_Selectable.prototype.initialize.call(this, x, y, w, h);
-    this._actor = null;
-    this._data  = [];
-  };
-
-  Window_SkillLearnList.prototype.setActor = function (actor) {
-    this._actor = actor;
-    this.refresh();
-    this.select(0);
-    this.activate();
-  };
-
-  // 현재 장착 직업(주 + 서브)의 learnings 중 <Learn JP> 태그가 있는 스킬 수집
-  Window_SkillLearnList.prototype._buildData = function () {
-    if (!this._actor) { this._data = []; return; }
-    var res  = [];
-    var seen = {};
-    this._actor.fjActiveClassIds().forEach(function (classId) {
-      var cls = $dataClasses[classId];
-      if (!cls || !cls.learnings) return;
-      cls.learnings.forEach(function (l) {
-        if (!seen[l.skillId] && Note.skill(l.skillId).learnJp !== null) {
-          res.push(l.skillId);
-          seen[l.skillId] = true;
-        }
-      });
-    });
-    this._data = res;
-  };
-
-  Window_SkillLearnList.prototype.maxItems   = function () { return this._data.length; };
-  Window_SkillLearnList.prototype.selectedId = function () { return this._data[this.index()] || 0; };
-
-  Window_SkillLearnList.prototype.isCurrentItemEnabled = function () {
-    return !!this._actor && this._actor.fjCanLearnByJp(this.selectedId());
-  };
-
-  Window_SkillLearnList.prototype.drawItem = function (index) {
-    var skillId = this._data[index];
-    var skill   = $dataSkills[skillId];
-    if (!skill || !this._actor) return;
-    var rect    = this.itemRectForText(index);
-    var sd      = Note.skill(skillId);
-    var learned = (this._actor._fjLearnedSk || []).indexOf(skillId) >= 0;
-    var afford  = this._actor.fjJp() >= sd.learnJp;
-
-    if      (learned) this.changeTextColor(this.textColor(8));   // 회색: 이미 습득
-    else if (!afford) this.changeTextColor(this.textColor(18));  // 빨강: JP 부족
-    else              this.resetTextColor();
-
-    this.drawText(skill.name, rect.x, rect.y, rect.width - 130);
-    var label = learned ? '습득 완료' : (sd.learnJp + ' ' + JP_NAME);
-    this.drawText(label, rect.x + rect.width - 130, rect.y, 130, 'right');
-    this.resetTextColor();
-  };
-
-  Window_SkillLearnList.prototype.updateHelp = function () {
-    var id    = this.selectedId();
-    var skill = id ? $dataSkills[id] : null;
-    this._helpWindow.setItem(skill);
-  };
-
-  Window_SkillLearnList.prototype.refresh = function () {
-    this._buildData();
-    this.contents.clear();
-    for (var i = 0; i < this.maxItems(); i++) this.drawItem(i);
+  Scene_Menu.prototype.onFjSkillLearn = function () {
+    FJ._curSkillId = 0; FJ._actorIdx = 0;
+    var SceneSL = window['Scene_CS_fj_skillLearn'];
+    if (SceneSL) { SceneManager.push(SceneSL); } else { this.activateMenuWindow(); }
   };
 
   //===========================================================================
@@ -795,14 +687,20 @@
     var actor;
     switch (command) {
       case 'OpenClassChange':
-        SceneManager.push(Scene_ClassChange);
+        FJ._slot = 0; FJ._curClassId = 0;
+        FJ._actorIdx = Math.max(0, $gameParty.members().indexOf($gameParty.menuActor()));
+        var SceneCC = window['Scene_CS_fj_classChange'];
+        if (SceneCC) SceneManager.push(SceneCC);
         break;
       case 'OpenSkillLearn':
         if (args[0]) {
           actor = $gameActors.actor(+args[0]);
           if (actor) $gameParty.setMenuActor(actor);
         }
-        SceneManager.push(Scene_SkillLearn);
+        FJ._curSkillId = 0;
+        FJ._actorIdx = Math.max(0, $gameParty.members().indexOf($gameParty.menuActor()));
+        var SceneSL = window['Scene_CS_fj_skillLearn'];
+        if (SceneSL) SceneManager.push(SceneSL);
         break;
       case 'GainJP':
         actor = $gameActors.actor(+args[0]);
