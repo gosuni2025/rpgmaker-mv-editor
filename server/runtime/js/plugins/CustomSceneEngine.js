@@ -1371,6 +1371,7 @@
     this._dataScript = def.dataScript || null;
     this._onCursorDef = def.onCursor || null;
     this._autoHeight = def.autoHeight || false;
+    this._focusable = (def.focusable !== false); // false로 명시하면 NavigationManager 포커스 제외
     var listDef = {
       id: def.id, width: def.width,
       commands: this._items,
@@ -1416,16 +1417,20 @@
     }
   };
   Widget_List.prototype.collectFocusable = function(out) {
-    out.push(this);
+    if (this._focusable !== false) out.push(this);
   };
   Widget_List.prototype.activate = function() {
     if (this._dataScript) this._rebuildFromScript();
     if (this._window) {
       this._window.activate();
       var maxItems = this._window.maxItems();
-      var restore = (this._lastIndex !== undefined && this._lastIndex >= 0 && this._lastIndex < maxItems)
-        ? this._lastIndex : 0;
-      this._window.select(restore);
+      if (maxItems > 0) {
+        var restore = (this._lastIndex !== undefined && this._lastIndex >= 0 && this._lastIndex < maxItems)
+          ? this._lastIndex : 0;
+        this._window.select(restore);
+      } else {
+        this._window.deselect();
+      }
     }
   };
   Widget_List.prototype.deactivate = function() {

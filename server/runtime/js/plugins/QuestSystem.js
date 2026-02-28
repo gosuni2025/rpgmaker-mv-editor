@@ -728,14 +728,6 @@
     }
   };
 
-  var _Scene_Map_stop = Scene_Map.prototype.stop;
-  Scene_Map.prototype.stop = function () {
-    _Scene_Map_stop.call(this);
-    if (window.OverlayManager) {
-      OverlayManager.hide('questTracker');
-    }
-  };
-
   var _Scene_Map_terminate = Scene_Map.prototype.terminate;
   Scene_Map.prototype.terminate = function () {
     _Scene_Map_terminate.call(this);
@@ -743,6 +735,19 @@
       OverlayManager.hide('questTracker');
     }
   };
+
+  // OverlayManager.update 오버라이드 — Scene_Map이 아닐 때 트래커 자동 숨김
+  // stop()/terminate() 타이밍 의존 없이 현재 씬 기반으로 매 프레임 판별
+  if (showTracker && window.OverlayManager) {
+    var _OM_update = OverlayManager.update;
+    OverlayManager.update = function () {
+      _OM_update.call(this);
+      var inst = this._instances['questTracker'];
+      if (inst && inst.scene.visible && !(SceneManager._scene instanceof Scene_Map)) {
+        inst.scene.visible = false;
+      }
+    };
+  }
 
   var _Scene_Map_updateScene = Scene_Map.prototype.updateScene;
   Scene_Map.prototype.updateScene = function () {
