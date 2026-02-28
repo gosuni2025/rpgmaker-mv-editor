@@ -15,7 +15,7 @@ import { ExpressionPickerButton } from './UIEditorExpressionPicker';
 import { ScriptEditor } from '../EventEditor/ScriptEditor';
 import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
 
-// ── ScriptPreviewField — 한 줄 row: 레이블 + 코드 미리보기 + 편집 버튼 ──
+// ── ScriptPreviewField — 헤더(레이블+편집) + 코드 미리보기 블록 ──
 
 function ScriptPreviewField({ label, helpText, value, onChange }: {
   label: string; helpText: string;
@@ -23,35 +23,33 @@ function ScriptPreviewField({ label, helpText, value, onChange }: {
 }) {
   const [showEditor, setShowEditor] = useState(false);
   const lines = value.split('\n');
-  const firstLine = lines[0] ?? '';
-  const lineCount = lines.filter(l => l !== '').length;
 
-  const p: unknown[] = [firstLine];
+  const p: unknown[] = [lines[0] ?? ''];
   const followCommands: EventCommand[] = lines.slice(1).map(line => ({
     code: 655, indent: 0, parameters: [line],
   }));
 
   return (
-    <div style={rowStyle}>
-      <span style={{ fontSize: 11, color: '#888', flexShrink: 0, width: 80 }}>
-        {label}<HelpButton text={helpText} />
-      </span>
-      <code
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>{label}</span>
+        <HelpButton text={helpText} />
+        <span style={{ flex: 1 }} />
+        <button style={smallBtnStyle} onClick={() => setShowEditor(true)}>편집</button>
+      </div>
+      <div
         style={{
-          flex: 1, fontFamily: 'monospace', fontSize: 11,
+          fontFamily: 'monospace', fontSize: 11, lineHeight: '16px',
           background: '#1a1a1a', border: '1px solid #3a3a3a', borderRadius: 3,
-          padding: '2px 5px', color: value ? '#9cdcfe' : '#555',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          cursor: 'pointer', display: 'block',
+          padding: '3px 6px', color: '#9cdcfe',
+          maxHeight: 48, overflow: 'hidden',
+          whiteSpace: 'pre', cursor: 'pointer',
         }}
         onClick={() => setShowEditor(true)}
-        title={value || '(비어 있음)'}
+        title="클릭하여 편집"
       >
-        {value
-          ? <>{firstLine}{lineCount > 1 && <span style={{ color: '#666', marginLeft: 4 }}>+{lineCount - 1}줄</span>}</>
-          : <span style={{ color: '#444', fontStyle: 'italic' }}>비어 있음</span>}
-      </code>
-      <button style={{ ...smallBtnStyle, flexShrink: 0 }} onClick={() => setShowEditor(true)} title="스크립트 편집">편집</button>
+        {value || <span style={{ fontStyle: 'italic', color: '#444' }}>비어 있음</span>}
+      </div>
       {showEditor && (
         <ScriptEditor
           p={p}
