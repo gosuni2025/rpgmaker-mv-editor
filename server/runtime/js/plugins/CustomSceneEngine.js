@@ -699,7 +699,7 @@
     container.y = this._y;
     this._displayObject = container;
 
-    var subSceneDef = _scenesData[this._sceneId];
+    var subSceneDef = (_scenesData.scenes || _scenesData)[this._sceneId];
     if (!subSceneDef || !subSceneDef.root) return;
 
     // 루트 def 복제 후 위치/크기 오버라이드
