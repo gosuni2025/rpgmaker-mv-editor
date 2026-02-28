@@ -135,13 +135,23 @@ function LabelTypeSection({ widget, update }: { widget: WidgetDef_Label; update:
         onChange={(e) => update({ text: e.target.value } as any)}
       />
       <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>가로정렬</span>
         <select style={{ ...selectStyle, flex: 1 }}
           value={widget.align || 'left'}
           onChange={(e) => update({ align: e.target.value as any } as any)}>
           <option value="left">왼쪽</option>
           <option value="center">가운데</option>
           <option value="right">오른쪽</option>
+        </select>
+      </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>세로정렬</span>
+        <select style={{ ...selectStyle, flex: 1 }}
+          value={widget.verticalAlign || 'middle'}
+          onChange={(e) => update({ verticalAlign: e.target.value as any } as any)}>
+          <option value="top">위</option>
+          <option value="middle">가운데</option>
+          <option value="bottom">아래</option>
         </select>
       </div>
     </div>
@@ -171,7 +181,7 @@ function TextAreaTypeSection({ widget, update }: { widget: WidgetDef_TextArea; u
         onChange={(e) => update({ text: e.target.value } as any)}
       />
       <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>가로정렬</span>
         <select style={{ ...selectStyle, flex: 1 }}
           value={widget.align || 'left'}
           onChange={(e) => update({ align: e.target.value as any } as any)}>

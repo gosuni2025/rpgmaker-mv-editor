@@ -866,6 +866,7 @@
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._template = def.text || '';
     this._align = def.align || 'left';
+    this._vAlign = def.verticalAlign || 'middle';
     this._fontSize = def.fontSize || 28;
     this._color = def.color || '#ffffff';
     var sprite = new Sprite();
@@ -883,12 +884,23 @@
   Widget_Label.prototype.refresh = function() {
     if (!this._bitmap) return;
     var text = resolveTemplate(this._template);
-    if (text === this._lastText) return;
+    if (text === this._lastText && this._align === this._lastAlign && this._vAlign === this._lastVAlign) return;
     this._lastText = text;
+    this._lastAlign = this._align;
+    this._lastVAlign = this._vAlign;
     this._bitmap.clear();
     this._drawDecoBg(this._bitmap, this._width, this._height, this._def);
     this._bitmap.textColor = this._color;
-    this._bitmap.drawText(text, 0, 0, this._width, this._height, this._align);
+    var textH = this._fontSize + 8;
+    var ty;
+    if (this._vAlign === 'top') {
+      ty = 0;
+    } else if (this._vAlign === 'bottom') {
+      ty = this._height - textH;
+    } else {
+      ty = Math.floor((this._height - textH) / 2);
+    }
+    this._bitmap.drawText(text, 0, ty, this._width, textH, this._align);
     this._drawDecoBorder(this._bitmap, this._width, this._height, this._def);
     Widget_Base.prototype.refresh.call(this);
   };
@@ -907,6 +919,7 @@
   Widget_TextArea.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._template = def.text || '';
+    this._align = def.align || 'left';
     this._fontSize = def.fontSize || 20;
     this._color = def.color || '#dddddd';
     this._lineHeight = def.lineHeight || (this._fontSize + 8);
@@ -934,7 +947,7 @@
     var y = 0;
     for (var i = 0; i < lines.length; i++) {
       if (y + lh > this._height) break;
-      this._bitmap.drawText(lines[i], 0, y, this._width, lh, 'left');
+      this._bitmap.drawText(lines[i], 0, y, this._width, lh, this._align);
       y += lh;
     }
     Widget_Base.prototype.refresh.call(this);

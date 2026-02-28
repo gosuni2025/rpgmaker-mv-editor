@@ -238,6 +238,7 @@ export interface WidgetDef_Label extends WidgetDefBase {
   type: 'label';
   text: string;
   align?: 'left' | 'center' | 'right';
+  verticalAlign?: 'top' | 'middle' | 'bottom';
   fontSize?: number;
 }
 
