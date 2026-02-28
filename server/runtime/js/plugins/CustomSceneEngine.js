@@ -281,13 +281,42 @@
     }
   };
 
+  Window_CustomCommand.prototype.itemHeight = function() {
+    return this._winDef.rowHeight || this.lineHeight();
+  };
+
   Window_CustomCommand.prototype.drawItem = function(index) {
     var cmd = this._winDef.commands && this._winDef.commands[index];
     var rect = this.itemRectForText(index);
+    var rh   = this._winDef.rowHeight || this.lineHeight();
+    var lh   = this.lineHeight();
+    var hasSub = cmd && cmd.subText;
+    // 세로 중앙 정렬: 서브텍스트 있으면 2줄, 없으면 1줄
+    var nameY = rect.y + Math.floor((rh - lh * (hasSub ? 2 : 1)) / 2);
+
     this.resetTextColor();
     if (cmd && cmd.textColor) this.changeTextColor(cmd.textColor);
     this.changePaintOpacity(this.isCommandEnabled(index));
-    this.drawText(this.commandName(index), rect.x, rect.y, rect.width, 'left');
+
+    // 아이콘 렌더링
+    var x = rect.x;
+    var iconIdx = cmd && cmd.iconIndex;
+    if (iconIdx) {
+      var iw = Window_Base._iconWidth || 32;
+      this.drawIcon(iconIdx, x, nameY + Math.floor((lh - iw) / 2));
+      x += iw + 4;
+    }
+
+    // 이름 (drawTextEx 로 \C[N] 이스케이프 지원)
+    this.drawTextEx(this.commandName(index), x, nameY);
+
+    // 서브텍스트 (두 번째 줄, 회색)
+    if (hasSub) {
+      if (!cmd.textColor) this.changeTextColor(this.textColor(8));
+      this.drawTextEx(cmd.subText, x, nameY + lh);
+      this.resetTextColor();
+    }
+
     if (cmd && cmd.textColor) this.resetTextColor();
   };
 
@@ -1657,7 +1686,8 @@
     var listDef = {
       id: def.id, width: def.width,
       commands: this._items,
-      maxCols: def.maxCols || 1
+      maxCols: def.maxCols || 1,
+      rowHeight: def.rowHeight || 0
     };
     if (def.height) listDef.height = def.height;
     var win = new Window_CustomCommand(this._x, this._y, listDef);

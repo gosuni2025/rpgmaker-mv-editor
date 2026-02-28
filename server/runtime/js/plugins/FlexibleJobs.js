@@ -136,6 +136,13 @@
           if (lm) d.unlockReqs.push({ cid: +lm[1], lv: +lm[2] });
         });
       }
+      // 아이템 소지 해금 조건 <Requires Item: X>
+      d.itemReqs = [];
+      var itemMatches = note.match(/<Requires Item:\s*(\d+)>/ig) || [];
+      itemMatches.forEach(function (m) {
+        var im = m.match(/(\d+)/);
+        if (im) d.itemReqs.push({ id: +im[1] });
+      });
       return (this._cc[id] = d);
     },
 
@@ -362,9 +369,16 @@
   Game_Actor.prototype.fjIsUnlocked = function (classId) {
     if (!this._fjUnlocked) this._fjUnlocked = [];
     if (this._fjUnlocked.indexOf(classId) >= 0) return true;
-    var reqs = Note.cls(classId).unlockReqs;
-    if (!reqs.length) return true;  // 조건 없으면 기본 해금
-    var ok = reqs.every(function (r) { return this.fjClassLevel(r.cid) >= r.lv; }, this);
+    var cd   = Note.cls(classId);
+    var reqs = cd.unlockReqs;
+    var iReqs = cd.itemReqs || [];
+    if (!reqs.length && !iReqs.length) return true;  // 조건 없으면 기본 해금
+    var classOk = reqs.every(function (r) { return this.fjClassLevel(r.cid) >= r.lv; }, this);
+    var itemOk  = iReqs.every(function (ir) {
+      var item = $dataItems && $dataItems[ir.id];
+      return item && $gameParty.hasItem(item);
+    });
+    var ok = classOk && itemOk;
     if (ok) this._fjUnlocked.push(classId);
     return ok;
   };
@@ -476,20 +490,52 @@
       var actor = FJ.actor();
       if (!actor) { FJ._classData = []; return []; }
       var forPrimary = (FJ._slot === 0);
-      var ids        = actor.fjAvailableClasses(forPrimary);
-      FJ._classData  = ids;
       var currentId  = forPrimary
         ? actor._classId
         : (actor.fjSubIds()[FJ._slot - 1] || 0);
-      return ids.map(function (classId) {
-        var cls = $dataClasses[classId];
-        var slv = actor.fjClassLevel(classId);
-        return {
-          name   : (classId === currentId ? '★ ' : '') + cls.name + '  Lv.' + slv,
-          symbol : 'cls_' + classId,
-          enabled: true
-        };
+      var result = [];
+      FJ._classData = [];
+      for (var id = 1; id < $dataClasses.length; id++) {
+        var cls = $dataClasses[id];
+        if (!cls || !cls.name) continue;
+        var cd = Note.cls(id);
+        if (forPrimary && cd.subOnly) continue;
+        if (!forPrimary && cd.primaryOnly) continue;
+        var unlocked  = actor.fjIsUnlocked(id);
+        var isCurrent = (id === currentId);
+        var slv       = actor.fjClassLevel(id);
+        var subText   = unlocked
+          ? ('\x1bC[6]Lv.' + slv + (isCurrent ? '  \x1bC[14]장착 중\x1bC[0]' : '') + '\x1bC[0]')
+          : FJ._lockReason(id, actor);
+        result.push({
+          name     : (isCurrent ? '★ ' : '') + cls.name,
+          symbol   : 'cls_' + id,
+          enabled  : unlocked && !isCurrent,
+          iconIndex: cls.iconIndex || 0,
+          subText  : subText
+        });
+        FJ._classData.push(id);
+      }
+      return result;
+    },
+
+    _lockReason: function (classId, actor) {
+      var cd = Note.cls(classId);
+      var parts = [];
+      cd.unlockReqs.forEach(function (r) {
+        var cls = $dataClasses[r.cid];
+        var have = actor.fjClassLevel(r.cid);
+        var nm   = cls ? cls.name : ('직업' + r.cid);
+        var ok   = have >= r.lv;
+        parts.push(nm + ' Lv.' + r.lv + (ok ? '\x1bC[14]✓\x1bC[0]' : '(\x1bC[2]' + have + '/' + r.lv + '\x1bC[0])'));
       });
+      (cd.itemReqs || []).forEach(function (ir) {
+        var item = $dataItems && $dataItems[ir.id];
+        var nm   = item ? item.name : ('아이템' + ir.id);
+        var has  = item && $gameParty.hasItem(item);
+        parts.push(nm + (has ? '\x1bC[14]✓\x1bC[0]' : '\x1bC[2](미보유)\x1bC[0]'));
+      });
+      return '\x1bC[8]' + (parts.length ? parts.join(' / ') : '해금 불가') + '\x1bC[0]';
     },
 
     skillItems: function () {
