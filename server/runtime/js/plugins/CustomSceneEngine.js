@@ -1686,8 +1686,12 @@
         this._window.height = items.length > 0 ? this._window.fittingHeight(items.length) : 0;
       }
       if (this._window.refresh) this._window.refresh();
-      // 비활성 상태에서는 커서 숨김 (빈 목록이어도 커서가 보이는 문제 방지)
-      if (!this._window.active) this._window.deselect();
+      // 빈 목록이거나 비활성이면 커서 숨김
+      if (items.length === 0 || !this._window.active) {
+        this._window.deselect();
+        // height=0일 때 커서 스프라이트가 창 밖으로 삐져나오는 문제 방지
+        if (this._window._windowCursorSprite) this._window._windowCursorSprite.visible = false;
+      }
     } catch(e) {
       console.error('[Widget_List] dataScript error:', e);
     }
@@ -1730,7 +1734,7 @@
     if (this._updateCount === undefined) this._updateCount = 0;
     ++this._updateCount;
     if (this._dataScript) {
-      if (this._updateCount % 60 === 0) this._rebuildFromScript();
+      if (this._updateCount % 6 === 0) this._rebuildFromScript();
     } else {
       var items = this._items;
       var hasCondition = items && items.some(function(item) {
