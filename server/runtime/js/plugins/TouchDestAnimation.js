@@ -344,31 +344,22 @@
             this.drawHoverHighlight();
         }
 
-        // 이벤트 호버 내곽선 스프라이트 - tilemap 안, 캐릭터 스프라이트와 동일 좌표계
-        if (showEventHoverLine) {
-            this._eventHoverLineSprite = new Sprite();
-            this._eventHoverLineSprite.anchor.x = 0.5;
-            this._eventHoverLineSprite.anchor.y = 1;
-            this._eventHoverLineSprite.z = 9;
-            this._eventHoverLineSprite.visible = false;
-            this._tilemap.addChild(this._eventHoverLineSprite);
-            this._eventHoverLineFrame = 0;
-            this._eventHoverLinePW = 0;
-            this._eventHoverLinePH = 0;
-            this._eventHoverLineEventId = -1;
-        }
-
         _lastDestX = -1;
         _lastDestY = -1;
     };
+
+    // 현재 글로우 중인 Sprite_Character (updateEventHoverLine → updateHoverHighlight 공유)
+    var _currentGlowSprite = null;
+    var _glowFrame = 0;
 
     var _Spriteset_Map_update = Spriteset_Map.prototype.update;
     Spriteset_Map.prototype.update = function() {
         _Spriteset_Map_update.call(this);
         this.updateTouchDestAnimation();
         this.updatePathArrow();
-        this.updateHoverHighlight();
+        // 이벤트 글로우를 먼저 결정한 뒤 타일 하이라이트에서 참조
         this.updateEventHoverLine();
+        this.updateHoverHighlight();
     };
 
     //=========================================================================
@@ -567,15 +558,10 @@
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();
 
-        // 이미지가 있는 이벤트 위에서는 이벤트 글로우가 담당 — 타일 하이라이트 숨김
-        if (showEventHoverLine) {
-            var events = $gameMap.eventsXy(tileX, tileY);
-            for (var i = 0; i < events.length; i++) {
-                if (events[i].characterName() !== '' && events[i].opacity() > 0) {
-                    this._hoverHighlightSprite.visible = false;
-                    return;
-                }
-            }
+        // 이미지가 있는 이벤트 위: 이벤트 글로우가 담당하므로 타일 하이라이트 숨김
+        if (showEventHoverLine && _currentGlowSprite) {
+            this._hoverHighlightSprite.visible = false;
+            return;
         }
 
         this._hoverHighlightSprite.x = $gameMap.adjustX(tileX) * tw;
@@ -636,18 +622,64 @@
         }
     }
 
+    //=========================================================================
+    // 이벤트 글로우 — Sprite_Character에 child 스프라이트를 직접 붙임
+    // (tilemap 오버레이 방식이 아니므로 캐릭터 이미지 자체가 빛나는 것처럼 보임)
+    //=========================================================================
+
+    function removeGlowFromSprite(sp) {
+        if (sp && sp._eventGlowChild) {
+            sp.removeChild(sp._eventGlowChild);
+            sp._eventGlowChild = null;
+        }
+    }
+
+    function addGlowToSprite(sp) {
+        var pw = sp.patternWidth ? sp.patternWidth() : $gameMap.tileWidth();
+        var ph = sp.patternHeight ? sp.patternHeight() : $gameMap.tileHeight();
+
+        var glow = new Sprite();
+        glow.bitmap = new Bitmap(pw, ph);
+        // Sprite_Character의 local 좌표계:
+        //   anchor (0.5, 1) → bottom-center = (0, 0)
+        //   이미지 영역: x = [-pw/2, pw/2], y = [-ph, 0]
+        glow.anchor.x = 0;
+        glow.anchor.y = 0;
+        glow.x = -pw / 2;
+        glow.y = -ph;
+        sp.addChild(glow);
+        sp._eventGlowChild = glow;
+
+        // 내곽선 + shadowBlur 글로우 1회 그리기
+        var ctx = glow.bitmap._context;
+        var lw = eventHoverLineWidth;
+        var half = lw / 2;
+        ctx.save();
+        ctx.shadowColor = eventHoverLineColor;
+        ctx.shadowBlur = Math.max(4, lw * 3);
+        ctx.strokeStyle = eventHoverLineColor;
+        ctx.lineWidth = lw;
+        ctx.strokeRect(half, half, pw - lw, ph - lw);
+        ctx.strokeRect(half, half, pw - lw, ph - lw);
+        ctx.restore();
+        glow.bitmap._setDirty();
+
+        return glow;
+    }
+
     Spriteset_Map.prototype.updateEventHoverLine = function() {
-        if (!this._eventHoverLineSprite) return;
+        if (!showEventHoverLine) return;
+
         if ($gameMap.isEventRunning()) {
-            this._eventHoverLineSprite.visible = false;
-            this._eventHoverLineEventId = -1;
+            removeGlowFromSprite(_currentGlowSprite);
+            _currentGlowSprite = null;
             return;
         }
 
         var tile = getHoverTile();
         if (!tile) {
-            this._eventHoverLineSprite.visible = false;
-            this._eventHoverLineEventId = -1;
+            removeGlowFromSprite(_currentGlowSprite);
+            _currentGlowSprite = null;
             return;
         }
 
@@ -662,8 +694,8 @@
         }
 
         if (!targetEvent) {
-            this._eventHoverLineSprite.visible = false;
-            this._eventHoverLineEventId = -1;
+            removeGlowFromSprite(_currentGlowSprite);
+            _currentGlowSprite = null;
             return;
         }
 
@@ -678,56 +710,26 @@
         }
 
         if (!targetSprite || !targetSprite.bitmap || !targetSprite.bitmap.isReady()) {
-            this._eventHoverLineSprite.visible = false;
+            removeGlowFromSprite(_currentGlowSprite);
+            _currentGlowSprite = null;
             return;
         }
 
-        // 패턴 크기 (한 프레임의 실제 픽셀 크기)
-        var pw = targetSprite.patternWidth ? targetSprite.patternWidth() : $gameMap.tileWidth();
-        var ph = targetSprite.patternHeight ? targetSprite.patternHeight() : $gameMap.tileHeight();
-
-        // 이벤트가 바뀌거나 크기가 달라지면 비트맵 재생성 및 내곽선 재드로우
-        if (this._eventHoverLineEventId !== targetEvent.eventId() ||
-                this._eventHoverLinePW !== pw || this._eventHoverLinePH !== ph) {
-            this._eventHoverLineEventId = targetEvent.eventId();
-            this._eventHoverLinePW = pw;
-            this._eventHoverLinePH = ph;
-            this._eventHoverLineSprite.bitmap = new Bitmap(pw, ph);
-            this.drawEventHoverLine(pw, ph);
+        // 대상이 바뀌면 기존 글로우 제거 후 새 글로우 부착
+        if (_currentGlowSprite !== targetSprite) {
+            removeGlowFromSprite(_currentGlowSprite);
+            addGlowToSprite(targetSprite);
+            _currentGlowSprite = targetSprite;
+            _glowFrame = 0;
         }
 
-        // 위치: Sprite_Character.updatePosition() 와 동일한 공식으로 직접 계산
-        var tw2 = $gameMap.tileWidth();
-        var th2 = $gameMap.tileHeight();
-        this._eventHoverLineSprite.x = Math.round($gameMap.adjustX(targetEvent._realX) * tw2 + tw2 / 2);
-        this._eventHoverLineSprite.y = Math.round($gameMap.adjustY(targetEvent._realY) * th2 + th2);
-
-        // 점멸: 사인파로 min~max alpha 사이를 부드럽게 왕복
-        this._eventHoverLineFrame = (this._eventHoverLineFrame + 1) % (eventHoverLineSpeed * 2);
-        var t = 0.5 - 0.5 * Math.cos((this._eventHoverLineFrame / eventHoverLineSpeed) * Math.PI);
+        // 점멸: 사인파로 min~max alpha 왕복
+        _glowFrame++;
+        var t = 0.5 - 0.5 * Math.cos((_glowFrame / eventHoverLineSpeed) * Math.PI);
         var alpha = eventHoverLineMinAlpha + (eventHoverLineMaxAlpha - eventHoverLineMinAlpha) * t;
-        this._eventHoverLineSprite.opacity = Math.round(alpha * 255);
-        this._eventHoverLineSprite.visible = true;
-    };
-
-    Spriteset_Map.prototype.drawEventHoverLine = function(pw, ph) {
-        var bitmap = this._eventHoverLineSprite.bitmap;
-        var ctx = bitmap._context;
-        var lw = eventHoverLineWidth;
-        var half = lw / 2;
-
-        bitmap.clear();
-        ctx.save();
-        // shadowBlur로 이미지 안쪽으로 번지는 글로우 효과
-        ctx.shadowColor = eventHoverLineColor;
-        ctx.shadowBlur = Math.max(4, lw * 3);
-        ctx.strokeStyle = eventHoverLineColor;
-        ctx.lineWidth = lw;
-        ctx.strokeRect(half, half, pw - lw, ph - lw);
-        // 한 번 더 그려 글로우 강도 높임
-        ctx.strokeRect(half, half, pw - lw, ph - lw);
-        ctx.restore();
-        bitmap._setDirty();
+        if (targetSprite._eventGlowChild) {
+            targetSprite._eventGlowChild.opacity = Math.round(alpha * 255);
+        }
     };
 
     //=========================================================================
