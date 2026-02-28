@@ -2298,7 +2298,7 @@
       win.callUpdateHelp = function() {
         try {
           var scene = SceneManager._scene;
-          if (scene) { var fn = new Function(onCursorCode); fn.call(scene); }
+          if (scene) { var $ctx = scene._ctx || {}; var fn = new Function('$ctx', onCursorCode); fn.call(scene, $ctx); }
         } catch(e) {
           console.error('[Widget_List] onCursor error:', e);
         }
