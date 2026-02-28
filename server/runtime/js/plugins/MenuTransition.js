@@ -732,22 +732,35 @@
         };
     }
 
+    // ── 닫기 애니메이션 공통 트리거 ──────────────────────────────────────────
+
+    function _triggerCloseAnim() {
+        var isMenuScene = SceneManager._scene instanceof Scene_MenuBase ||
+            _isCustomUIInstance(SceneManager._scene);
+        if (isMenuScene && _phase !== 0) {
+            _bgBlurStartT        = _bgBlurT;
+            _suppressMenuFadeOut = true;
+            _suppressGameFadeIn  = true;
+            _bgBlurDir           = -1;
+            _bgElapsed           = 0;
+            _phase               = 0;
+        }
+    }
+
     // ── SceneManager.pop: 닫기 애니메이션 트리거 ─────────────────────────────
 
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
-            var isMenuScene = SceneManager._scene instanceof Scene_MenuBase ||
-                _isCustomUIInstance(SceneManager._scene);
-            if (isMenuScene && _phase !== 0) {
-                _bgBlurStartT        = _bgBlurT;
-                _suppressMenuFadeOut = true;
-                _suppressGameFadeIn  = true;
-                _bgBlurDir           = -1;
-                _bgElapsed           = 0;
-                _phase               = 0;
-            }
+            _triggerCloseAnim();
             _origPop.call(this);
+        };
+
+        // ── SceneManager.goto: 커스텀/메뉴 씬에서 goto로 빠져나갈 때도 처리 ──
+        var _origGoto = SceneManager.goto;
+        SceneManager.goto = function (sceneClass) {
+            _triggerCloseAnim();
+            _origGoto.call(this, sceneClass);
         };
     }
 
