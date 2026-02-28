@@ -4,7 +4,7 @@ import { WindowInspector } from './UIEditorWindowInspector';
 import { ElementInspector } from './UIEditorElementInspector';
 import { useFontEditorData } from './UIEditorFontEditor';
 import { WidgetInspector } from './UIEditorCustomScenePanel';
-import type { WidgetDef, WidgetDef_Panel, WidgetDef_Button, CustomSceneDefV2 } from '../../store/uiEditorTypes';
+import type { WidgetDef, CustomSceneDefV2 } from '../../store/uiEditorTypes';
 import './UIEditor.css';
 
 const ALL_FONTS = [
@@ -282,17 +282,9 @@ function SceneInspector() {
 
 function findWidgetById(root: WidgetDef, id: string): WidgetDef | null {
   if (root.id === id) return root;
-  if (root.type === 'panel') {
-    for (const c of (root as WidgetDef_Panel).children || []) {
-      const found = findWidgetById(c, id);
-      if (found) return found;
-    }
-  }
-  if (root.type === 'button') {
-    for (const c of (root as WidgetDef_Button).children || []) {
-      const found = findWidgetById(c, id);
-      if (found) return found;
-    }
+  for (const c of (root.children ?? [])) {
+    const found = findWidgetById(c, id);
+    if (found) return found;
   }
   return null;
 }
