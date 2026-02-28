@@ -745,7 +745,11 @@
   // Widget_Scene은 _children 대신 _subRoot를 통해 Window_Base 자손을 수집합니다.
   Widget_Scene.prototype._collectWindowDescendants = function(out) {
     if (!this._subRoot) return;
-    if (this._subRoot.displayObject() instanceof Window_Base) out.push(this._subRoot);
+    var srObj = this._subRoot.displayObject();
+    console.log('[Widget_Scene._collectWindowDescendants]', this._id,
+      'subRoot:', this._subRoot._id, 'isWindow:', (srObj instanceof Window_Base),
+      'subRoot._children:', this._subRoot._children.length);
+    if (srObj instanceof Window_Base) out.push(this._subRoot);
     this._subRoot._collectWindowDescendants(out);
   };
 
@@ -1031,6 +1035,12 @@
         var props = buildProps(animDef, obj, isEnter);
         if (!props) { if (onComplete) onComplete(); return; }
         var duration = (animDef && animDef.duration !== undefined) ? animDef.duration : 15;
+        // ── 디버그 로그 ──
+        var objId = (obj._customClassName || obj.constructor && obj.constructor.name || '?');
+        console.log('[WidgetAnimator.play]', objId,
+          'type='+animDef.type, 'isEnter='+isEnter,
+          'props:', JSON.stringify(props).substring(0, 120),
+          'objPos: x='+obj.x+' y='+obj.y);
         if (duration <= 0) {
           applyTask({obj:obj, props:props}, 1);
           if (onComplete) onComplete();
@@ -1229,7 +1239,9 @@
   Widget_Base.prototype._collectWindowDescendants = function(out) {
     for (var i = 0; i < this._children.length; i++) {
       var child = this._children[i];
-      if (child.displayObject() instanceof Window_Base) out.push(child);
+      var isWin = (child.displayObject() instanceof Window_Base);
+      console.log('[_collectWindowDescendants]', this._id || '?', '→ child:', child._id, 'isWindow:', isWin, 'type:', child.constructor.name || '?');
+      if (isWin) out.push(child);
       child._collectWindowDescendants(out);
     }
   };
@@ -1238,12 +1250,17 @@
     var obj = this._displayObject;
     if (!obj) return;
     var cx = obj.x, cy = obj.y;
-    if (this._prevDispX === undefined) { this._prevDispX = cx; this._prevDispY = cy; return; }
+    if (this._prevDispX === undefined) {
+      console.log('[_syncWindowDescendants] INIT', this._id, 'x='+cx+' y='+cy);
+      this._prevDispX = cx; this._prevDispY = cy; return;
+    }
     var dx = cx - this._prevDispX, dy = cy - this._prevDispY;
     if (dx === 0 && dy === 0) return;
     this._prevDispX = cx; this._prevDispY = cy;
     var wins = [];
     this._collectWindowDescendants(wins);
+    console.log('[_syncWindowDescendants] DELTA', this._id, 'dx='+dx, 'dy='+dy,
+      'wins=['+wins.map(function(w){return w._id+'('+w.displayObject().x+','+w.displayObject().y+')'}).join(',')+']');
     for (var i = 0; i < wins.length; i++) {
       var wo = wins[i].displayObject();
       wo.x += dx; wo.y += dy;
@@ -2748,6 +2765,7 @@
       var w2 = this._widgetMap[id2];
       var obj = w2.displayObject();
       if (obj && obj instanceof Window_Base) {
+        console.log('[_createWidgetTree] addWindow:', id2, 'x='+obj.x, 'y='+obj.y);
         this.addWindow(obj);
       }
     }
@@ -3060,8 +3078,14 @@
             this._ctx._pendingUseItemUser = useUser;
             this._pendingPersonalAction = { action: 'applyItemToActor', itemListWidget: null };
             this._personalOriginWidget = widget;
+            // skill_list 숨기기 + actor_select 표시를 위한 상태 저장
+            this._pendingItemListWidgetId = widget ? widget._id : null;
+            this._pendingActorWidgetId = handler.actorWidget || null;
+            if (widget && widget.displayObject()) widget.displayObject().visible = false;
+            if (widget && widget._rowOverlay) widget._rowOverlay.visible = false;
             var sawUI = this._widgetMap[handler.actorWidget];
             if (sawUI) {
+              if (sawUI.displayObject()) sawUI.displayObject().visible = true; // 명시적으로 표시
               sawUI.setFormationMode(false);
               if (this._navManager) this._navManager.focusWidget(handler.actorWidget);
             }
