@@ -63,12 +63,12 @@
     Window_BattleDebug.prototype.update = function() {
         Window_Base.prototype.update.call(this);
 
-        // 창 전체 영역 히트 테스트 (padding 포함)
-        var hit = TouchInput.x >= this.x && TouchInput.x < this.x + this.width &&
-                  TouchInput.y >= this.y && TouchInput.y < this.y + this.height;
+        var tx = TouchInput.x, ty = TouchInput.y;
+        var hit = tx >= this.x && tx < this.x + this.width &&
+                  ty >= this.y && ty < this.y + this.height;
         var hover = -1;
         if (hit) {
-            var ly = TouchInput.y - this.y - this.standardPadding();
+            var ly = ty - this.y - this.standardPadding();
             if (ly >= 0) {
                 hover = Math.floor(ly / this.lineHeight());
                 if (hover >= BUTTONS.length) hover = -1;
@@ -80,10 +80,14 @@
             this.refresh();
         }
 
-        // 클릭 처리
-        if (TouchInput.isTriggered() && hover >= 0) {
-            var fn = this._handlers[BUTTONS[hover].symbol];
-            if (fn) fn();
+        if (TouchInput.isTriggered()) {
+            console.log('[BattleDebug] isTriggered tx=%d ty=%d hit=%s hover=%d winX=%d winY=%d winW=%d winH=%d',
+                tx, ty, hit, hover, this.x, this.y, this.width, this.height);
+            if (hover >= 0) {
+                var fn = this._handlers[BUTTONS[hover].symbol];
+                console.log('[BattleDebug] calling symbol=%s fn=%s', BUTTONS[hover].symbol, typeof fn);
+                if (fn) fn();
+            }
         }
     };
 
