@@ -73,10 +73,11 @@ export function getLabel(id: number, list: string[]) {
 }
 
 /** 인덱스 0부터 시작하는 DataListPicker (전체 파티 등 0번 항목 포함) */
-export function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIndices, characterData }: {
+export function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIndices, characterData, renderPreview }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
   iconIndices?: (number | undefined)[];
   characterData?: (CharacterInfo | undefined)[];
+  renderPreview?: (id: number) => React.ReactNode;
 }) {
   const GROUP_SIZE = 20;
   const totalCount = items.length;
@@ -109,7 +110,7 @@ export function DataListPickerWithZero({ items, value, onChange, onClose, title,
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
-      <div className="image-picker-dialog" style={{ width: 500, maxHeight: '70vh' }}>
+      <div className="image-picker-dialog" style={{ width: renderPreview ? 740 : 500, maxHeight: '70vh' }}>
         <div className="image-picker-header">{title || '대상 선택'}</div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 300 }}>
           <div style={{ width: 170, borderRight: '1px solid #444', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
@@ -137,6 +138,11 @@ export function DataListPickerWithZero({ items, value, onChange, onClose, title,
               );
             })}
           </div>
+          {renderPreview && (
+            <div style={{ width: 220, borderLeft: '1px solid #444', overflowY: 'auto', background: '#252525' }}>
+              {renderPreview(selected)}
+            </div>
+          )}
         </div>
         <div className="image-picker-footer">
           <button className="db-btn" onClick={() => { onChange(selected); onClose(); }}>OK</button>

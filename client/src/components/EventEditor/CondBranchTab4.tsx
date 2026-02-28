@@ -4,6 +4,7 @@ import { DataListPicker } from './dataListPicker';
 import { radioStyle, rowStyle, disabledOpacity, getLabel, useDbNamesWithIcons } from './condBranchHelpers';
 import { ScriptSampleDialog } from './ScriptSampleDialog';
 import { COND_BRANCH_SAMPLES } from './scriptSamples';
+import { ItemPreview } from '../common/ItemPreview';
 
 interface Props {
   condType: number;
@@ -169,15 +170,18 @@ export function CondBranchTab4({
 
       {showPicker === 'item' && (
         <DataListPicker items={items} value={itemId} onChange={setItemId}
-          onClose={() => setShowPicker(null)} title="아이템 선택" iconIndices={itemIcons} />
+          onClose={() => setShowPicker(null)} title="아이템 선택" iconIndices={itemIcons}
+          renderPreview={(id) => <ItemPreview id={id} type="item" />} />
       )}
       {showPicker === 'weapon' && (
         <DataListPicker items={weapons} value={weaponId} onChange={setWeaponId}
-          onClose={() => setShowPicker(null)} title="무기 선택" iconIndices={weaponIcons} />
+          onClose={() => setShowPicker(null)} title="무기 선택" iconIndices={weaponIcons}
+          renderPreview={(id) => <ItemPreview id={id} type="weapon" />} />
       )}
       {showPicker === 'armor' && (
         <DataListPicker items={armors} value={armorId} onChange={setArmorId}
-          onClose={() => setShowPicker(null)} title="방어구 선택" iconIndices={armorIcons} />
+          onClose={() => setShowPicker(null)} title="방어구 선택" iconIndices={armorIcons}
+          renderPreview={(id) => <ItemPreview id={id} type="armor" />} />
       )}
       {showSampleDialog && (
         <ScriptSampleDialog

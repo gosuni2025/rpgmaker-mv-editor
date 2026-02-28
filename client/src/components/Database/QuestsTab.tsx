@@ -7,6 +7,7 @@ import type {
 import { selectStyleFull, selectStyle } from '../../styles/editorStyles';
 import { DataListPicker } from '../EventEditor/dataListPicker';
 import { EnemyPreview } from '../common/EnemyPreview';
+import { ItemPreview } from '../common/ItemPreview';
 import apiClient from '../../api/client';
 import './QuestsTab.css';
 
@@ -171,6 +172,7 @@ function ObjectiveConfigEditor({ type, config, onChange, refData }: ObjectiveCon
             iconIndices={collectIcons}
             onChange={(id) => set('itemId', id)}
             onClose={() => setPickerOpen(null)}
+            renderPreview={(id) => <ItemPreview id={id} type={collectItemType as 'item' | 'weapon' | 'armor'} />}
           />
         )}
       </div>
@@ -384,6 +386,7 @@ function RewardRow({ reward, onChange, onDelete, refData }: RewardRowProps) {
           iconIndices={rewardItemIcons}
           onChange={(id) => set('itemId', id)}
           onClose={() => setPickerOpen(false)}
+          renderPreview={(id) => <ItemPreview id={id} type={reward.type as 'item' | 'weapon' | 'armor'} />}
         />
       )}
     </div>
