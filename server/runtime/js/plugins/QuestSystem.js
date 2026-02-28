@@ -90,6 +90,11 @@
   var trackerY = Number(params['trackerY'] || 0);
   var trackerWidth = Number(params['trackerWidth'] || 300);
   var autoGiveRewards = String(params['autoGiveRewards']) !== 'false';
+  // J키를 RPG Maker MV Input 시스템에 등록 (Input.isTriggered가 인식하려면 keyMapper 등록 필수)
+  var _QS_JOURNAL_KEY = '_qs_journal';
+  if (journalKey) {
+    Input.keyMapper[journalKey.toUpperCase().charCodeAt(0)] = _QS_JOURNAL_KEY;
+  }
 
   // ============================================================
   // 데이터 로드
@@ -723,6 +728,14 @@
     }
   };
 
+  var _Scene_Map_stop = Scene_Map.prototype.stop;
+  Scene_Map.prototype.stop = function () {
+    _Scene_Map_stop.call(this);
+    if (window.OverlayManager) {
+      OverlayManager.hide('questTracker');
+    }
+  };
+
   var _Scene_Map_terminate = Scene_Map.prototype.terminate;
   Scene_Map.prototype.terminate = function () {
     _Scene_Map_terminate.call(this);
@@ -735,7 +748,7 @@
   Scene_Map.prototype.updateScene = function () {
     _Scene_Map_updateScene.call(this);
     if (!SceneManager.isSceneChanging() && journalKey) {
-      if (Input.isTriggered(journalKey.toLowerCase()) || Input.isTriggered(journalKey.toUpperCase())) {
+      if (Input.isTriggered(_QS_JOURNAL_KEY)) {
         QS._openJournal();
       }
     }

@@ -1380,6 +1380,7 @@
     var win = new Window_CustomCommand(this._x, this._y, listDef);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
+    win.deselect(); // Window_Command.initialize가 select(0)을 호출하므로 명시적으로 해제
     this._applyWindowStyle(win, def);
     if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
@@ -1408,6 +1409,8 @@
         this._window.height = items.length > 0 ? this._window.fittingHeight(items.length) : 0;
       }
       if (this._window.refresh) this._window.refresh();
+      // 비활성 상태에서는 커서 숨김 (빈 목록이어도 커서가 보이는 문제 방지)
+      if (!this._window.active) this._window.deselect();
     } catch(e) {
       console.error('[Widget_List] dataScript error:', e);
     }
