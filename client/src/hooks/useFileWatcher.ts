@@ -192,6 +192,14 @@ async function handleFileChanged(filename: string) {
       return;
     }
 
+    // UIEditorScenes.json - 커스텀 씬 목록 재로드
+    if (filename === 'UIEditorScenes.json') {
+      await store.loadCustomScenes();
+      console.log('[FileWatcher] 커스텀 씬 목록 재로드 완료');
+      showToast('커스텀 씬 목록 갱신됨', true);
+      return;
+    }
+
     // 기타 DB 파일 (Actors, Items 등) - 열려있는 다이얼로그가 있으면 알림
     // DB 다이얼로그는 자체적으로 데이터를 로드하므로, 변경 이벤트만 발행
     window.dispatchEvent(new CustomEvent('fileChanged', { detail: { file: filename } }));
