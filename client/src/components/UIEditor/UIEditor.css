@@ -37,6 +37,231 @@
   border-radius: 2px;
 }
 
+/* 씬 선택 버튼 (select 대체) */
+.ui-editor-scene-select-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #3c3c3c;
+  border: 1px solid #555;
+  color: #ddd;
+  padding: 4px 6px;
+  font-size: 13px;
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.ui-editor-scene-select-btn:hover {
+  background: #4a4a4a;
+  border-color: #777;
+}
+.ui-editor-scene-select-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-editor-scene-select-arrow {
+  font-size: 10px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+/* ── 씬 선택 팝업 ── */
+.sp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-dialog {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  width: 760px;
+  height: 480px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.sp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #333;
+  border-bottom: 1px solid #444;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ddd;
+  flex-shrink: 0;
+}
+
+.sp-close {
+  background: transparent;
+  border: none;
+  color: #999;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+.sp-close:hover { color: #fff; }
+
+.sp-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 왼쪽 목록 */
+.sp-left {
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  border-right: 1px solid #444;
+  flex-shrink: 0;
+}
+
+.sp-search-wrap {
+  position: relative;
+  padding: 6px 8px;
+  border-bottom: 1px solid #3a3a3a;
+  flex-shrink: 0;
+}
+
+.sp-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  color: #ddd;
+  padding: 4px 24px 4px 8px;
+  font-size: 12px;
+  border-radius: 2px;
+  outline: none;
+}
+.sp-search-input:focus { border-color: #2675bf; }
+
+.sp-search-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.sp-search-clear:hover { color: #ddd; }
+
+.sp-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.sp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #ccc;
+  user-select: none;
+}
+.sp-item:hover { background: #383838; }
+.sp-item.focused { background: #2675bf; color: #fff; }
+.sp-item.focused .sp-badge { background: #1a4e8a; }
+.sp-item.current .sp-item-label::after {
+  content: ' ✓';
+  color: #6af;
+  font-size: 11px;
+}
+
+.sp-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  background: #2a4060;
+  color: #7ab;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sp-empty {
+  padding: 16px 10px;
+  color: #666;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* 오른쪽 프리뷰 */
+.sp-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  overflow: hidden;
+}
+
+.sp-preview-scene-name {
+  font-size: 11px;
+  color: #888;
+  padding: 5px 10px;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+  font-family: monospace;
+}
+
+.sp-preview-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-preview-iframe {
+  /* 게임은 816×624, 팝업 오른쪽은 ~516×440 정도 */
+  /* 0.6배 스케일: 816*0.6=489.6, 624*0.6=374.4 */
+  width: 816px;
+  height: 624px;
+  border: none;
+  transform: scale(0.6);
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+.sp-preview-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 13px;
+  background: #1a1a1a;
+}
+
 .ui-editor-window-list {
   flex: 1;
   overflow-y: auto;

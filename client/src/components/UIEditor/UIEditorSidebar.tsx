@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import ImagePicker from '../common/ImagePicker';
 import UIEditorNewSceneDialog from './UIEditorNewSceneDialog';
 import UIEditorCustomScenePanel from './UIEditorCustomScenePanel';
+import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
 import './UIEditor.css';
 
 interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; gaugeFile?: string; gaugeBgX?: number; gaugeBgY?: number; gaugeBgW?: number; gaugeBgH?: number; gaugeFillX?: number; gaugeFillY?: number; gaugeFillW?: number; gaugeFillH?: number; gaugeFillDir?: 'horizontal' | 'vertical'; }
@@ -35,6 +36,7 @@ function WindowList() {
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
   const projectPath = useEditorStore((s) => s.projectPath);
   const [showNewSceneDialog, setShowNewSceneDialog] = useState(false);
+  const [showScenePicker, setShowScenePicker] = useState(false);
 
   // 커스텀 씬 로드
   useEffect(() => { if (projectPath) loadCustomScenes(); }, [projectPath]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -45,30 +47,36 @@ function WindowList() {
   const sceneSelected = uiEditorSelectedWindowId === null;
   const hasSceneFont = !!uiFontSceneFonts[uiEditorScene];
 
+  const customSceneEntries = Object.values(customScenes.scenes).map((s) => ({
+    id: s.id,
+    displayName: s.displayName,
+  }));
+
+  // 현재 씬의 표시 레이블
+  const currentSceneLabel = (() => {
+    const found = AVAILABLE_SCENES.find((s) => s.value === uiEditorScene);
+    if (found) return found.label;
+    const csId = isCustomScene ? uiEditorScene.replace('Scene_CS_', '') : null;
+    if (csId) {
+      const cs = customScenes.scenes[csId];
+      if (cs) return `${cs.displayName} (${uiEditorScene})`;
+    }
+    return uiEditorScene;
+  })();
+
   return (
     <>
       <div className="ui-editor-sidebar-section">
         <label>씬 선택</label>
         <div style={{ display: 'flex', gap: 4 }}>
-          <select
-            className="ui-editor-scene-select"
-            style={{ flex: 1 }}
-            value={uiEditorScene}
-            onChange={(e) => setUiEditorScene(e.target.value)}
+          <button
+            className="ui-editor-scene-select-btn"
+            onClick={() => setShowScenePicker(true)}
+            title="씬 선택 (클릭으로 팝업 열기)"
           >
-            <optgroup label="기본 씬">
-              {AVAILABLE_SCENES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </optgroup>
-            {Object.keys(customScenes.scenes).length > 0 && (
-              <optgroup label="커스텀 씬">
-                {Object.values(customScenes.scenes).map((s) => (
-                  <option key={s.id} value={`Scene_CS_${s.id}`}>{s.displayName} (Scene_CS_{s.id})</option>
-                ))}
-              </optgroup>
-            )}
-          </select>
+            <span className="ui-editor-scene-select-label">{currentSceneLabel}</span>
+            <span className="ui-editor-scene-select-arrow">▾</span>
+          </button>
           <button
             className="ui-canvas-toolbar-btn"
             style={{ padding: '4px 8px', fontSize: 13, whiteSpace: 'nowrap' }}
@@ -77,6 +85,16 @@ function WindowList() {
           >+</button>
         </div>
       </div>
+
+      {showScenePicker && (
+        <UIEditorScenePickerDialog
+          currentScene={uiEditorScene}
+          availableScenes={AVAILABLE_SCENES}
+          customScenes={customSceneEntries}
+          onSelect={(scene) => setUiEditorScene(scene)}
+          onClose={() => setShowScenePicker(false)}
+        />
+      )}
 
       {isCustomScene && customSceneId ? (
         <UIEditorCustomScenePanel sceneId={customSceneId} />
