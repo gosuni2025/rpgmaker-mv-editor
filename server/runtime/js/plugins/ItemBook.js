@@ -87,6 +87,25 @@
  * @default 1
  */
 
+/* @UITemplates
+[
+  {
+    "group": "아이템 도감 $ctx",
+    "pluginLabel": "ItemBook.js",
+    "items": [
+      {"label":"아이템 이름",    "code":"{$ctx.item&&$ctx.item.name||''}",          "desc":"선택된 아이템/무기/방어구 이름 (item_book 씬)",       "modes":["text"]},
+      {"label":"아이템 설명",    "code":"{$ctx.item&&$ctx.item.description||''}",   "desc":"선택된 아이템 설명 (textArea용)",                     "modes":["text"]},
+      {"label":"아이템 가격",    "code":"{$ctx.item&&$ctx.item.price||0}",          "desc":"선택된 아이템 가격",                                  "modes":["text"]},
+      {"label":"아이템 타입",    "code":"{$ctx.item&&$ctx.item.itypeId?'아이템':$ctx.item.wtypeId?'무기':'방어구'}", "desc":"아이템/무기/방어구 구분 텍스트", "modes":["text"]},
+      {"label":"아이콘 bitmap",  "code":"ImageManager.loadSystem('IconSet')",        "desc":"아이콘셋 Bitmap (srcRectExpr로 잘라냄, bitmapExpr용)", "modes":["bitmap"]},
+      {"label":"아이콘 rect",    "code":"{x:($ctx.item&&$ctx.item.iconIndex%16||0)*32,y:($ctx.item&&Math.floor($ctx.item.iconIndex/16)||0)*32,w:32,h:32}", "desc":"선택된 아이템 아이콘 srcRect (srcRectExpr용)", "modes":["srcRect"]},
+      {"label":"ATK 파라미터",   "code":"{$ctx.item&&$ctx.item.params&&$ctx.item.params[2]||0}", "desc":"무기/방어구 ATK (params[2])", "modes":["text"]},
+      {"label":"DEF 파라미터",   "code":"{$ctx.item&&$ctx.item.params&&$ctx.item.params[3]||0}", "desc":"무기/방어구 DEF (params[3])", "modes":["text"]}
+    ]
+  }
+]
+*/
+
 (function() {
 
     var parameters  = PluginManager.parameters('ItemBook');

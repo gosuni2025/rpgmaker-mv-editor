@@ -5,6 +5,7 @@ import skinsRouter from './skins';
 import imagesRouter from './images';
 import fontsRouter from './fonts';
 import scenesRouter from './scenes';
+import expressionTemplatesRouter from './expressionTemplates';
 
 const router = express.Router();
 
@@ -14,5 +15,6 @@ router.use('/skins', skinsRouter);
 router.use('/images', imagesRouter);
 router.use('/fonts', fontsRouter);
 router.use('/scenes', scenesRouter);
+router.use('/expression-templates', expressionTemplatesRouter);
 
 export default router;

@@ -54,6 +54,31 @@
  * @default 1
  */
 
+/* @UITemplates
+[
+  {
+    "group": "적 도감 $ctx",
+    "pluginLabel": "EnemyBook.js",
+    "items": [
+      {"label":"적 이름",      "code":"{$ctx.enemy&&$ctx.enemy.name||''}",        "desc":"선택된 적의 이름 (enemy_book 씬)",                 "modes":["text"]},
+      {"label":"적 최대HP",    "code":"{$ctx.enemy&&$ctx.enemy.params[0]||0}",    "desc":"선택된 적의 최대 HP (params[0])",                  "modes":["text"]},
+      {"label":"적 최대MP",    "code":"{$ctx.enemy&&$ctx.enemy.params[1]||0}",    "desc":"선택된 적의 최대 MP (params[1])",                  "modes":["text"]},
+      {"label":"적 ATK",       "code":"{$ctx.enemy&&$ctx.enemy.params[2]||0}",    "desc":"선택된 적의 공격력 (params[2])",                   "modes":["text"]},
+      {"label":"적 DEF",       "code":"{$ctx.enemy&&$ctx.enemy.params[3]||0}",    "desc":"선택된 적의 방어력 (params[3])",                   "modes":["text"]},
+      {"label":"적 MAT",       "code":"{$ctx.enemy&&$ctx.enemy.params[4]||0}",    "desc":"선택된 적의 마법공격력 (params[4])",               "modes":["text"]},
+      {"label":"적 MDF",       "code":"{$ctx.enemy&&$ctx.enemy.params[5]||0}",    "desc":"선택된 적의 마법방어력 (params[5])",               "modes":["text"]},
+      {"label":"적 AGI",       "code":"{$ctx.enemy&&$ctx.enemy.params[6]||0}",    "desc":"선택된 적의 민첩성 (params[6])",                   "modes":["text"]},
+      {"label":"적 LUK",       "code":"{$ctx.enemy&&$ctx.enemy.params[7]||0}",    "desc":"선택된 적의 운 (params[7])",                       "modes":["text"]},
+      {"label":"적 EXP",       "code":"{$ctx.enemy&&$ctx.enemy.exp||0}",          "desc":"선택된 적의 EXP",                                  "modes":["text"]},
+      {"label":"적 골드",      "code":"{$ctx.enemy&&$ctx.enemy.gold||0}",         "desc":"선택된 적의 골드",                                 "modes":["text"]},
+      {"label":"적 설명1",     "code":"{$ctx.enemy&&$ctx.enemy.meta.desc1||''}",  "desc":"선택된 적의 메모 <desc1:...> 내용",                "modes":["text"]},
+      {"label":"적 설명2",     "code":"{$ctx.enemy&&$ctx.enemy.meta.desc2||''}",  "desc":"선택된 적의 메모 <desc2:...> 내용",                "modes":["text"]},
+      {"label":"적 배틀러 (bitmap)", "code":"CSHelper.enemyBattler($ctx.enemy)",  "desc":"선택된 적 배틀러 Bitmap (bitmapExpr용)",            "modes":["bitmap"]}
+    ]
+  }
+]
+*/
+
 (function() {
 
     var parameters  = PluginManager.parameters('EnemyBook');

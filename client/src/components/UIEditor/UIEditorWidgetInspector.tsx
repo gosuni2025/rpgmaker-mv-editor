@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType, ImageSource,
@@ -8,6 +8,7 @@ import type {
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
 import HelpButton from '../common/HelpButton';
+import { ExpressionPickerButton } from './UIEditorExpressionPicker';
 
 // ── ActionHandlerEditor ────────────────────────────────────
 
@@ -587,35 +588,60 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
       {widget.type !== 'panel' && (
       <div style={sectionStyle}>
         <label style={labelStyle}>타입 속성 ({widget.type})</label>
-        {widget.type === 'label' && (
+        {widget.type === 'label' && (() => {
+          const labelTextRef = useRef<HTMLTextAreaElement>(null);
+          const insertLabelText = useCallback((code: string) => {
+            const ta = labelTextRef.current;
+            if (!ta) return;
+            const s = ta.selectionStart, e = ta.selectionEnd;
+            const cur = (widget as WidgetDef_Label).text;
+            update({ text: cur.slice(0, s) + code + cur.slice(e) } as any);
+            requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
+          }, [(widget as WidgetDef_Label).text]); // eslint-disable-line react-hooks/exhaustive-deps
+          return (
+            <div>
+              <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
+                <ExpressionPickerButton mode="text" onInsert={insertLabelText} />
+              </div>
+              <textarea
+                ref={labelTextRef}
+                style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+                value={(widget as WidgetDef_Label).text}
+                placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
+                onChange={(e) => update({ text: e.target.value } as any)}
+              />
+              <div style={rowStyle}>
+                <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+                <select style={{ ...selectStyle, flex: 1 }}
+                  value={(widget as WidgetDef_Label).align || 'left'}
+                  onChange={(e) => update({ align: e.target.value as any } as any)}>
+                  <option value="left">왼쪽</option>
+                  <option value="center">가운데</option>
+                  <option value="right">오른쪽</option>
+                </select>
+              </div>
+            </div>
+          );
+        })()}
+        {widget.type === 'textArea' && (() => {
+          const taTextRef = useRef<HTMLTextAreaElement>(null);
+          const insertTaText = useCallback((code: string) => {
+            const ta = taTextRef.current;
+            if (!ta) return;
+            const s = ta.selectionStart, e = ta.selectionEnd;
+            const cur = (widget as WidgetDef_TextArea).text;
+            update({ text: cur.slice(0, s) + code + cur.slice(e) } as any);
+            requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
+          }, [(widget as WidgetDef_TextArea).text]); // eslint-disable-line react-hooks/exhaustive-deps
+          return (
           <div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 50 }}>텍스트</span>
+            <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
+              <ExpressionPickerButton mode="text" onInsert={insertTaText} />
             </div>
             <textarea
-              style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-              value={(widget as WidgetDef_Label).text}
-              placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
-              onChange={(e) => update({ text: e.target.value } as any)}
-            />
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
-              <select style={{ ...selectStyle, flex: 1 }}
-                value={(widget as WidgetDef_Label).align || 'left'}
-                onChange={(e) => update({ align: e.target.value as any } as any)}>
-                <option value="left">왼쪽</option>
-                <option value="center">가운데</option>
-                <option value="right">오른쪽</option>
-              </select>
-            </div>
-          </div>
-        )}
-        {widget.type === 'textArea' && (
-          <div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 50 }}>텍스트</span>
-            </div>
-            <textarea
+              ref={taTextRef}
               style={{ ...inputStyle, height: 80, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
               value={(widget as WidgetDef_TextArea).text}
               placeholder="{$ctx.item&&$ctx.item.description||''} 등 표현식 사용 가능"
@@ -643,7 +669,8 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
               <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
             </div>
           </div>
-        )}
+          );
+        })()}
         {widget.type === 'gauge' && (() => {
           const g = widget as WidgetDef_Gauge;
           return (
@@ -654,6 +681,7 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                   placeholder="e.g. $gameParty.members()[0].hp"
                   value={g.valueExpr || ''}
                   onChange={(e) => update({ valueExpr: e.target.value || undefined } as any)} />
+                <ExpressionPickerButton mode="js" onInsert={(code) => update({ valueExpr: code } as any)} />
               </div>
               <div style={rowStyle}>
                 <span style={{ fontSize: 11, color: '#888', width: 70 }}>최대값 식</span>
@@ -661,6 +689,7 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                   placeholder="e.g. $gameParty.members()[0].mhp"
                   value={g.maxExpr || ''}
                   onChange={(e) => update({ maxExpr: e.target.value || undefined } as any)} />
+                <ExpressionPickerButton mode="js" onInsert={(code) => update({ maxExpr: code } as any)} />
               </div>
               <div style={rowStyle}>
                 <span style={{ fontSize: 11, color: '#888', width: 70 }}>레이블 식</span>
@@ -668,6 +697,7 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                   placeholder="e.g. 'HP'"
                   value={g.labelExpr || ''}
                   onChange={(e) => update({ labelExpr: e.target.value || undefined } as any)} />
+                <ExpressionPickerButton mode="js" onInsert={(code) => update({ labelExpr: code } as any)} />
               </div>
               <div style={rowStyle}>
                 <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 스킨</span>
@@ -700,8 +730,9 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
           return (
             <div>
               {/* bitmapExpr 모드 */}
-              <div style={rowStyle}>
-                <span style={{ fontSize: 11, color: '#888', width: 70 }}>비트맵 식</span>
+              <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11, color: '#888' }}>비트맵 식</span>
+                <ExpressionPickerButton mode="bitmap" onInsert={(code) => update({ bitmapExpr: code } as any)} />
               </div>
               <textarea
                 style={{ ...inputStyle, height: 50, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
@@ -710,8 +741,9 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                 onChange={(e) => update({ bitmapExpr: e.target.value || undefined } as any)}
               />
               {hasBitmapExpr && <>
-                <div style={rowStyle}>
-                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>srcRect 식</span>
+                <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, color: '#888' }}>srcRect 식</span>
+                  <ExpressionPickerButton mode="srcRect" onInsert={(code) => update({ srcRectExpr: code } as any)} />
                 </div>
                 <textarea
                   style={{ ...inputStyle, height: 40, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
