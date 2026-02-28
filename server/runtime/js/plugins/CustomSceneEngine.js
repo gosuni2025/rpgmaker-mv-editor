@@ -792,16 +792,16 @@
   window.Window_RowSelector = Window_RowSelector;
 
   //===========================================================================
-  // Widget_SubScene — 서브씬 인스턴싱 위젯
+  // Widget_Scene — 씬을 위젯으로 포함 (씬 안에 씬)
   //  sceneId:      UIScenes에 등록된 씬 ID
   //  instanceCtx:  씬 _ctx에 임시 주입할 키-값 오브젝트
-  //  width/height: 서브씬 루트의 크기 (지정 시 루트 def를 오버라이드)
+  //  width/height: 씬 루트의 크기 (지정 시 루트 def를 오버라이드)
   //===========================================================================
-  function Widget_SubScene() {}
-  Widget_SubScene.prototype = Object.create(Widget_Base.prototype);
-  Widget_SubScene.prototype.constructor = Widget_SubScene;
+  function Widget_Scene() {}
+  Widget_Scene.prototype = Object.create(Widget_Base.prototype);
+  Widget_Scene.prototype.constructor = Widget_Scene;
 
-  Widget_SubScene.prototype.initialize = function(def, parentWidget) {
+  Widget_Scene.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._instanceCtx = def.instanceCtx || {};
     this._sceneId = def.sceneId || '';
@@ -837,7 +837,7 @@
   };
 
   // instanceCtx를 씬 _ctx에 임시 주입 (JS 단일 스레드이므로 동기 실행 시 안전)
-  Widget_SubScene.prototype._withCtx = function(fn) {
+  Widget_Scene.prototype._withCtx = function(fn) {
     var scene = SceneManager._scene;
     if (!scene || !scene._ctx) { fn(); return; }
     var ctx = scene._ctx;
@@ -849,30 +849,30 @@
     }
   };
 
-  Widget_SubScene.prototype.refresh = function() {
+  Widget_Scene.prototype.refresh = function() {
     if (!this._subRoot) return;
     var self = this;
     this._withCtx(function() { self._subRoot.refresh(); });
   };
 
-  Widget_SubScene.prototype.update = function() {
+  Widget_Scene.prototype.update = function() {
     if (!this._subRoot) return;
     var self = this;
     this._withCtx(function() { self._subRoot.update(); });
   };
 
-  Widget_SubScene.prototype.findWidget = function(id) {
+  Widget_Scene.prototype.findWidget = function(id) {
     if (this._id === id) return this;
     if (this._subRoot) return this._subRoot.findWidget(id);
     return null;
   };
 
-  Widget_SubScene.prototype.destroy = function() {
+  Widget_Scene.prototype.destroy = function() {
     if (this._subRoot) { this._subRoot.destroy(); this._subRoot = null; }
     Widget_Base.prototype.destroy.call(this);
   };
 
-  window.Widget_SubScene = Widget_SubScene;
+  window.Widget_Scene = Widget_Scene;
 
   //===========================================================================
   // Window_CustomOptions — Window_Command 상속, 옵션 설정 창
@@ -2493,7 +2493,7 @@
         case 'list':        widget = new Widget_List();        break;
         case 'rowSelector':
         case 'actorList':   widget = new Widget_RowSelector(); break;
-        case 'subScene':    widget = new Widget_SubScene();    break;
+        case 'scene':       widget = new Widget_Scene();       break;
         case 'options':     widget = new Widget_Options();     break;
         case 'background':  widget = new Widget_Background();  break;
         case 'shopNumber':  widget = new Widget_ShopNumber();  break;
