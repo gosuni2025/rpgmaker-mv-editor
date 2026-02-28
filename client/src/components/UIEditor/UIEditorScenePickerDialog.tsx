@@ -79,12 +79,6 @@ export default function UIEditorScenePickerDialog({
     }),
   ], [availableScenes, customScenes, redirectFromMap]);
 
-  // 비어있지 않은 탭 목록
-  const activeTabs = useMemo(
-    () => TAB_DEFS.filter((t) => allScenes.some((s) => s.tab === t.id)),
-    [allScenes],
-  );
-
   // 초기 탭: currentScene의 탭
   const initialTab = useMemo<SceneTab>(() => {
     if (currentScene.startsWith('Scene_CS_')) {
@@ -179,8 +173,6 @@ export default function UIEditorScenePickerDialog({
     }
   };
 
-  const showTabs = activeTabs.length >= 2;
-
   return (
     <div className="sp-overlay" onKeyDown={handleKeyDown}>
       <div className="sp-dialog">
@@ -192,23 +184,21 @@ export default function UIEditorScenePickerDialog({
         <div className="sp-body">
           {/* ── 왼쪽: 탭 + 검색 + 목록 ── */}
           <div className="sp-left">
-            {showTabs && (
-              <div className="sp-tabs">
-                {activeTabs.map((t) => {
-                  const count = allScenes.filter((s) => s.tab === t.id).length;
-                  return (
-                    <button
-                      key={t.id}
-                      className={`sp-tab${activeTab === t.id ? ' active' : ''}`}
-                      onClick={() => { setActiveTab(t.id); setSearch(''); }}
-                    >
-                      {t.label}
-                      <span className="sp-tab-count">{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            <div className="sp-tabs">
+              {TAB_DEFS.map((t) => {
+                const count = allScenes.filter((s) => s.tab === t.id).length;
+                return (
+                  <button
+                    key={t.id}
+                    className={`sp-tab${activeTab === t.id ? ' active' : ''}`}
+                    onClick={() => { setActiveTab(t.id); setSearch(''); }}
+                  >
+                    {t.label}
+                    <span className="sp-tab-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
 
             <div className="sp-search-wrap">
               <input
