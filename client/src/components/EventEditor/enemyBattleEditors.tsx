@@ -4,6 +4,7 @@ import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { useDbNamesWithIcons, useActorData, getLabel } from './actionEditorUtils';
 import { DataListPicker } from './dataListPicker';
 import AnimationPickerDialog from './AnimationPickerDialog';
+import { EnemyPreview } from '../common/EnemyPreview';
 
 const ENEMY_OPTIONS_ALL = [
   { value: -1, label: '전체 적 군단' },
@@ -200,7 +201,8 @@ export function EnemyTransformEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
       </div>
       {showEnemyPicker && (
         <DataListPicker items={enemyNames} value={enemyId} onChange={setEnemyId}
-          onClose={() => setShowEnemyPicker(false)} title="적 캐릭터" />
+          onClose={() => setShowEnemyPicker(false)} title="적 캐릭터"
+          renderPreview={(id) => <EnemyPreview id={id} />} />
       )}
     </>
   );

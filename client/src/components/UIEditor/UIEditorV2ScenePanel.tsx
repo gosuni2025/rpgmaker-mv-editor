@@ -143,7 +143,8 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [sceneId, addWidget, pushCustomSceneUndo, setSelectedId, showToast]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // dirty 상태 감지 → debounce 자동저장 + iframe 프리뷰 갱신
+  // 씬 데이터 변경 → debounce 자동저장 + iframe 프리뷰 갱신
+  // customSceneDirty 대신 scene 자체를 의존성으로 사용 — 이미 dirty=true인 상태에서 재변경 시에도 타이머 리셋
   React.useEffect(() => {
     if (!customSceneDirty) return;
     const timer = setTimeout(async () => {
@@ -155,7 +156,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [customSceneDirty]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scene]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedWidget = React.useMemo(() => {
     if (!selectedId || !scene.root) return null;

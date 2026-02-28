@@ -121,10 +121,11 @@ export function IconSprite({ iconIndex }: { iconIndex: number }) {
 }
 
 /** 스위치/변수/아이템 등 목록에서 선택하는 2패널 팝업 */
-export function DataListPicker({ items, value, onChange, onClose, title, iconIndices, characterData }: {
+export function DataListPicker({ items, value, onChange, onClose, title, iconIndices, characterData, renderPreview }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
   iconIndices?: (number | undefined)[];
   characterData?: (CharacterInfo | undefined)[];
+  renderPreview?: (id: number) => React.ReactNode;
 }) {
   const totalCount = items.length - 1; // items[0]은 null
   const groups = useMemo(() => {
@@ -173,9 +174,11 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
 
   const categoryName = title?.replace(' 선택', '') || title || '';
 
+  const hasPreview = !!renderPreview;
+
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
-      <div className="image-picker-dialog" style={{ width: 500, maxHeight: '70vh' }}>
+      <div className="image-picker-dialog" style={{ width: hasPreview ? 760 : 500, maxHeight: '70vh' }}>
         <div className="image-picker-header">{title || '대상 선택'}</div>
         <div style={{ padding: '6px 12px', borderBottom: '1px solid #444' }}>
           <input
@@ -209,7 +212,7 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
               ))}
             </div>
           )}
-          {/* 오른쪽 패널: 아이템 목록 */}
+          {/* 중앙 패널: 아이템 목록 */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {displayItems.map(item => {
               const iconIdx = iconIndices?.[item.id];
@@ -232,6 +235,14 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
               );
             })}
           </div>
+          {/* 오른쪽 미리보기 패널 */}
+          {hasPreview && (
+            <div style={{ width: 240, borderLeft: '1px solid #444', overflowY: 'auto', background: '#2b2b2b' }}>
+              {selected > 0 ? renderPreview(selected) : (
+                <div style={{ padding: 12, color: '#888', fontSize: 12, textAlign: 'center', marginTop: 40 }}>항목을 선택하세요</div>
+              )}
+            </div>
+          )}
         </div>
         <div className="image-picker-footer">
           <button className="db-btn" onClick={() => { onChange(selected); onClose(); }}>OK</button>

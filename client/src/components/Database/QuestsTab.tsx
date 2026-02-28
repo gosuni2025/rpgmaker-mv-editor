@@ -6,6 +6,7 @@ import type {
 } from '../../types/rpgMakerMV';
 import { selectStyleFull, selectStyle } from '../../styles/editorStyles';
 import { DataListPicker } from '../EventEditor/dataListPicker';
+import { EnemyPreview } from '../common/EnemyPreview';
 import apiClient from '../../api/client';
 import './QuestsTab.css';
 
@@ -139,6 +140,7 @@ function ObjectiveConfigEditor({ type, config, onChange, refData }: ObjectiveCon
             value={config.enemyId ?? 1}
             onChange={(id) => set('enemyId', id)}
             onClose={() => setPickerOpen(null)}
+            renderPreview={(id) => <EnemyPreview id={id} />}
           />
         )}
       </div>
