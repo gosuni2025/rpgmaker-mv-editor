@@ -374,11 +374,20 @@
       this.resetTextColor();
     }
 
-    // 우측 정렬 텍스트 (플레이타임 등)
+    // 우측 정렬 텍스트 (rightTextColorIndex 있으면 nameY에, 없으면 행 하단에)
     if (cmd && cmd.rightText) {
       this.resetTextColor();
-      this.changePaintOpacity(this.isCommandEnabled(index));
-      this.drawText(cmd.rightText, rect.x, rect.y + rect.height - lh, rect.width, 'right');
+      if (cmd.rightTextColorIndex !== undefined) {
+        // 스킬 MP/TP 코스트 등 — 이름과 같은 줄에 색상 표시
+        this.changeTextColor(this.textColor(cmd.rightTextColorIndex));
+        this.changePaintOpacity(this.isCommandEnabled(index));
+        this.drawText(cmd.rightText, rect.x, nameY, rect.width, 'right');
+        this.resetTextColor();
+      } else {
+        // 기존 동작: 행 하단에 표시 (세이브/로드 플레이타임 등)
+        this.changePaintOpacity(this.isCommandEnabled(index));
+        this.drawText(cmd.rightText, rect.x, rect.y + rect.height - lh, rect.width, 'right');
+      }
     }
 
     // 캐릭터 스프라이트 배열 [[charName, charIndex, x, y], ...]  (x,y는 rect 기준 상대좌표)
@@ -2487,7 +2496,54 @@
         break;
       }
       case 'useItem': {
-        // itemListWidget: Widget_List id, actorWidget: Widget_RowSelector id
+        // itemExpr/userExpr 기반 (스킬 씬 등) — 선결 처리
+        if (handler.itemExpr) {
+          var useSkill = null, useUser = null;
+          try { useSkill = new Function('$ctx', 'return (' + handler.itemExpr + ')')(this._ctx); } catch(e) {}
+          try { useUser  = new Function('$ctx', 'return (' + handler.userExpr  + ')')(this._ctx); } catch(e) {}
+          if (!useSkill || !useUser) { if (widget && widget.activate) widget.activate(); break; }
+          if (!useUser.canUse(useSkill)) {
+            if (typeof SoundManager !== 'undefined') SoundManager.playBuzzer();
+            if (widget && widget.activate) widget.activate();
+            break;
+          }
+          if (handler.setLastSkill && typeof useUser.setLastMenuSkill === 'function') {
+            useUser.setLastMenuSkill(useSkill);
+          }
+          var skillAction = new Game_Action(useUser);
+          skillAction.setItemObject(useSkill);
+          if (skillAction.isForFriend() && handler.actorWidget) {
+            // 아군 대상 → 파티원 선택
+            this._ctx._pendingUseItem = useSkill;
+            this._ctx._pendingUseItemUser = useUser;
+            this._pendingPersonalAction = { action: 'applyItemToActor', itemListWidget: null };
+            this._personalOriginWidget = widget;
+            var sawUI = this._widgetMap[handler.actorWidget];
+            if (sawUI) {
+              sawUI.setFormationMode(false);
+              if (this._navManager) this._navManager.focusWidget(handler.actorWidget);
+            }
+          } else {
+            // 즉시 사용 (전체/자신/비대상)
+            if (typeof SoundManager !== 'undefined') {
+              DataManager.isSkill(useSkill) ? SoundManager.playUseSkill() : SoundManager.playUseItem();
+            }
+            useUser.useItem(useSkill);
+            var sa2 = new Game_Action(useUser);
+            sa2.setItemObject(useSkill);
+            var sa2Targets = sa2.isForAll() ? $gameParty.members() : [useUser];
+            sa2Targets.forEach(function(t) { sa2.apply(t); });
+            sa2.applyGlobal();
+            if (typeof $gameTemp !== 'undefined' && $gameTemp.isCommonEventReserved()) {
+              SceneManager.goto(Scene_Map);
+            } else {
+              if (this._rootWidget) this._rootWidget.refresh();
+              if (widget && widget.activate) widget.activate();
+            }
+          }
+          break;
+        }
+        // 기존 방식 (itemListWidget)
         var ilId = handler.itemListWidget;
         var ilWidget = this._widgetMap && this._widgetMap[ilId];
         if (!ilWidget || !ilWidget._window) break;
@@ -2523,11 +2579,13 @@
         // _onRowSelectorOk → _pendingPersonalAction 으로 호출됨
         var pendingItem = this._ctx._pendingUseItem;
         if (!pendingItem) break;
+        var pendingUser = this._ctx._pendingUseItemUser || null;
         var targetActor = typeof $gameParty !== 'undefined' && $gameParty.menuActor
           ? $gameParty.menuActor() : null;
         if (!targetActor) break;
-        this._applyItemTo(pendingItem, targetActor);
+        this._applyItemTo(pendingItem, targetActor, pendingUser);
         delete this._ctx._pendingUseItem;
+        delete this._ctx._pendingUseItemUser;
         if (this._rootWidget) this._rootWidget.refresh();
         var retId = handler.itemListWidget;
         if (retId && this._navManager) {
@@ -2552,13 +2610,14 @@
     }
   };
 
-  // 아이템을 특정 파티원 1명에게 적용
-  Scene_CustomUI.prototype._applyItemTo = function(item, actor) {
+  // 아이템을 특정 파티원 1명에게 적용 (user: 사용자 actor, 기본=leader)
+  Scene_CustomUI.prototype._applyItemTo = function(item, actor, user) {
+    var effectUser = user || $gameParty.leader();
     if (typeof SoundManager !== 'undefined') {
       DataManager.isSkill(item) ? SoundManager.playUseSkill() : SoundManager.playUseItem();
     }
-    $gameParty.leader().useItem(item); // 아이템 소비 (수량 감소, MP 소비 등)
-    var action = new Game_Action($gameParty.leader());
+    effectUser.useItem(item); // 아이템 소비 (수량 감소, MP 소비 등)
+    var action = new Game_Action(effectUser);
     action.setItemObject(item);
     action.apply(actor);
     action.applyGlobal();
