@@ -57,6 +57,8 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
   const [addMenuBtnRect, setAddMenuBtnRect] = React.useState<DOMRect | null>(null);
   const addBtnRef = React.useRef<HTMLButtonElement>(null);
   const [showDuplicateDialog, setShowDuplicateDialog] = React.useState(false);
+  const [treeKey, setTreeKey] = React.useState(0);
+  const [treeInitialExpanded, setTreeInitialExpanded] = React.useState(true);
 
   // dirty 상태 감지 → debounce 자동저장 + iframe 프리뷰 갱신
   React.useEffect(() => {
@@ -131,32 +133,42 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
 
       {/* 위젯 계층 */}
       <div style={{ ...sectionStyle, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4, flexShrink: 0, gap: 4 }}>
           <label style={{ ...labelStyle, marginBottom: 0, flex: 1 }}>위젯 계층</label>
-          <div>
-            <button
-              ref={addBtnRef}
-              style={{ ...smallBtnStyle, background: '#2675bf' }}
-              onClick={() => {
-                if (addMenuParent) {
-                  setAddMenuParent(null);
-                  setAddMenuBtnRect(null);
-                } else {
-                  const rect = addBtnRef.current?.getBoundingClientRect() ?? null;
-                  setAddMenuBtnRect(rect);
-                  setAddMenuParent(addableParentId);
-                }
-              }}
-            >
-              + 위젯
-            </button>
-          </div>
+          <button
+            style={{ ...smallBtnStyle, padding: '2px 5px', fontSize: 10 }}
+            title="모두 펼치기"
+            onClick={() => { setTreeInitialExpanded(true); setTreeKey(k => k + 1); }}
+          >▾▾</button>
+          <button
+            style={{ ...smallBtnStyle, padding: '2px 5px', fontSize: 10 }}
+            title="모두 접기"
+            onClick={() => { setTreeInitialExpanded(false); setTreeKey(k => k + 1); }}
+          >▸▸</button>
+          <button
+            ref={addBtnRef}
+            style={{ ...smallBtnStyle, background: '#2675bf' }}
+            onClick={() => {
+              if (addMenuParent) {
+                setAddMenuParent(null);
+                setAddMenuBtnRect(null);
+              } else {
+                const rect = addBtnRef.current?.getBoundingClientRect() ?? null;
+                setAddMenuBtnRect(rect);
+                setAddMenuParent(addableParentId);
+              }
+            }}
+          >
+            + 위젯
+          </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', background: '#222', borderRadius: 3, padding: 4, minHeight: 0 }}>
           {scene.root ? (
             <WidgetTreeNode
+              key={treeKey}
               widget={scene.root} depth={0} sceneId={sceneId}
               selectedId={selectedId}
+              initialExpanded={treeInitialExpanded}
               onSelect={(id) => { setSelectedId(id); setAddMenuParent(null); }}
               onRemove={(id) => { pushCustomSceneUndo(); removeWidget(sceneId, id); }}
               onReorder={(dragId, targetId, pos) => { pushCustomSceneUndo(); reorderWidgetInTree(sceneId, dragId, targetId, pos); }}

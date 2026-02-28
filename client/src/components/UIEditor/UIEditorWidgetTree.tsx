@@ -23,18 +23,22 @@ const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
 export { WIDGET_TYPE_COLORS, WIDGET_TYPE_LABELS };
 
 export function WidgetTreeNode({
-  widget, depth, sceneId, selectedId, onSelect, onRemove, onReorder
+  widget, depth, sceneId, selectedId, onSelect, onRemove, onReorder,
+  initialExpanded,
 }: {
   widget: WidgetDef; depth: number; sceneId: string;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onReorder: (dragId: string, targetId: string, pos: 'before' | 'inside') => void;
+  initialExpanded?: boolean;
 }) {
   const isSelected = widget.id === selectedId;
   const children: WidgetDef[] = widget.children || [];
   const hasChildren = children.length > 0;
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(
+    widget.id === 'root' ? true : (initialExpanded ?? true)
+  );
   const rowRef = React.useRef<HTMLDivElement>(null);
   const [dropPos, setDropPos] = React.useState<'before' | 'inside' | null>(null);
 
@@ -130,13 +134,20 @@ export function WidgetTreeNode({
       >
         {hasChildren ? (
           <span
-            style={{ fontSize: 10, color: '#888', cursor: 'pointer', width: 12, textAlign: 'center' }}
+            style={{
+              fontSize: 11, color: '#bbb', cursor: 'pointer',
+              width: 14, textAlign: 'center', flexShrink: 0,
+              display: 'inline-block',
+              transform: expanded ? 'rotate(90deg)' : 'none',
+              transition: 'transform 0.1s',
+              userSelect: 'none',
+            }}
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
           >
-            {expanded ? '\u25BE' : '\u25B8'}
+            {'\u25B6'}
           </span>
         ) : (
-          <span style={{ width: 12 }} />
+          <span style={{ width: 14, flexShrink: 0 }} />
         )}
         <span style={{
           fontSize: 9, padding: '1px 3px', borderRadius: 2,
@@ -163,6 +174,7 @@ export function WidgetTreeNode({
           key={child.id} widget={child} depth={depth + 1}
           sceneId={sceneId} selectedId={selectedId}
           onSelect={onSelect} onRemove={onRemove} onReorder={onReorder}
+          initialExpanded={initialExpanded}
         />
       ))}
     </div>
