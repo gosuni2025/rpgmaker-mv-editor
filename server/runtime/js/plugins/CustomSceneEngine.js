@@ -223,6 +223,24 @@
     bitmap: function(folder, name) {
       return ImageManager.loadBitmap(folder, name);
     },
+    // ── 세이브파일 헬퍼 ────────────────────────────────────────────────────────
+    /** 최대 세이브 슬롯 수 */
+    savefileCount: function() {
+      return (typeof DataManager !== 'undefined') ? DataManager.maxSavefiles() : 0;
+    },
+    /** 지정 슬롯의 세이브 정보 객체 {title, characters, playtime, timestamp} 반환. 없으면 null */
+    savefileInfo: function(fileId) {
+      return (typeof DataManager !== 'undefined') ? DataManager.loadSavefileInfo(fileId) : null;
+    },
+    /** 지정 슬롯이 유효한(데이터 있는) 슬롯인지 여부 */
+    savefileValid: function(fileId) {
+      return (typeof DataManager !== 'undefined') ? DataManager.isThisGameFile(fileId) : false;
+    },
+    /** 마지막으로 접근한 세이브 슬롯 ID (1~) */
+    lastSavefileId: function() {
+      return (typeof DataManager !== 'undefined' && DataManager.lastAccessedSavefileId())
+        ? DataManager.lastAccessedSavefileId() : 1;
+    },
   };
   window.CSHelper = CSHelper;
 
@@ -315,6 +333,46 @@
       if (!cmd.textColor) this.changeTextColor(this.textColor(8));
       this.drawTextEx(cmd.subText, x, nameY + lh);
       this.resetTextColor();
+    }
+
+    // 우측 정렬 텍스트 (플레이타임 등)
+    if (cmd && cmd.rightText) {
+      this.resetTextColor();
+      this.changePaintOpacity(this.isCommandEnabled(index));
+      this.drawText(cmd.rightText, rect.x, rect.y + rect.height - lh, rect.width, 'right');
+    }
+
+    // 캐릭터 스프라이트 배열 [[charName, charIndex, x, y], ...]  (x,y는 rect 기준 상대좌표)
+    if (cmd && cmd.characters && cmd.characters.length > 0) {
+      this.changePaintOpacity(this.isCommandEnabled(index));
+      for (var ci = 0; ci < cmd.characters.length; ci++) {
+        var cd = cmd.characters[ci];
+        if (cd && cd.length >= 4) {
+          this.drawCharacter(cd[0], cd[1], rect.x + cd[2], rect.y + cd[3]);
+        }
+      }
+    }
+
+    // 임의 Bitmap 이미지 배열 [{ bitmapExpr, srcRect, x, y, w, h }, ...]  (x,y는 rect 기준 상대좌표)
+    if (cmd && cmd.images && cmd.images.length > 0) {
+      this.changePaintOpacity(this.isCommandEnabled(index));
+      for (var ii = 0; ii < cmd.images.length; ii++) {
+        var imgDef = cmd.images[ii];
+        if (!imgDef || !imgDef.bitmapExpr) continue;
+        var bitmap = null;
+        try { bitmap = new Function('return (' + imgDef.bitmapExpr + ')')(); } catch(e) {}
+        if (!bitmap || !bitmap.width) continue;
+        var ix = rect.x + (imgDef.x || 0);
+        var iy = rect.y + (imgDef.y || 0);
+        var iw = imgDef.w !== undefined ? imgDef.w : bitmap.width;
+        var ih = imgDef.h !== undefined ? imgDef.h : bitmap.height;
+        if (imgDef.srcRect) {
+          var sr = imgDef.srcRect;
+          this.contents.blt(bitmap, sr.x, sr.y, sr.w, sr.h, ix, iy, iw, ih);
+        } else {
+          this.contents.blt(bitmap, 0, 0, bitmap.width, bitmap.height, ix, iy, iw, ih);
+        }
+      }
     }
 
     if (cmd && cmd.textColor) this.resetTextColor();
@@ -1762,6 +1820,14 @@
       if (maxItems > 0) {
         var restore = (this._lastIndex !== undefined && this._lastIndex >= 0 && this._lastIndex < maxItems)
           ? this._lastIndex : 0;
+        // 첫 활성화 시 initialIndexExpr 평가하여 초기 선택 위치 설정
+        if (!this._hasActivated && this._def && this._def.initialIndexExpr) {
+          try {
+            var initIdx = Number(new Function('return (' + this._def.initialIndexExpr + ')')());
+            if (!isNaN(initIdx) && initIdx >= 0 && initIdx < maxItems) restore = initIdx;
+          } catch(e) {}
+        }
+        this._hasActivated = true;
         this._window.select(restore);
       } else {
         this._window.deselect();
