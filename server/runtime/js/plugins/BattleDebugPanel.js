@@ -99,19 +99,19 @@
         this._battleDebugWindow = new Window_BattleDebug();
         this._battleDebugWindow.setHandler('enemyDamage', function() {
             $gameTroop.aliveMembers().forEach(function(e) { e.gainHp(-100); e.refresh(); });
-            $gameTemp.requestBattleRefresh();
+            BattleManager.refreshStatus();
         });
         this._battleDebugWindow.setHandler('allyDamage', function() {
             $gameParty.aliveMembers().forEach(function(m) { m.gainHp(-100); m.refresh(); });
-            $gameTemp.requestBattleRefresh();
+            BattleManager.refreshStatus();
         });
         this._battleDebugWindow.setHandler('allyMpFull', function() {
             $gameParty.members().forEach(function(m) { m.setMp(m.mmp); m.refresh(); });
-            $gameTemp.requestBattleRefresh();
+            BattleManager.refreshStatus();
         });
         this._battleDebugWindow.setHandler('allyTpFull', function() {
             $gameParty.members().forEach(function(m) { m.setTp(m.maxTp()); m.refresh(); });
-            $gameTemp.requestBattleRefresh();
+            BattleManager.refreshStatus();
         });
         this.addWindow(this._battleDebugWindow);
     };
