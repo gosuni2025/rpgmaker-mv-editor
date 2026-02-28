@@ -316,6 +316,31 @@
     if (cmd && cmd.textColor) this.changeTextColor(cmd.textColor);
     this.changePaintOpacity(this.isCommandEnabled(index));
 
+    // cols 배열 모드 — 슬롯명/아이템명처럼 한 줄 다중 컬럼 렌더링
+    if (cmd && cmd.cols && cmd.cols.length > 0) {
+      var cx = rect.x;
+      var colIw = Window_Base._iconWidth || 32;
+      for (var ci = 0; ci < cmd.cols.length; ci++) {
+        var col = cmd.cols[ci];
+        this.resetTextColor();
+        if (col.color !== undefined) this.changeTextColor(this.textColor(col.color));
+        this.changePaintOpacity(this.isCommandEnabled(index));
+        var textX = cx;
+        if (col.iconIndex) {
+          this.drawIcon(col.iconIndex, textX, nameY + Math.floor((lh - colIw) / 2));
+          textX += colIw + 4;
+        }
+        this.drawTextEx(col.text || '', textX, nameY);
+        if (col.width !== undefined) {
+          cx += col.width;
+        } else {
+          break; // 마지막 컬럼: 남은 너비 사용 후 종료
+        }
+      }
+      this.resetTextColor();
+      return;
+    }
+
     // 아이콘 렌더링
     var x = rect.x;
     var iconIdx = cmd && cmd.iconIndex;
@@ -325,8 +350,22 @@
       x += iw + 4;
     }
 
-    // 이름 (drawTextEx 로 \C[N] 이스케이프 지원)
-    this.drawTextEx(this.commandName(index), x, nameY);
+    // numberText (우측, 아이템 수량 등) — rightText와 달리 이름과 같은 줄에 표시
+    var numStr = (cmd && cmd.numberText !== undefined && cmd.numberText !== null)
+      ? String(cmd.numberText) : null;
+    var nameWidth = rect.width - (x - rect.x);
+    if (numStr !== null) {
+      var numW = this.textWidth(numStr) + 16;
+      this.drawText(numStr, rect.x, nameY, rect.width, 'right');
+      nameWidth -= numW;
+    }
+
+    // 이름 (numberText 있으면 width 제한 drawText, 없으면 drawTextEx로 \C[N] 지원)
+    if (numStr !== null) {
+      this.drawText(this.commandName(index), x, nameY, nameWidth, 'left');
+    } else {
+      this.drawTextEx(this.commandName(index), x, nameY);
+    }
 
     // 서브텍스트 (두 번째 줄, 회색)
     if (hasSub) {
@@ -376,6 +415,12 @@
     }
 
     if (cmd && cmd.textColor) this.resetTextColor();
+  };
+
+  /** 현재 선택 항목의 data 필드 반환 (dataScript에서 {data: item} 형태로 설정한 원본 객체) */
+  Window_CustomCommand.prototype.item = function() {
+    var cmd = this._winDef.commands && this._winDef.commands[this.index()];
+    return (cmd && cmd.data !== undefined) ? cmd.data : null;
   };
 
   window.Window_CustomCommand = Window_CustomCommand;
@@ -973,19 +1018,46 @@
     this._vAlign = def.verticalAlign || 'middle';
     this._fontSize = def.fontSize || 28;
     this._color = def.color || '#ffffff';
-    var sprite = new Sprite();
-    sprite.x = this._x;
-    sprite.y = this._y;
-    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
-    var bitmap = new Bitmap(this._width, this._height);
-    bitmap.fontSize = this._fontSize;
-    sprite.bitmap = bitmap;
-    this._sprite = sprite;
-    this._bitmap = bitmap;
-    this._displayObject = sprite;
+    this._useTextEx = def.useTextEx === true;
+    if (this._useTextEx) {
+      // Window_Base 기반: drawTextEx로 \c[N] 색상 코드 지원
+      var win = new Window_Base(this._x, this._y, this._width + 36, this._height + 36);
+      win._padding = 0;
+      win.opacity = 0;
+      win.backOpacity = 0;
+      win.createContents();
+      if (def.fontSize) win.contents.fontSize = def.fontSize;
+      this._win = win;
+      this._displayObject = win;
+    } else {
+      var sprite = new Sprite();
+      sprite.x = this._x;
+      sprite.y = this._y;
+      if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
+      var bitmap = new Bitmap(this._width, this._height);
+      bitmap.fontSize = this._fontSize;
+      sprite.bitmap = bitmap;
+      this._sprite = sprite;
+      this._bitmap = bitmap;
+      this._displayObject = sprite;
+    }
     this.refresh();
   };
   Widget_Label.prototype.refresh = function() {
+    if (this._useTextEx) {
+      if (!this._win) return;
+      var text = resolveTemplate(this._template);
+      if (text === this._lastText) return;
+      this._lastText = text;
+      this._win.contents.clear();
+      var lh = this._win.lineHeight();
+      var ty = (this._vAlign === 'top') ? 0 :
+               (this._vAlign === 'bottom') ? Math.max(0, this._height - lh) :
+               Math.floor((this._height - lh) / 2);
+      this._win.drawTextEx(text, 0, ty);
+      Widget_Base.prototype.refresh.call(this);
+      return;
+    }
     if (!this._bitmap) return;
     var text = resolveTemplate(this._template);
     if (text === this._lastText && this._align === this._lastAlign && this._vAlign === this._lastVAlign) return;
@@ -2354,6 +2426,57 @@
         }
         break;
       }
+      case 'useItem': {
+        // itemListWidget: Widget_List id, actorWidget: Widget_RowSelector id
+        var ilId = handler.itemListWidget;
+        var ilWidget = this._widgetMap && this._widgetMap[ilId];
+        if (!ilWidget || !ilWidget._window) break;
+        var useItem = ilWidget._window.item();
+        if (!useItem) break;
+        if (!$gameParty.canUse(useItem)) {
+          if (typeof SoundManager !== 'undefined') SoundManager.playBuzzer();
+          if (ilWidget.activate) ilWidget.activate();
+          break;
+        }
+        $gameParty.setLastItem(useItem);
+        var useAction = new Game_Action($gameParty.leader());
+        useAction.setItemObject(useItem);
+        if (useAction.isForFriend() && handler.actorWidget) {
+          // 아군 대상 → 파티원 선택
+          this._ctx._pendingUseItem = useItem;
+          this._pendingPersonalAction = { action: 'applyItemToActor', itemListWidget: ilId };
+          this._personalOriginWidget = ilWidget;
+          var awUI = this._widgetMap[handler.actorWidget];
+          if (awUI) {
+            awUI.setFormationMode(false);
+            if (this._navManager) this._navManager.focusWidget(handler.actorWidget);
+          }
+        } else {
+          // 즉시 사용 (전체/자신/비대상)
+          this._applyItemToAll(useItem);
+          if (this._rootWidget) this._rootWidget.refresh();
+          if (ilWidget.activate) ilWidget.activate();
+        }
+        break;
+      }
+      case 'applyItemToActor': {
+        // _onRowSelectorOk → _pendingPersonalAction 으로 호출됨
+        var pendingItem = this._ctx._pendingUseItem;
+        if (!pendingItem) break;
+        var targetActor = typeof $gameParty !== 'undefined' && $gameParty.menuActor
+          ? $gameParty.menuActor() : null;
+        if (!targetActor) break;
+        this._applyItemTo(pendingItem, targetActor);
+        delete this._ctx._pendingUseItem;
+        if (this._rootWidget) this._rootWidget.refresh();
+        var retId = handler.itemListWidget;
+        if (retId && this._navManager) {
+          this._navManager.focusWidget(retId);
+        } else if (this._personalOriginWidget && this._navManager) {
+          this._navManager.focusWidget(this._personalOriginWidget._id);
+        }
+        break;
+      }
       case 'cancel': {
         var navMgr = this._navManager;
         if (navMgr && navMgr._cancelWidgetId) {
@@ -2366,6 +2489,37 @@
         this.popScene();
         break;
       }
+    }
+  };
+
+  // 아이템을 특정 파티원 1명에게 적용
+  Scene_CustomUI.prototype._applyItemTo = function(item, actor) {
+    if (typeof SoundManager !== 'undefined') {
+      DataManager.isSkill(item) ? SoundManager.playUseSkill() : SoundManager.playUseItem();
+    }
+    $gameParty.leader().useItem(item); // 아이템 소비 (수량 감소, MP 소비 등)
+    var action = new Game_Action($gameParty.leader());
+    action.setItemObject(item);
+    action.apply(actor);
+    action.applyGlobal();
+    if (typeof $gameTemp !== 'undefined' && $gameTemp.isCommonEventReserved()) {
+      SceneManager.goto(Scene_Map);
+    }
+  };
+
+  // 아이템을 전체/자신/비대상에게 적용
+  Scene_CustomUI.prototype._applyItemToAll = function(item) {
+    if (typeof SoundManager !== 'undefined') {
+      DataManager.isSkill(item) ? SoundManager.playUseSkill() : SoundManager.playUseItem();
+    }
+    $gameParty.leader().useItem(item);
+    var action = new Game_Action($gameParty.leader());
+    action.setItemObject(item);
+    var targets = action.isForAll() ? $gameParty.members() : [$gameParty.leader()];
+    targets.forEach(function(actor) { action.apply(actor); });
+    action.applyGlobal();
+    if (typeof $gameTemp !== 'undefined' && $gameTemp.isCommonEventReserved()) {
+      SceneManager.goto(Scene_Map);
     }
   };
 
