@@ -90,6 +90,21 @@
         }
     };
 
+    // HP 피해 적용 + 데미지 팝업 + 사망/전투 종료 처리
+    function applyHpDamage(members) {
+        members.slice().forEach(function(m) {
+            var dmg = Math.min(100, m.hp);
+            m.result().clear();
+            m.result().hpAffected = true;
+            m.result().hpDamage = dmg;
+            m.gainHp(-100);
+            m.startDamagePopup();
+            if (m.isDead()) m.performCollapse();
+        });
+        BattleManager.refreshStatus();
+        BattleManager.checkBattleEnd();
+    }
+
     //------------------------------------------------------------
     // Scene_Battle — 디버그 창 추가
     //------------------------------------------------------------
@@ -98,12 +113,10 @@
         _Scene_Battle_createAllWindows.call(this);
         this._battleDebugWindow = new Window_BattleDebug();
         this._battleDebugWindow.setHandler('enemyDamage', function() {
-            $gameTroop.aliveMembers().forEach(function(e) { e.gainHp(-100); e.refresh(); });
-            BattleManager.refreshStatus();
+            applyHpDamage($gameTroop.aliveMembers());
         });
         this._battleDebugWindow.setHandler('allyDamage', function() {
-            $gameParty.aliveMembers().forEach(function(m) { m.gainHp(-100); m.refresh(); });
-            BattleManager.refreshStatus();
+            applyHpDamage($gameParty.aliveMembers());
         });
         this._battleDebugWindow.setHandler('allyMpFull', function() {
             $gameParty.members().forEach(function(m) { m.setMp(m.mmp); m.refresh(); });
