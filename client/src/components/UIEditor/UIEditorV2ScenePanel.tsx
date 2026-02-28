@@ -5,7 +5,7 @@ import type { CustomSceneDefV2, NavigationConfig, WidgetDef } from '../../store/
 import { WidgetTreeNode, AddWidgetMenu } from './UIEditorWidgetTree';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
 import UIEditorDuplicateSceneDialog from './UIEditorDuplicateSceneDialog';
-import { regenerateWidgetIds, WIDGET_CLIPBOARD_MARKER } from './UIEditorSceneUtils';
+import { regenerateWidgetIds, WIDGET_CLIPBOARD_MARKER, getWidgetClipboard, setWidgetClipboard } from './UIEditorSceneUtils';
 
 // ── NavigationConfigSection ──────────────────────────────────
 
@@ -78,6 +78,12 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedId, sceneId, removeWidget, pushCustomSceneUndo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // scene/selectedId를 ref로 관리 — useEffect 클로저에서 항상 최신값 참조
+  const sceneRef = React.useRef(scene);
+  sceneRef.current = scene;
+  const selectedIdRef = React.useRef(selectedId);
+  selectedIdRef.current = selectedId;
+
   // Ctrl+C: 위젯 복사 / Ctrl+V: 위젯 붙여넣기
   React.useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
@@ -86,47 +92,56 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
       if (e.key === 'c' && !isInput) {
-        if (!selectedId || !scene.root) return;
+        const curScene = sceneRef.current;
+        const curSelectedId = selectedIdRef.current;
+        if (!curSelectedId || !curScene.root) return;
         function findW(w: WidgetDef): WidgetDef | null {
-          if (w.id === selectedId) return w;
+          if (w.id === curSelectedId) return w;
           for (const c of w.children || []) { const r = findW(c); if (r) return r; }
           return null;
         }
-        const widget = findW(scene.root);
+        const widget = findW(curScene.root);
         if (!widget) return;
         e.preventDefault();
+        setWidgetClipboard(widget); // 내부 클립보드에 저장 (시스템 클립보드 실패 시 fallback)
         try {
           await navigator.clipboard.writeText(
             JSON.stringify({ _type: WIDGET_CLIPBOARD_MARKER, widget })
           );
-          showToast(`"${widget.id}" 복사됨`);
-        } catch {
-          showToast('클립보드 복사 실패');
-        }
+        } catch { /* 시스템 클립보드 쓰기 실패해도 내부 클립보드에는 저장됨 */ }
+        showToast(`"${widget.id}" 복사됨`);
         return;
       }
 
       if (e.key === 'v' && !isInput) {
         e.preventDefault();
+        const curScene = sceneRef.current;
+        const curSelectedId = selectedIdRef.current;
+
+        // 1. 시스템 클립보드에서 위젯 JSON 읽기 시도
+        let sourceWidget = getWidgetClipboard();
         try {
           const text = await navigator.clipboard.readText();
           const parsed = JSON.parse(text);
           if (parsed?._type === WIDGET_CLIPBOARD_MARKER && parsed.widget) {
-            const parentId = selectedId && scene.root ? selectedId : (scene.root?.id || 'root');
-            const newWidget = regenerateWidgetIds(parsed.widget);
-            pushCustomSceneUndo();
-            addWidget(sceneId, parentId, newWidget);
-            setSelectedId(newWidget.id);
-            showToast(`위젯 붙여넣기 완료`);
+            sourceWidget = parsed.widget;
+            setWidgetClipboard(parsed.widget); // 내부 클립보드 동기화
           }
-        } catch {
-          // 클립보드에 위젯 데이터 없음 — 무시
-        }
+        } catch { /* 시스템 클립보드 읽기 실패 → 내부 클립보드 fallback */ }
+
+        if (!sourceWidget) return;
+
+        const parentId = curSelectedId && curScene.root ? curSelectedId : (curScene.root?.id || 'root');
+        const newWidget = regenerateWidgetIds(sourceWidget);
+        pushCustomSceneUndo();
+        addWidget(sceneId, parentId, newWidget);
+        setSelectedId(newWidget.id);
+        showToast(`위젯 붙여넣기 완료`);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sceneId, selectedId, scene.root, addWidget, pushCustomSceneUndo, setSelectedId, showToast]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sceneId, addWidget, pushCustomSceneUndo, setSelectedId, showToast]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // dirty 상태 감지 → debounce 자동저장 + iframe 프리뷰 갱신
   React.useEffect(() => {

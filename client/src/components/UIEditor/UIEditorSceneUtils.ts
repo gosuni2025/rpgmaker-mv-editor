@@ -72,3 +72,8 @@ export function regenerateWidgetIds(widget: WidgetDef): WidgetDef {
 
 /** 시스템 클립보드 위젯 데이터 마커 */
 export const WIDGET_CLIPBOARD_MARKER = 'RPGMV_WIDGET_V1';
+
+/** 내부 클립보드 (시스템 클립보드 실패 시 fallback) */
+let _widgetClipboard: WidgetDef | null = null;
+export function getWidgetClipboard(): WidgetDef | null { return _widgetClipboard; }
+export function setWidgetClipboard(w: WidgetDef | null): void { _widgetClipboard = w; }
