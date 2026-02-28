@@ -87,8 +87,8 @@
   border-radius: 4px;
   display: flex;
   flex-direction: column;
-  width: 760px;
-  height: 480px;
+  width: 980px;
+  height: 580px;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
@@ -235,19 +235,20 @@
   flex: 1;
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* 스케일된 크기: 816*0.83=677, 624*0.83=518 */
+  min-height: 0;
 }
 
 .sp-preview-iframe {
-  /* 게임은 816×624, 팝업 오른쪽은 ~516×440 정도 */
-  /* 0.6배 스케일: 816*0.6=489.6, 624*0.6=374.4 */
+  /* 절대 배치 + top-left 기준 스케일 → 잘림 없음 */
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 816px;
   height: 624px;
   border: none;
-  transform: scale(0.6);
-  transform-origin: center center;
+  transform: scale(0.83);
+  transform-origin: top left;
   pointer-events: none;
 }
 
