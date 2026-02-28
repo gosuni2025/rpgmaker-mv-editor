@@ -3128,6 +3128,11 @@
     _scenesData = loadJSON('data/UIEditorScenes.json');
     _configData = loadJSON('data/UIEditorConfig.json');
     registerCustomScenes();
+    // noRedirect URL 파라미터가 있으면 씬 리다이렉트 비활성화
+    if (_noSceneRedirect) {
+      installSceneRedirects({});
+      return;
+    }
     // 파일에 저장된 sceneRedirects가 있으면 그것을 사용, 없으면 메모리의 _activeRedirects 유지
     var fileRedirects = _configData.sceneRedirects;
     if (fileRedirects && Object.keys(fileRedirects).length > 0) {
@@ -3260,10 +3265,15 @@
   };
 
   //===========================================================================
+  // URL 파라미터 — noRedirect=1 이면 씬 리다이렉트 전체 비활성화
+  //===========================================================================
+  var _noSceneRedirect = (new URLSearchParams(location.search)).has('noRedirect');
+
+  //===========================================================================
   // 초기 등록
   //===========================================================================
   registerCustomScenes();
-  installSceneRedirects(_configData.sceneRedirects || {});
+  installSceneRedirects(_noSceneRedirect ? {} : (_configData.sceneRedirects || {}));
 
   //===========================================================================
   // addMenuCommand 헬퍼 — 씬 정의의 list 위젯에 항목/핸들러 동적 추가
