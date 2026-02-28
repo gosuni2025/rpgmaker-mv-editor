@@ -6,7 +6,7 @@ import { WidgetTreeNode, AddWidgetMenu } from './UIEditorWidgetTree';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
 import UIEditorDuplicateSceneDialog from './UIEditorDuplicateSceneDialog';
 import { regenerateWidgetIds, WIDGET_CLIPBOARD_MARKER, getWidgetClipboard, setWidgetClipboard } from './UIEditorSceneUtils';
-import { AnimSection } from './UIEditorWidgetInspector';
+import { AnimEffectSection } from './UIEditorAnimEffectSection';
 
 // ── NavigationConfigSection ──────────────────────────────────
 
@@ -231,15 +231,19 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
       {/* 씬 레벨 애니메이션 (위젯 개별 설정의 fallback) */}
       <div style={sectionStyle}>
         <label style={labelStyle}>씬 애니메이션 (기본값)</label>
-        <AnimSection
-          label="등장"
-          value={(scene as any).enterAnimation}
-          onChange={(v) => updateCustomScene(sceneId, { enterAnimation: v } as any)}
+        <AnimEffectSection
+          label="등장 효과"
+          value={scene.enterAnimation ?? []}
+          onChange={(v) => updateCustomScene(sceneId, { enterAnimation: v.length > 0 ? v : undefined } as any)}
+          onUndoPush={pushCustomSceneUndo}
         />
-        <AnimSection
-          label="퇴장"
-          value={(scene as any).exitAnimation}
-          onChange={(v) => updateCustomScene(sceneId, { exitAnimation: v } as any)}
+        <AnimEffectSection
+          label="퇴장 효과"
+          isExit
+          value={scene.exitAnimation ?? []}
+          onChange={(v) => updateCustomScene(sceneId, { exitAnimation: v.length > 0 ? v : undefined } as any)}
+          onUndoPush={pushCustomSceneUndo}
+          entranceValue={scene.enterAnimation ?? []}
         />
         <span style={{ fontSize: 10, color: '#666' }}>위젯에 개별 설정이 없을 때 이 값이 적용됩니다.</span>
       </div>

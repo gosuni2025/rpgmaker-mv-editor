@@ -745,11 +745,7 @@
   // Widget_Scene은 _children 대신 _subRoot를 통해 Window_Base 자손을 수집합니다.
   Widget_Scene.prototype._collectWindowDescendants = function(out) {
     if (!this._subRoot) return;
-    var srObj = this._subRoot.displayObject();
-    console.log('[Widget_Scene._collectWindowDescendants]', this._id,
-      'subRoot:', this._subRoot._id, 'isWindow:', (srObj instanceof Window_Base),
-      'subRoot._children:', this._subRoot._children.length);
-    if (srObj instanceof Window_Base) out.push(this._subRoot);
+    if (this._subRoot.displayObject() instanceof Window_Base) out.push(this._subRoot);
     this._subRoot._collectWindowDescendants(out);
   };
 
@@ -947,74 +943,118 @@
   // WidgetAnimator — 위젯 등장/퇴장 애니메이션 공유 모듈
   //===========================================================================
   var WidgetAnimator = (function() {
-    var _tasks = []; // [{obj, props, frame, duration, delay, onComplete}, ...]
+    var _tasks = []; // [{obj, props, frame, duration, delay, easing, onComplete}, ...]
 
-    function ease(t) { return 1 - (1 - t) * (1 - t); } // easeOut quad
+    function easeFunc(name, t) {
+      t = Math.min(Math.max(t, 0), 1);
+      switch (name) {
+        case 'easeIn':    return t * t;
+        case 'easeInOut': return t < 0.5 ? 2*t*t : 1-2*(1-t)*(1-t);
+        case 'linear':    return t;
+        case 'bounce': {
+          if      (t < 1/2.75)  { return 7.5625*t*t; }
+          else if (t < 2/2.75)  { t -= 1.5/2.75;  return 7.5625*t*t+0.75; }
+          else if (t < 2.5/2.75){ t -= 2.25/2.75; return 7.5625*t*t+0.9375; }
+          else                  { t -= 2.625/2.75; return 7.5625*t*t+0.984375; }
+        }
+        default: return 1-(1-t)*(1-t); // easeOut
+      }
+    }
 
     function applyTask(task, t) {
-      var e = ease(Math.min(t, 1));
+      var e = easeFunc(task.easing || 'easeOut', t);
       var obj = task.obj, p = task.props;
       if (p.x        !== undefined) obj.x        = p.x.from        + (p.x.to        - p.x.from)        * e;
       if (p.y        !== undefined) obj.y        = p.y.from        + (p.y.to        - p.y.from)        * e;
       if (p.opacity  !== undefined) obj.opacity  = Math.round(p.opacity.from  + (p.opacity.to  - p.opacity.from)  * e);
       if (p.scaleY   !== undefined && obj.scale)  obj.scale.y = p.scaleY.from  + (p.scaleY.to  - p.scaleY.from)  * e;
       if (p.scaleX   !== undefined && obj.scale)  obj.scale.x = p.scaleX.from  + (p.scaleX.to  - p.scaleX.from)  * e;
+      if (p.rotation !== undefined) obj.rotation = p.rotation.from + (p.rotation.to - p.rotation.from) * e;
       if (p.openness !== undefined && obj.openness !== undefined) {
         obj.openness = Math.round(p.openness.from + (p.openness.to - p.openness.from) * e);
       }
     }
 
-    /** animDef + displayObject + isEnter → props (없으면 null) */
-    function buildProps(animDef, obj, isEnter) {
-      var type = (animDef && animDef.type) || 'none';
+    /**
+     * 단일 effect 정의 + displayObject + isEnter → props (없으면 null)
+     * 신 형식(UIWindowEntranceEffect): fadeIn/fadeOut/slideTop/slideBottom 등
+     * 구 형식(WidgetAnimDef): fade/slideUp/slideDown 등 — 하위 호환
+     */
+    function buildPropsForEffect(eff, obj, isEnter) {
+      var type = (eff && eff.type) || 'none';
       if (type === 'none') return null;
       var origX  = obj.x  || 0;
       var origY  = obj.y  || 0;
       var origOp = (obj.opacity !== undefined) ? obj.opacity : 255;
       var w = obj.width  || 0;
       var h = obj.height || 0;
-      var offset;
+      var offset, fromScale, fromAngle;
       switch (type) {
-        case 'fade':
-          return { opacity: isEnter ? {from:0, to:origOp} : {from:origOp, to:0} };
-        case 'slideDown':
-          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(h, 40);
+        case 'fade': case 'fadeIn':
+          return { opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0} };
+        case 'fadeOut':
+          return { opacity: isEnter ? {from:origOp,to:0} : {from:0,to:origOp} };
+        case 'slideDown': case 'slideBottom':
+          offset = eff.offset !== undefined ? eff.offset : Math.max(h, 40);
           return {
-            y:       isEnter ? {from: origY - offset, to: origY} : {from: origY, to: origY + offset},
-            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+            y:       isEnter ? {from:origY-offset,to:origY} : {from:origY,to:origY+offset},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
           };
-        case 'slideUp':
-          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(h, 40);
+        case 'slideUp': case 'slideTop':
+          offset = eff.offset !== undefined ? eff.offset : Math.max(h, 40);
           return {
-            y:       isEnter ? {from: origY + offset, to: origY} : {from: origY, to: origY - offset},
-            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+            y:       isEnter ? {from:origY+offset,to:origY} : {from:origY,to:origY-offset},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
           };
         case 'slideLeft':
-          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(w, 40);
+          offset = eff.offset !== undefined ? eff.offset : Math.max(w, 40);
           return {
-            x:       isEnter ? {from: origX + offset, to: origX} : {from: origX, to: origX - offset},
-            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+            x:       isEnter ? {from:origX+offset,to:origX} : {from:origX,to:origX-offset},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
           };
         case 'slideRight':
-          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(w, 40);
+          offset = eff.offset !== undefined ? eff.offset : Math.max(w, 40);
           return {
-            x:       isEnter ? {from: origX - offset, to: origX} : {from: origX, to: origX + offset},
-            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+            x:       isEnter ? {from:origX-offset,to:origX} : {from:origX,to:origX+offset},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
           };
         case 'openness':
-          // Window_Base → openness 직접 사용; Sprite → scaleY + y 중앙 보정
           if (typeof obj.openness !== 'undefined') {
-            return { openness: isEnter ? {from:0, to:255} : {from:255, to:0} };
+            return { openness: isEnter ? {from:0,to:255} : {from:255,to:0} };
           }
           return {
-            scaleY:  isEnter ? {from:0, to:1} : {from:1, to:0},
-            y:       isEnter ? {from: origY + h / 2, to: origY} : {from: origY, to: origY + h / 2},
+            scaleY: isEnter ? {from:0,to:1} : {from:1,to:0},
+            y:      isEnter ? {from:origY+h/2,to:origY} : {from:origY,to:origY+h/2},
           };
         case 'zoom':
+          fromScale = eff.fromScale !== undefined ? eff.fromScale : 0.5;
           return {
-            scaleX:  isEnter ? {from:0.5, to:1} : {from:1, to:0.5},
-            scaleY:  isEnter ? {from:0.5, to:1} : {from:1, to:0.5},
-            opacity: isEnter ? {from:0, to:origOp} : {from:origOp, to:0},
+            scaleX:  isEnter ? {from:fromScale,to:1} : {from:1,to:fromScale},
+            scaleY:  isEnter ? {from:fromScale,to:1} : {from:1,to:fromScale},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
+          };
+        case 'bounce':
+          fromScale = eff.fromScale !== undefined ? eff.fromScale : 0;
+          return {
+            scaleX:  isEnter ? {from:fromScale,to:1} : {from:1,to:fromScale},
+            scaleY:  isEnter ? {from:fromScale,to:1} : {from:1,to:fromScale},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
+          };
+        case 'rotate':
+          fromAngle = eff.fromAngle !== undefined ? eff.fromAngle : 180;
+          return {
+            rotation: isEnter ? {from:fromAngle*Math.PI/180,to:0} : {from:0,to:fromAngle*Math.PI/180},
+            opacity:  isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
+          };
+        case 'rotateX':
+          return {
+            scaleY:  isEnter ? {from:0,to:1} : {from:1,to:0},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
+          };
+        case 'rotateY':
+          return {
+            scaleX:  isEnter ? {from:0,to:1} : {from:1,to:0},
+            opacity: isEnter ? {from:0,to:origOp} : {from:origOp,to:0},
           };
         default:
           return null;
@@ -1023,37 +1063,46 @@
 
     return {
       /**
-       * obj의 displayObject에 애니메이션을 재생합니다.
-       * @param {Object}   obj        - displayObject (Sprite, Window_Base 등)
-       * @param {Object}   animDef    - { type, duration?, delay?, offset? }
-       * @param {boolean}  isEnter    - true: 등장, false: 퇴장
-       * @param {Function} onComplete - 완료 콜백 (선택)
+       * obj에 애니메이션을 재생합니다.
+       * @param {Object}        obj        - displayObject (Sprite, Window_Base 등)
+       * @param {Object|Array}  animDef    - UIWindowEntranceEffect[] (신 형식, ms 단위) 또는
+       *                                    { type, duration?, delay?, offset? } (구 형식, 프레임 단위)
+       * @param {boolean}       isEnter    - true: 등장, false: 퇴장
+       * @param {Function|null} onComplete - 완료 콜백 (선택)
        */
       play: function(obj, animDef, isEnter, onComplete) {
         if (!obj) { if (onComplete) onComplete(); return; }
         this.clear(obj);
-        var props = buildProps(animDef, obj, isEnter);
-        if (!props) { if (onComplete) onComplete(); return; }
-        var duration = (animDef && animDef.duration !== undefined) ? animDef.duration : 15;
-        // ── 디버그 로그 ──
-        var objId = (obj._customClassName || obj.constructor && obj.constructor.name || '?');
-        console.log('[WidgetAnimator.play]', objId,
-          'type='+animDef.type, 'isEnter='+isEnter,
-          'props:', JSON.stringify(props).substring(0, 120),
-          'objPos: x='+obj.x+' y='+obj.y);
-        if (duration <= 0) {
-          applyTask({obj:obj, props:props}, 1);
-          if (onComplete) onComplete();
-          return;
+        var isNew = Array.isArray(animDef);
+        var effects = isNew ? animDef : (animDef ? [animDef] : []);
+        var valid = effects.filter(function(e) { return e && e.type && e.type !== 'none'; });
+        if (valid.length === 0) { if (onComplete) onComplete(); return; }
+
+        // onComplete는 가장 늦게 끝나는 task에 연결
+        var maxEnd = -1, maxIdx = 0;
+        for (var i = 0; i < valid.length; i++) {
+          var dur0 = valid[i].duration !== undefined ? valid[i].duration : (isNew ? 300 : 15);
+          var del0 = valid[i].delay || 0;
+          if (dur0 + del0 > maxEnd) { maxEnd = dur0 + del0; maxIdx = i; }
         }
-        // 시작값 즉시 적용
-        applyTask({obj:obj, props:props}, 0);
-        _tasks.push({
-          obj: obj, props: props,
-          frame: 0, duration: duration,
-          delay: (animDef && animDef.delay) ? animDef.delay : 0,
-          onComplete: onComplete || null,
-        });
+
+        for (var j = 0; j < valid.length; j++) {
+          var eff = valid[j];
+          var props = buildPropsForEffect(eff, obj, isEnter);
+          if (!props) continue;
+          var duration = eff.duration !== undefined ? eff.duration : (isNew ? 300 : 15);
+          var frames   = isNew ? Math.max(1, Math.round(duration / 1000 * 60)) : Math.max(1, duration);
+          var delay    = eff.delay || 0;
+          var delayF   = isNew ? Math.max(0, Math.round(delay / 1000 * 60)) : Math.max(0, delay);
+          var easing   = eff.easing || 'easeOut';
+          if (j === 0 && delayF === 0) applyTask({obj:obj, props:props, easing:easing}, 0);
+          _tasks.push({
+            obj: obj, props: props,
+            frame: 0, duration: frames, delay: delayF,
+            easing: easing,
+            onComplete: j === maxIdx ? (onComplete || null) : null,
+          });
+        }
       },
       /** 특정 obj의 진행 중인 애니메이션을 취소합니다. */
       clear: function(obj) {
@@ -1206,10 +1255,18 @@
   Widget_Base.prototype.playEnterAnim = function(fallbackDef) {
     var animDef = (this._def && this._def.enterAnimation !== undefined)
       ? this._def.enterAnimation : fallbackDef;
-    if (!animDef || animDef.type === 'none') return;
+    var isEmpty = !animDef || (Array.isArray(animDef) ? animDef.length === 0 : animDef.type === 'none');
+    if (isEmpty) return;
     var obj = this.displayObject();
     if (!obj) return;
     WidgetAnimator.play(obj, animDef, true, null);
+    // Window_Base 자손들은 PIXI 계층 밖이므로 opacity/position이 자동 전파되지 않음 → 직접 적용
+    var wins = [];
+    this._collectWindowDescendants(wins);
+    for (var i = 0; i < wins.length; i++) {
+      var wo = wins[i].displayObject();
+      if (wo && !WidgetAnimator.isActive(wo)) WidgetAnimator.play(wo, animDef, true, null);
+    }
   };
 
   /**
@@ -1221,13 +1278,21 @@
   Widget_Base.prototype.playExitAnim = function(fallbackDef, onComplete) {
     var animDef = (this._def && this._def.exitAnimation !== undefined)
       ? this._def.exitAnimation : fallbackDef;
-    if (!animDef || animDef.type === 'none') {
+    var isEmpty = !animDef || (Array.isArray(animDef) ? animDef.length === 0 : animDef.type === 'none');
+    if (isEmpty) {
       if (onComplete) onComplete();
       return false;
     }
     var obj = this.displayObject();
     if (!obj) { if (onComplete) onComplete(); return false; }
     WidgetAnimator.play(obj, animDef, false, onComplete);
+    // Window_Base 자손들에게도 퇴장 애니메이션 적용 (씬 전환 콜백은 첫 obj에 연결됨)
+    var wins = [];
+    this._collectWindowDescendants(wins);
+    for (var i = 0; i < wins.length; i++) {
+      var wo = wins[i].displayObject();
+      if (wo && !WidgetAnimator.isActive(wo)) WidgetAnimator.play(wo, animDef, false, null);
+    }
     return true;
   };
 
@@ -1239,9 +1304,7 @@
   Widget_Base.prototype._collectWindowDescendants = function(out) {
     for (var i = 0; i < this._children.length; i++) {
       var child = this._children[i];
-      var isWin = (child.displayObject() instanceof Window_Base);
-      console.log('[_collectWindowDescendants]', this._id || '?', '→ child:', child._id, 'isWindow:', isWin, 'type:', child.constructor.name || '?');
-      if (isWin) out.push(child);
+      if (child.displayObject() instanceof Window_Base) out.push(child);
       child._collectWindowDescendants(out);
     }
   };
@@ -1251,7 +1314,6 @@
     if (!obj) return;
     var cx = obj.x, cy = obj.y;
     if (this._prevDispX === undefined) {
-      console.log('[_syncWindowDescendants] INIT', this._id, 'x='+cx+' y='+cy);
       this._prevDispX = cx; this._prevDispY = cy; return;
     }
     var dx = cx - this._prevDispX, dy = cy - this._prevDispY;
@@ -1259,8 +1321,6 @@
     this._prevDispX = cx; this._prevDispY = cy;
     var wins = [];
     this._collectWindowDescendants(wins);
-    console.log('[_syncWindowDescendants] DELTA', this._id, 'dx='+dx, 'dy='+dy,
-      'wins=['+wins.map(function(w){return w._id+'('+w.displayObject().x+','+w.displayObject().y+')'}).join(',')+']');
     for (var i = 0; i < wins.length; i++) {
       var wo = wins[i].displayObject();
       wo.x += dx; wo.y += dy;

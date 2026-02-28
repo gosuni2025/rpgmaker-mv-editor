@@ -54,7 +54,8 @@ export type EntranceEffectType =
   | 'bounce'
   | 'rotate'
   | 'rotateX'
-  | 'rotateY';
+  | 'rotateY'
+  | 'openness';
 
 export type EntranceEasing = 'easeOut' | 'easeIn' | 'easeInOut' | 'linear' | 'bounce';
 
@@ -191,29 +192,6 @@ export type UiSkinUndoEntry = {
   gaugeFillDir: 'horizontal' | 'vertical';
 };
 
-// ── 위젯 애니메이션 타입 ──────────────────────────────────────
-
-/** 커스텀 씬 위젯의 등장/퇴장 애니메이션 타입 */
-export type WidgetAnimType =
-  | 'none'
-  | 'fade'
-  | 'slideUp'
-  | 'slideDown'
-  | 'slideLeft'
-  | 'slideRight'
-  | 'openness'
-  | 'zoom';
-
-export interface WidgetAnimDef {
-  type: WidgetAnimType;
-  /** 애니메이션 지속 프레임 수 (기본: 15) */
-  duration?: number;
-  /** 시작 딜레이 프레임 수 (기본: 0) */
-  delay?: number;
-  /** slide 이동 거리 px — 미설정 시 위젯 크기에 맞춰 자동 계산 */
-  offset?: number;
-}
-
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
 export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'textList' | 'rowSelector' | 'options' | 'minimap' | 'scene';
@@ -254,9 +232,9 @@ export interface WidgetDefBase {
   /** 창 배경 불투명도 0~255 */
   backOpacity?: number;
   /** 등장 애니메이션 (씬 start 시 자동 실행) */
-  enterAnimation?: WidgetAnimDef;
+  enterAnimation?: UIWindowEntranceEffect[];
   /** 퇴장 애니메이션 (씬 popScene 시 자동 실행) */
-  exitAnimation?: WidgetAnimDef;
+  exitAnimation?: UIWindowEntranceEffect[];
 }
 
 export interface WidgetDef_Panel extends WidgetDefBase {
@@ -433,7 +411,7 @@ export interface CustomSceneDefV2 extends Omit<CustomSceneDef, 'windows'> {
   /** true: 씬 전환 없이 인게임 위에 그리는 오버레이 모드 */
   overlay?: boolean;
   /** 씬 등장 시 기본 애니메이션 (위젯 개별 설정 없을 때 fallback) */
-  enterAnimation?: WidgetAnimDef;
+  enterAnimation?: UIWindowEntranceEffect[];
   /** 씬 퇴장 시 기본 애니메이션 (위젯 개별 설정 없을 때 fallback, popScene 완료 조건에 포함) */
-  exitAnimation?: WidgetAnimDef;
+  exitAnimation?: UIWindowEntranceEffect[];
 }

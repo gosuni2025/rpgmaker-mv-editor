@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import useEditorStore from '../../store/useEditorStore';
-import type { UIWindowOverride, UIWindowEntranceEffect, EntranceEffectType, EntranceEasing, AnimPivotAnchor } from '../../store/types';
+import type { UIWindowEntranceEffect, EntranceEffectType, EntranceEasing, AnimPivotAnchor } from '../../store/types';
 import DragLabel from '../common/DragLabel';
 import {
   EFFECT_LABELS, EXIT_EFFECT_LABELS, EASING_LABELS,
@@ -36,41 +35,44 @@ export function PivotAnchorSelector({ value, onChange }: {
 
 // ── 등장/퇴장 효과 섹션 ───────────────────────────────────────────────────────
 
-export function AnimEffectSection({ label, fieldKey, override, setMeta }: {
+export function AnimEffectSection({ label, value, onChange, onUndoPush, isExit, entranceValue }: {
   label: string;
-  fieldKey: 'entrances' | 'exits';
-  override: UIWindowOverride | null;
-  setMeta: (prop: keyof Omit<UIWindowOverride, 'className' | 'elements'>, value: unknown) => void;
+  value: UIWindowEntranceEffect[];
+  onChange: (v: UIWindowEntranceEffect[]) => void;
+  onUndoPush: () => void;
+  /** true면 퇴장용 레이블 및 "↩ 반전" 버튼 표시 */
+  isExit?: boolean;
+  /** 퇴장 섹션에서 "↩ 반전" 시 참조할 등장 효과 목록 */
+  entranceValue?: UIWindowEntranceEffect[];
 }) {
-  const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
-  const effects = override?.[fieldKey] ?? [];
+  const effects = value;
   const [addOpen, setAddOpen] = useState(false);
-  const effectLabels = fieldKey === 'exits' ? EXIT_EFFECT_LABELS : EFFECT_LABELS;
+  const effectLabels = isExit ? EXIT_EFFECT_LABELS : EFFECT_LABELS;
 
   const addEffect = (type: EntranceEffectType) => {
-    setMeta(fieldKey, [...effects, makeDefaultEffect(type)]);
+    onChange([...effects, makeDefaultEffect(type)]);
   };
   const removeEffect = (idx: number) => {
-    setMeta(fieldKey, effects.filter((_, i) => i !== idx));
+    onChange(effects.filter((_, i) => i !== idx));
   };
   const updateEffect = (idx: number, patch: Partial<UIWindowEntranceEffect>) => {
-    setMeta(fieldKey, effects.map((e, i) => i === idx ? { ...e, ...patch } : e));
+    onChange(effects.map((e, i) => i === idx ? { ...e, ...patch } : e));
   };
   const moveEffect = (idx: number, dir: -1 | 1) => {
     const next = [...effects];
     const swap = idx + dir;
     if (swap < 0 || swap >= next.length) return;
     [next[idx], next[swap]] = [next[swap], next[idx]];
-    setMeta(fieldKey, next);
+    onChange(next);
   };
 
   const SLIDE_REVERSE: Partial<Record<EntranceEffectType, EntranceEffectType>> = {
     fadeIn: 'fadeOut', fadeOut: 'fadeIn',
   };
   const copyFromEntranceReversed = () => {
-    const src = override?.entrances ?? [];
+    const src = entranceValue ?? [];
     if (src.length === 0) return;
-    setMeta('exits', src.map((e) => ({ ...e, type: SLIDE_REVERSE[e.type] ?? e.type })));
+    onChange(src.map((e) => ({ ...e, type: SLIDE_REVERSE[e.type] ?? e.type })));
   };
 
   return (
@@ -78,7 +80,7 @@ export function AnimEffectSection({ label, fieldKey, override, setMeta }: {
       <div className="ui-inspector-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>{label}</span>
         <div style={{ display: 'flex', gap: 4, position: 'relative' }}>
-          {fieldKey === 'exits' && (
+          {isExit && (
             <button
               className="ui-canvas-toolbar-btn"
               style={{ fontSize: 11, padding: '1px 7px' }}
@@ -133,18 +135,18 @@ export function AnimEffectSection({ label, fieldKey, override, setMeta }: {
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="지속 (ms)" value={eff.duration} min={50} max={3000}
-                onDragStart={() => pushUiOverrideUndo()}
+                onDragStart={() => onUndoPush()}
                 onChange={(v) => updateEffect(idx, { duration: Math.round(v) })} />
             </div>
             <div className="ui-inspector-row">
               <DragLabel label="딜레이 (ms)" value={eff.delay ?? 0} min={0} max={3000}
-                onDragStart={() => pushUiOverrideUndo()}
+                onDragStart={() => onUndoPush()}
                 onChange={(v) => updateEffect(idx, { delay: Math.round(v) })} />
             </div>
             {(eff.type === 'zoom' || eff.type === 'bounce') && (
               <div className="ui-inspector-row">
                 <DragLabel label="시작 크기" value={Math.round((eff.fromScale ?? 0) * 100)} min={0} max={200}
-                  onDragStart={() => pushUiOverrideUndo()}
+                  onDragStart={() => onUndoPush()}
                   onChange={(v) => updateEffect(idx, { fromScale: v / 100 })} />
                 <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>%</span>
               </div>
@@ -152,7 +154,7 @@ export function AnimEffectSection({ label, fieldKey, override, setMeta }: {
             {(eff.type === 'rotate' || eff.type === 'rotateX' || eff.type === 'rotateY') && (
               <div className="ui-inspector-row">
                 <DragLabel label="각도" value={eff.fromAngle ?? (eff.type === 'rotate' ? 180 : 90)} min={-720} max={720}
-                  onDragStart={() => pushUiOverrideUndo()}
+                  onDragStart={() => onUndoPush()}
                   onChange={(v) => updateEffect(idx, { fromAngle: Math.round(v) })} />
                 <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
               </div>

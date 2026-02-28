@@ -383,8 +383,20 @@ export function WindowInspector({ selectedWindow, override }: {
           </div>
         </div>
 
-        <AnimEffectSection label="등장 효과" fieldKey="entrances" override={override} setMeta={setMeta} />
-        <AnimEffectSection label="퇴장 효과" fieldKey="exits" override={override} setMeta={setMeta} />
+        <AnimEffectSection
+          label="등장 효과"
+          value={override?.entrances ?? []}
+          onChange={(v) => setMeta('entrances', v)}
+          onUndoPush={pu}
+        />
+        <AnimEffectSection
+          label="퇴장 효과"
+          isExit
+          value={override?.exits ?? []}
+          onChange={(v) => setMeta('exits', v)}
+          onUndoPush={pu}
+          entranceValue={override?.entrances ?? []}
+        />
 
       </div>
     </>

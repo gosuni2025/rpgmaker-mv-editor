@@ -12,6 +12,7 @@ export const EFFECT_LABELS: Record<EntranceEffectType, string> = {
   rotate:      '회전 (Z축)',
   rotateX:     '회전 (X축 — 상하)',
   rotateY:     '회전 (Y축 — 좌우)',
+  openness:    'MV 윈도우 (openness)',
 };
 
 export const EXIT_EFFECT_LABELS: Record<EntranceEffectType, string> = {
@@ -26,6 +27,7 @@ export const EXIT_EFFECT_LABELS: Record<EntranceEffectType, string> = {
   rotate:      '회전 퇴장 (Z축)',
   rotateX:     '회전 퇴장 (X축)',
   rotateY:     '회전 퇴장 (Y축)',
+  openness:    'MV 윈도우 (openness)',
 };
 
 export const EASING_LABELS: Record<EntranceEasing, string> = {
