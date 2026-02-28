@@ -15,55 +15,51 @@ import { ExpressionPickerButton } from './UIEditorExpressionPicker';
 import { ScriptEditor } from '../EventEditor/ScriptEditor';
 import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
 
-// ── ScriptPreviewField — 3줄 미리보기 + "..." 버튼으로 ScriptEditor 팝업 열기 ──
+// ── ScriptPreviewField — 한 줄 row: 레이블 + 코드 미리보기 + 편집 버튼 ──
 
-function ScriptPreviewField({ label, helpText, placeholder, value, onChange }: {
-  label: string; helpText: string; placeholder?: string;
+function ScriptPreviewField({ label, helpText, value, onChange }: {
+  label: string; helpText: string;
   value: string; onChange: (v: string) => void;
 }) {
   const [showEditor, setShowEditor] = useState(false);
   const lines = value.split('\n');
-  const previewLines = lines.slice(0, 3).join('\n');
-  const hasMore = lines.length > 3 || previewLines.length > 120;
+  const firstLine = lines[0] ?? '';
+  const lineCount = lines.filter(l => l !== '').length;
 
-  // ScriptEditor p/followCommands 형식으로 변환
-  const p: unknown[] = [lines[0] ?? ''];
+  const p: unknown[] = [firstLine];
   const followCommands: EventCommand[] = lines.slice(1).map(line => ({
     code: 655, indent: 0, parameters: [line],
   }));
 
   return (
-    <div>
-      <label style={{ ...labelStyle, marginTop: 6 }}>
-        {label}
-        <HelpButton text={helpText} />
-      </label>
-      <div style={{ position: 'relative' }}>
-        <pre style={{
-          margin: 0, padding: '4px 28px 4px 6px',
-          background: '#1a1a1a', border: '1px solid #444', borderRadius: 3,
-          fontFamily: 'monospace', fontSize: 11, color: '#ccc',
-          minHeight: 20, maxHeight: 56, overflow: 'hidden',
-          whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-        }}>
-          {previewLines
-            ? <>{previewLines}{hasMore && <span style={{ color: '#666' }}>…</span>}</>
-            : <span style={{ color: '#555' }}>{placeholder || '비어 있음'}</span>}
-        </pre>
-        <button
-          style={{ ...smallBtnStyle, position: 'absolute', right: 2, top: 2, padding: '1px 5px' }}
-          onClick={() => setShowEditor(true)}
-          title="스크립트 편집"
-        >...</button>
-      </div>
+    <div style={rowStyle}>
+      <span style={{ fontSize: 11, color: '#888', flexShrink: 0, width: 80 }}>
+        {label}<HelpButton text={helpText} />
+      </span>
+      <code
+        style={{
+          flex: 1, fontFamily: 'monospace', fontSize: 11,
+          background: '#1a1a1a', border: '1px solid #3a3a3a', borderRadius: 3,
+          padding: '2px 5px', color: value ? '#9cdcfe' : '#555',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          cursor: 'pointer', display: 'block',
+        }}
+        onClick={() => setShowEditor(true)}
+        title={value || '(비어 있음)'}
+      >
+        {value
+          ? <>{firstLine}{lineCount > 1 && <span style={{ color: '#666', marginLeft: 4 }}>+{lineCount - 1}줄</span>}</>
+          : <span style={{ color: '#444', fontStyle: 'italic' }}>비어 있음</span>}
+      </code>
+      <button style={{ ...smallBtnStyle, flexShrink: 0 }} onClick={() => setShowEditor(true)} title="스크립트 편집">편집</button>
       {showEditor && (
         <ScriptEditor
           p={p}
           followCommands={followCommands}
           onOk={(params, extra) => {
-            const firstLine = (params[0] as string) ?? '';
-            const extraLines = (extra ?? []).map(e => e.parameters[0] as string);
-            onChange([firstLine, ...extraLines].join('\n'));
+            const first = (params[0] as string) ?? '';
+            const rest = (extra ?? []).map(e => e.parameters[0] as string);
+            onChange([first, ...rest].join('\n'));
             setShowEditor(false);
           }}
           onCancel={() => setShowEditor(false)}
@@ -556,18 +552,16 @@ function ListCommonSection({ widget, update }: {
     <div>
       {/* dataScript */}
       <ScriptPreviewField
-        label="데이터 스크립트 (dataScript)"
+        label="dataScript"
         helpText={'행 배열을 반환하는 JS 식.\n예: $gameParty.items().map(i => ({name:i.name, iconIndex:i.iconIndex}))\n설정하면 items 목록 대신 동적으로 행을 생성합니다.'}
-        placeholder="$gameParty.items().map(i => ({name:i.name, iconIndex:i.iconIndex}))"
         value={widget.dataScript || ''}
         onChange={(v) => update({ dataScript: v || undefined } as any)}
       />
 
       {/* onCursor */}
       <ScriptPreviewField
-        label="커서 이동 시 코드 (onCursor)"
+        label="onCursor"
         helpText={'커서가 이동할 때 실행되는 JS 코드.\n예: $ctx.item = this._window.item();'}
-        placeholder="$ctx.item = this._window.item();"
         value={widget.onCursor?.code || ''}
         onChange={(v) => update({ onCursor: v ? { code: v } : undefined } as any)}
       />
