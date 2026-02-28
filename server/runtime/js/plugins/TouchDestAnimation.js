@@ -558,12 +558,6 @@
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();
 
-        // 이미지가 있는 이벤트 위: 이벤트 글로우가 담당하므로 타일 하이라이트 숨김
-        if (showEventHoverLine && _currentGlowSprite) {
-            this._hoverHighlightSprite.visible = false;
-            return;
-        }
-
         this._hoverHighlightSprite.x = $gameMap.adjustX(tileX) * tw;
         this._hoverHighlightSprite.y = $gameMap.adjustY(tileY) * th;
         this._hoverHighlightSprite.visible = true;
