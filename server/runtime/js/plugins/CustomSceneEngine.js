@@ -310,8 +310,8 @@
     var rh   = this._winDef.rowHeight || this.lineHeight();
     var lh   = this.lineHeight();
     var hasSub = cmd && cmd.subText;
-    // 세로 중앙 정렬: 서브텍스트 있으면 2줄, 없으면 1줄
-    var nameY = rect.y + Math.floor((rh - lh * (hasSub ? 2 : 1)) / 2);
+    // 세로 중앙 정렬: 서브텍스트 있으면 2줄, 없으면 1줄 (rect.y 미만 방지)
+    var nameY = Math.max(rect.y, rect.y + Math.floor((rh - lh * (hasSub ? 2 : 1)) / 2));
 
     this.resetTextColor();
     if (cmd && cmd.textColor) this.changeTextColor(cmd.textColor);
@@ -1867,6 +1867,7 @@
     this._dataScript = def.dataScript || null;
     this._onCursorDef = def.onCursor || null;
     this._autoHeight = def.autoHeight || false;
+    this._autoRefresh = (def.autoRefresh !== false); // false로 명시하면 6프레임 자동 rebuild 비활성화
     this._focusable = (def.focusable !== false); // false로 명시하면 NavigationManager 포커스 제외
     var listDef = {
       id: def.id, width: def.width,
@@ -1986,9 +1987,9 @@
   Widget_List.prototype.update = function() {
     if (this._updateCount === undefined) this._updateCount = 0;
     ++this._updateCount;
-    if (this._dataScript) {
+    if (this._dataScript && this._autoRefresh !== false) {
       if (this._updateCount % 6 === 0) this._rebuildFromScript();
-    } else {
+    } else if (!this._dataScript) {
       var items = this._items;
       var hasCondition = items && items.some(function(item) {
         return typeof item.enabledCondition === 'string' && item.enabledCondition;
