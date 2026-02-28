@@ -1509,8 +1509,10 @@
     this._actorIndexExpr = def.actorIndexExpr || null;
     this._gaugeRenderMode = def.gaugeRenderMode || 'palette';
     this._gaugeSkinId = def.gaugeSkinId || null;
-    this._showLabel = def.showLabel !== false;
-    this._showValue = def.showValue !== false;
+    // children이 있으면 자식 label 위젯이 텍스트를 담당 → 내장 렌더링 비활성
+    var hasChildren = def.children && def.children.length > 0;
+    this._showLabel = !hasChildren && def.showLabel !== false;
+    this._showValue = !hasChildren && def.showValue !== false;
     this._skinData = null;
     this._skinBitmap = null;
     this._windowSkin = null;
