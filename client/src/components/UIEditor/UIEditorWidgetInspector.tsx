@@ -112,6 +112,89 @@ export function ActionHandlerEditor({ handler, onChange }: {
 
 const WINDOW_BASED_TYPES: WidgetType[] = ['panel', 'button', 'list', 'rowSelector', 'options'];
 
+function LabelTypeSection({ widget, update }: { widget: WidgetDef_Label; update: (u: Partial<WidgetDef>) => void }) {
+  const labelTextRef = useRef<HTMLTextAreaElement>(null);
+  const insertLabelText = useCallback((code: string) => {
+    const ta = labelTextRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    update({ text: widget.text.slice(0, s) + code + widget.text.slice(e) } as any);
+    requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
+  }, [widget.text]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div>
+      <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
+        <ExpressionPickerButton mode="text" onInsert={insertLabelText} />
+      </div>
+      <textarea
+        ref={labelTextRef}
+        style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+        value={widget.text}
+        placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
+        onChange={(e) => update({ text: e.target.value } as any)}
+      />
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+        <select style={{ ...selectStyle, flex: 1 }}
+          value={widget.align || 'left'}
+          onChange={(e) => update({ align: e.target.value as any } as any)}>
+          <option value="left">왼쪽</option>
+          <option value="center">가운데</option>
+          <option value="right">오른쪽</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function TextAreaTypeSection({ widget, update }: { widget: WidgetDef_TextArea; update: (u: Partial<WidgetDef>) => void }) {
+  const taTextRef = useRef<HTMLTextAreaElement>(null);
+  const insertTaText = useCallback((code: string) => {
+    const ta = taTextRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    update({ text: widget.text.slice(0, s) + code + widget.text.slice(e) } as any);
+    requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
+  }, [widget.text]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div>
+      <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
+        <ExpressionPickerButton mode="text" onInsert={insertTaText} />
+      </div>
+      <textarea
+        ref={taTextRef}
+        style={{ ...inputStyle, height: 80, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+        value={widget.text}
+        placeholder="{$ctx.item&&$ctx.item.description||''} 등 표현식 사용 가능"
+        onChange={(e) => update({ text: e.target.value } as any)}
+      />
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+        <select style={{ ...selectStyle, flex: 1 }}
+          value={widget.align || 'left'}
+          onChange={(e) => update({ align: e.target.value as any } as any)}>
+          <option value="left">왼쪽</option>
+          <option value="center">가운데</option>
+          <option value="right">오른쪽</option>
+        </select>
+      </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>줄 높이</span>
+        <input style={{ ...inputStyle, width: 60 }} type="number"
+          value={widget.lineHeight ?? ''}
+          placeholder="기본"
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            update({ lineHeight: v === '' ? undefined : (parseInt(v) || undefined) } as any);
+          }} />
+        <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
+      </div>
+    </div>
+  );
+}
+
 function WindowStyleSection({ widget, update }: {
   widget: WidgetDef; update: (u: Partial<WidgetDef>) => void;
 }) {
@@ -588,89 +671,8 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
       {widget.type !== 'panel' && (
       <div style={sectionStyle}>
         <label style={labelStyle}>타입 속성 ({widget.type})</label>
-        {widget.type === 'label' && (() => {
-          const labelTextRef = useRef<HTMLTextAreaElement>(null);
-          const insertLabelText = useCallback((code: string) => {
-            const ta = labelTextRef.current;
-            if (!ta) return;
-            const s = ta.selectionStart, e = ta.selectionEnd;
-            const cur = (widget as WidgetDef_Label).text;
-            update({ text: cur.slice(0, s) + code + cur.slice(e) } as any);
-            requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
-          }, [(widget as WidgetDef_Label).text]); // eslint-disable-line react-hooks/exhaustive-deps
-          return (
-            <div>
-              <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
-                <ExpressionPickerButton mode="text" onInsert={insertLabelText} />
-              </div>
-              <textarea
-                ref={labelTextRef}
-                style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-                value={(widget as WidgetDef_Label).text}
-                placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
-                onChange={(e) => update({ text: e.target.value } as any)}
-              />
-              <div style={rowStyle}>
-                <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
-                <select style={{ ...selectStyle, flex: 1 }}
-                  value={(widget as WidgetDef_Label).align || 'left'}
-                  onChange={(e) => update({ align: e.target.value as any } as any)}>
-                  <option value="left">왼쪽</option>
-                  <option value="center">가운데</option>
-                  <option value="right">오른쪽</option>
-                </select>
-              </div>
-            </div>
-          );
-        })()}
-        {widget.type === 'textArea' && (() => {
-          const taTextRef = useRef<HTMLTextAreaElement>(null);
-          const insertTaText = useCallback((code: string) => {
-            const ta = taTextRef.current;
-            if (!ta) return;
-            const s = ta.selectionStart, e = ta.selectionEnd;
-            const cur = (widget as WidgetDef_TextArea).text;
-            update({ text: cur.slice(0, s) + code + cur.slice(e) } as any);
-            requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
-          }, [(widget as WidgetDef_TextArea).text]); // eslint-disable-line react-hooks/exhaustive-deps
-          return (
-          <div>
-            <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
-              <ExpressionPickerButton mode="text" onInsert={insertTaText} />
-            </div>
-            <textarea
-              ref={taTextRef}
-              style={{ ...inputStyle, height: 80, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-              value={(widget as WidgetDef_TextArea).text}
-              placeholder="{$ctx.item&&$ctx.item.description||''} 등 표현식 사용 가능"
-              onChange={(e) => update({ text: e.target.value } as any)}
-            />
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
-              <select style={{ ...selectStyle, flex: 1 }}
-                value={(widget as WidgetDef_TextArea).align || 'left'}
-                onChange={(e) => update({ align: e.target.value as any } as any)}>
-                <option value="left">왼쪽</option>
-                <option value="center">가운데</option>
-                <option value="right">오른쪽</option>
-              </select>
-            </div>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 50 }}>줄 높이</span>
-              <input style={{ ...inputStyle, width: 60 }} type="number"
-                value={(widget as WidgetDef_TextArea).lineHeight ?? ''}
-                placeholder="기본"
-                onChange={(e) => {
-                  const v = e.target.value.trim();
-                  update({ lineHeight: v === '' ? undefined : (parseInt(v) || undefined) } as any);
-                }} />
-              <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
-            </div>
-          </div>
-          );
-        })()}
+        {widget.type === 'label' && <LabelTypeSection widget={widget as WidgetDef_Label} update={update} />}
+        {widget.type === 'textArea' && <TextAreaTypeSection widget={widget as WidgetDef_TextArea} update={update} />}
         {widget.type === 'gauge' && (() => {
           const g = widget as WidgetDef_Gauge;
           return (
