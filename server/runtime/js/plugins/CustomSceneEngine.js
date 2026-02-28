@@ -2370,6 +2370,38 @@
   registerCustomScenes();
   installSceneRedirects(_configData.sceneRedirects || {});
 
+  //===========================================================================
+  // addMenuCommand 헬퍼 — 씬 정의의 list 위젯에 항목/핸들러 동적 추가
+  //===========================================================================
+  function findWidgetDefById(node, id) {
+    if (!node) return null;
+    if (node.id === id) return node;
+    var children = node.children || [];
+    for (var i = 0; i < children.length; i++) {
+      var found = findWidgetDefById(children[i], id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function addMenuCommand(sceneId, widgetId, item, handlerDef) {
+    var scenes = _scenesData.scenes || {};
+    var scene = scenes[sceneId];
+    if (!scene || !scene.root) return false;
+    var widgetDef = findWidgetDefById(scene.root, widgetId);
+    if (!widgetDef) return false;
+    if (!widgetDef.items) widgetDef.items = widgetDef.commands || [];
+    var exists = widgetDef.items.some(function(it) { return it.symbol === item.symbol; });
+    if (!exists) widgetDef.items.push(item);
+    if (handlerDef) {
+      if (!widgetDef.handlers) widgetDef.handlers = {};
+      if (!widgetDef.handlers[item.symbol]) {
+        widgetDef.handlers[item.symbol] = handlerDef;
+      }
+    }
+    return true;
+  }
+
   // 외부 인터페이스
   window.__customSceneEngine = {
     reloadCustomScenes: reloadCustomScenes,
@@ -2385,5 +2417,13 @@
     registerWidget: function (type, WidgetClass) {
       _widgetRegistry[type] = WidgetClass;
     },
+    /**
+     * 씬의 list 위젯에 메뉴 항목을 동적으로 추가합니다 (JSON 파일 수정 없음).
+     * @param {string} sceneId    - 씬 ID (예: 'menu_v2')
+     * @param {string} widgetId   - list 위젯 ID (예: 'cmd_main')
+     * @param {Object} item       - { name, symbol, enabled }
+     * @param {Object} handlerDef - { action, target } 또는 null
+     */
+    addMenuCommand: addMenuCommand,
   };
 })();

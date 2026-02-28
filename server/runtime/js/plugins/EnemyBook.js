@@ -61,6 +61,16 @@
     var showInMenu  = String(parameters['Show In Menu'] || 'true') === 'true';
     var menuText    = String(parameters['Menu Text']    || '몬스터 도감');
 
+    // CustomSceneEngine이 켜져 있으면 커스텀 씬 사용
+    function hasCSEngine() { return typeof window.__customSceneEngine !== 'undefined'; }
+    function openEnemyBook() {
+        if (hasCSEngine() && window['Scene_CS_enemy_book']) {
+            SceneManager.push(window['Scene_CS_enemy_book']);
+        } else {
+            SceneManager.push(Scene_EnemyBook);
+        }
+    }
+
     //-------------------------------------------------------------------------
     // Plugin Command
     //-------------------------------------------------------------------------
@@ -69,7 +79,7 @@
         _pluginCommand.call(this, command, args);
         if (command !== 'EnemyBook') return;
         switch (args[0]) {
-        case 'open':     SceneManager.push(Scene_EnemyBook); break;
+        case 'open':     openEnemyBook(); break;
         case 'add':      $gameSystem.addToEnemyBook(Number(args[1])); break;
         case 'remove':   $gameSystem.removeFromEnemyBook(Number(args[1])); break;
         case 'complete': $gameSystem.completeEnemyBook(); break;
@@ -367,10 +377,38 @@
         this.resetTextColor();
     };
 
+    //=========================================================================
+    // Widget_EnemyBookDetail — 적 도감 상세 패널 (커스텀 위젯)
+    //=========================================================================
+    function Widget_EnemyBookDetail() {}
+    Widget_EnemyBookDetail.prototype = Object.create(Widget_Base.prototype);
+    Widget_EnemyBookDetail.prototype.constructor = Widget_EnemyBookDetail;
+
+    Widget_EnemyBookDetail.prototype.initialize = function(def, parentWidget) {
+        Widget_Base.prototype.initialize.call(this, def, parentWidget);
+        var w = new Window_EnemyBookStatus(this._x, this._y, this._width, this._height);
+        this._window = w;
+        this._displayObject = w;
+    };
+
+    Widget_EnemyBookDetail.prototype.displayObject = function() {
+        return this._window;
+    };
+
+    Widget_EnemyBookDetail.prototype.setEnemy = function(enemy) {
+        if (this._window) this._window.setEnemy(enemy);
+    };
+
+    Widget_EnemyBookDetail.prototype.refresh = function() {};
+    Widget_EnemyBookDetail.prototype.update = function() {
+        if (this._window) this._window.update();
+    };
+
     //-------------------------------------------------------------------------
     // 메뉴 통합
     //-------------------------------------------------------------------------
     if (showInMenu) {
+        // 기존 Scene_Menu (MV 방식 or CSEngine 없을 때)
         var _makeCommandList = Window_MenuCommand.prototype.makeCommandList;
         Window_MenuCommand.prototype.makeCommandList = function() {
             _makeCommandList.call(this);
@@ -384,8 +422,25 @@
         };
 
         Scene_Menu.prototype.commandEnemyBook = function() {
-            SceneManager.push(Scene_EnemyBook);
+            openEnemyBook();
         };
     }
 
-})();
+    //-------------------------------------------------------------------------
+    // CustomSceneEngine 통합
+    //-------------------------------------------------------------------------
+    if (hasCSEngine()) {
+        // 커스텀 위젯 등록
+        window.__customSceneEngine.registerWidget('enemyBookDetail', Widget_EnemyBookDetail);
+
+        // menu_v2 cmd_main에 항목 추가
+        if (showInMenu) {
+            window.__customSceneEngine.addMenuCommand(
+                'menu_v2', 'cmd_main',
+                { name: menuText, symbol: 'enemyBook', enabled: true },
+                { action: 'gotoScene', target: 'Scene_CS_enemy_book' }
+            );
+        }
+    }
+
+})();;

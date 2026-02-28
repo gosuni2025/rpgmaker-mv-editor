@@ -97,6 +97,16 @@
     var showInMenu  = String(parameters['Show In Menu'] || 'true') === 'true';
     var menuText    = String(parameters['Menu Text']    || '아이템 도감');
 
+    // CustomSceneEngine이 켜져 있으면 커스텀 씬 사용
+    function hasCSEngine() { return typeof window.__customSceneEngine !== 'undefined'; }
+    function openItemBook() {
+        if (hasCSEngine() && window['Scene_CS_item_book']) {
+            SceneManager.push(window['Scene_CS_item_book']);
+        } else {
+            SceneManager.push(Scene_ItemBook);
+        }
+    }
+
     //-------------------------------------------------------------------------
     // Plugin Command
     //-------------------------------------------------------------------------
@@ -105,7 +115,7 @@
         _pluginCommand.call(this, command, args);
         if (command !== 'ItemBook') return;
         switch (args[0]) {
-        case 'open':        SceneManager.push(Scene_ItemBook); break;
+        case 'open':        openItemBook(); break;
         case 'add':         $gameSystem.addToItemBook(args[1], Number(args[2])); break;
         case 'remove':      $gameSystem.removeFromItemBook(args[1], Number(args[2])); break;
         case 'complete':    $gameSystem.completeItemBook(); break;
@@ -469,6 +479,33 @@
         return { label: label, value: value };
     };
 
+    //=========================================================================
+    // Widget_ItemBookDetail — 아이템 도감 상세 패널 (커스텀 위젯)
+    //=========================================================================
+    function Widget_ItemBookDetail() {}
+    Widget_ItemBookDetail.prototype = Object.create(Widget_Base.prototype);
+    Widget_ItemBookDetail.prototype.constructor = Widget_ItemBookDetail;
+
+    Widget_ItemBookDetail.prototype.initialize = function(def, parentWidget) {
+        Widget_Base.prototype.initialize.call(this, def, parentWidget);
+        var w = new Window_ItemBookStatus(this._x, this._y, this._width, this._height);
+        this._window = w;
+        this._displayObject = w;
+    };
+
+    Widget_ItemBookDetail.prototype.displayObject = function() {
+        return this._window;
+    };
+
+    Widget_ItemBookDetail.prototype.setItem = function(item) {
+        if (this._window) this._window.setItem(item);
+    };
+
+    Widget_ItemBookDetail.prototype.refresh = function() {};
+    Widget_ItemBookDetail.prototype.update = function() {
+        if (this._window) this._window.update();
+    };
+
     //-------------------------------------------------------------------------
     // 메뉴 통합
     //-------------------------------------------------------------------------
@@ -486,8 +523,25 @@
         };
 
         Scene_Menu.prototype.commandItemBook = function() {
-            SceneManager.push(Scene_ItemBook);
+            openItemBook();
         };
+    }
+
+    //-------------------------------------------------------------------------
+    // CustomSceneEngine 통합
+    //-------------------------------------------------------------------------
+    if (hasCSEngine()) {
+        // 커스텀 위젯 등록
+        window.__customSceneEngine.registerWidget('itemBookDetail', Widget_ItemBookDetail);
+
+        // menu_v2 cmd_main에 항목 추가
+        if (showInMenu) {
+            window.__customSceneEngine.addMenuCommand(
+                'menu_v2', 'cmd_main',
+                { name: menuText, symbol: 'itemBook', enabled: true },
+                { action: 'gotoScene', target: 'Scene_CS_item_book' }
+            );
+        }
     }
 
 })();
