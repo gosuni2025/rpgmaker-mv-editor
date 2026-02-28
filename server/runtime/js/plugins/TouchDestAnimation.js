@@ -556,32 +556,26 @@
             return;
         }
 
-        var mx = _hoverMouseX;
-        var my = _hoverMouseY;
-
-        if (mx < 0 || my < 0 || mx >= Graphics.width || my >= Graphics.height) {
+        var tile = getHoverTile();
+        if (!tile) {
             this._hoverHighlightSprite.visible = false;
             return;
         }
 
-        var tileX, tileY;
+        var tileX = tile.x;
+        var tileY = tile.y;
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();
 
-        // 3D 모드: canvasToMapX/Y 내부에서 X계산엔 TouchInput.y, Y계산엔 TouchInput.x를
-        // 혼용하므로, 중심에서 벗어날수록 왜곡 발생. screenToWorld를 직접 호출.
-        if (typeof Mode3D !== 'undefined' &&
-                ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera) {
-            var world = Mode3D.screenToWorld(mx, my);
-            if (!world) {
-                this._hoverHighlightSprite.visible = false;
-                return;
+        // 이미지가 있는 이벤트 위에서는 이벤트 글로우가 담당 — 타일 하이라이트 숨김
+        if (showEventHoverLine) {
+            var events = $gameMap.eventsXy(tileX, tileY);
+            for (var i = 0; i < events.length; i++) {
+                if (events[i].characterName() !== '' && events[i].opacity() > 0) {
+                    this._hoverHighlightSprite.visible = false;
+                    return;
+                }
             }
-            tileX = $gameMap.roundX(Math.floor(($gameMap._displayX * tw + world.x) / tw));
-            tileY = $gameMap.roundY(Math.floor(($gameMap._displayY * th + world.y) / th));
-        } else {
-            tileX = $gameMap.canvasToMapX(mx);
-            tileY = $gameMap.canvasToMapY(my);
         }
 
         this._hoverHighlightSprite.x = $gameMap.adjustX(tileX) * tw;
@@ -702,9 +696,11 @@
             this.drawEventHoverLine(pw, ph);
         }
 
-        // 위치: 캐릭터 스프라이트와 동일 (anchor 0.5, 1 — bottom-center)
-        this._eventHoverLineSprite.x = targetSprite.x;
-        this._eventHoverLineSprite.y = targetSprite.y;
+        // 위치: Sprite_Character.updatePosition() 와 동일한 공식으로 직접 계산
+        var tw2 = $gameMap.tileWidth();
+        var th2 = $gameMap.tileHeight();
+        this._eventHoverLineSprite.x = Math.round($gameMap.adjustX(targetEvent._realX) * tw2 + tw2 / 2);
+        this._eventHoverLineSprite.y = Math.round($gameMap.adjustY(targetEvent._realY) * th2 + th2);
 
         // 점멸: 사인파로 min~max alpha 사이를 부드럽게 왕복
         this._eventHoverLineFrame = (this._eventHoverLineFrame + 1) % (eventHoverLineSpeed * 2);
@@ -722,8 +718,13 @@
 
         bitmap.clear();
         ctx.save();
+        // shadowBlur로 이미지 안쪽으로 번지는 글로우 효과
+        ctx.shadowColor = eventHoverLineColor;
+        ctx.shadowBlur = Math.max(4, lw * 3);
         ctx.strokeStyle = eventHoverLineColor;
         ctx.lineWidth = lw;
+        ctx.strokeRect(half, half, pw - lw, ph - lw);
+        // 한 번 더 그려 글로우 강도 높임
         ctx.strokeRect(half, half, pw - lw, ph - lw);
         ctx.restore();
         bitmap._setDirty();
