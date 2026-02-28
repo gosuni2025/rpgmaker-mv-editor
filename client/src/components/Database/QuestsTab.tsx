@@ -1,11 +1,30 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   Quest, QuestDatabase, QuestCategory, QuestObjective, QuestObjectiveType,
   QuestObjectiveConfig, QuestReward, QuestRewardType, QuestVariableOperator,
 } from '../../types/rpgMakerMV';
 import { selectStyleFull, selectStyle } from '../../styles/editorStyles';
+import { DataListPicker } from '../EventEditor/dataListPicker';
+import apiClient from '../../api/client';
 import './QuestsTab.css';
+
+// ─── 참조 데이터 타입 ─────────────────────────────────────────────────────────
+
+interface RefData {
+  enemyNames: string[];
+  itemNames: string[];
+  itemIcons: (number | undefined)[];
+  weaponNames: string[];
+  weaponIcons: (number | undefined)[];
+  armorNames: string[];
+  armorIcons: (number | undefined)[];
+}
+
+const EMPTY_REF: RefData = {
+  enemyNames: [], itemNames: [], itemIcons: [],
+  weaponNames: [], weaponIcons: [], armorNames: [], armorIcons: [],
+};
 
 // ─── 헬퍼 ─────────────────────────────────────────────────────────────────
 
@@ -75,30 +94,53 @@ interface ObjectiveConfigEditorProps {
   type: QuestObjectiveType;
   config: QuestObjectiveConfig;
   onChange: (config: QuestObjectiveConfig) => void;
+  refData: RefData;
 }
 
-function ObjectiveConfigEditor({ type, config, onChange }: ObjectiveConfigEditorProps) {
+function ObjectiveConfigEditor({ type, config, onChange, refData }: ObjectiveConfigEditorProps) {
+  const [pickerOpen, setPickerOpen] = useState<'enemy' | 'item' | null>(null);
+
   const set = useCallback(<K extends keyof QuestObjectiveConfig>(key: K, val: QuestObjectiveConfig[K]) => {
     onChange({ ...config, [key]: val });
   }, [config, onChange]);
 
-  const numInput = (label: string, key: keyof QuestObjectiveConfig, defaultVal = 0) => (
+  const numInput = (label: string, key: keyof QuestObjectiveConfig, defaultVal = 0, onPicker?: () => void) => (
     <label className="qs-cfg-field">
       {label}
-      <input
-        type="number"
-        value={(config[key] as number) ?? defaultVal}
-        min={0}
-        onChange={(e) => set(key, Number(e.target.value) as QuestObjectiveConfig[typeof key])}
-      />
+      <div className="qs-input-row">
+        <input
+          type="number"
+          value={(config[key] as number) ?? defaultVal}
+          min={0}
+          onChange={(e) => set(key, Number(e.target.value) as QuestObjectiveConfig[typeof key])}
+        />
+        {onPicker && (
+          <button className="qs-picker-btn" onClick={onPicker} title="목록에서 선택">...</button>
+        )}
+      </div>
     </label>
   );
+
+  const collectItemType = config.itemType || 'item';
+  const collectNames = collectItemType === 'weapon' ? refData.weaponNames
+    : collectItemType === 'armor' ? refData.armorNames : refData.itemNames;
+  const collectIcons = collectItemType === 'weapon' ? refData.weaponIcons
+    : collectItemType === 'armor' ? refData.armorIcons : refData.itemIcons;
 
   if (type === 'kill') {
     return (
       <div className="qs-cfg-row">
-        {numInput('적 ID', 'enemyId', 1)}
+        {numInput('적 ID', 'enemyId', 1, () => setPickerOpen('enemy'))}
         {numInput('마리 수', 'count', 1)}
+        {pickerOpen === 'enemy' && refData.enemyNames.length > 0 && (
+          <DataListPicker
+            title="적(몬스터) 선택"
+            items={refData.enemyNames}
+            value={config.enemyId ?? 1}
+            onChange={(id) => set('enemyId', id)}
+            onClose={() => setPickerOpen(null)}
+          />
+        )}
       </div>
     );
   }
@@ -108,7 +150,7 @@ function ObjectiveConfigEditor({ type, config, onChange }: ObjectiveConfigEditor
         <label className="qs-cfg-field">
           종류
           <select
-            value={config.itemType || 'item'}
+            value={collectItemType}
             onChange={(e) => set('itemType', e.target.value as 'item' | 'weapon' | 'armor')}
             style={selectStyle}
           >
@@ -117,8 +159,18 @@ function ObjectiveConfigEditor({ type, config, onChange }: ObjectiveConfigEditor
             <option value="armor">방어구</option>
           </select>
         </label>
-        {numInput('아이템 ID', 'itemId', 1)}
+        {numInput('아이템 ID', 'itemId', 1, () => setPickerOpen('item'))}
         {numInput('개수', 'count', 1)}
+        {pickerOpen === 'item' && collectNames.length > 0 && (
+          <DataListPicker
+            title={collectItemType === 'weapon' ? '무기 선택' : collectItemType === 'armor' ? '방어구 선택' : '아이템 선택'}
+            items={collectNames}
+            value={config.itemId ?? 1}
+            iconIndices={collectIcons}
+            onChange={(id) => set('itemId', id)}
+            onClose={() => setPickerOpen(null)}
+          />
+        )}
       </div>
     );
   }
@@ -196,9 +248,10 @@ interface ObjectiveRowProps {
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  refData: RefData;
 }
 
-function ObjectiveRow({ obj, onChange, onDelete, onMoveUp, onMoveDown }: ObjectiveRowProps) {
+function ObjectiveRow({ obj, onChange, onDelete, onMoveUp, onMoveDown, refData }: ObjectiveRowProps) {
   const set = <K extends keyof QuestObjective>(k: K, v: QuestObjective[K]) =>
     onChange({ ...obj, [k]: v });
 
@@ -241,6 +294,7 @@ function ObjectiveRow({ obj, onChange, onDelete, onMoveUp, onMoveDown }: Objecti
           type={obj.type}
           config={obj.config}
           onChange={(cfg) => set('config', cfg)}
+          refData={refData}
         />
       )}
     </div>
@@ -253,14 +307,23 @@ interface RewardRowProps {
   reward: QuestReward;
   onChange: (r: QuestReward) => void;
   onDelete: () => void;
+  refData: RefData;
 }
 
-function RewardRow({ reward, onChange, onDelete }: RewardRowProps) {
+function RewardRow({ reward, onChange, onDelete, refData }: RewardRowProps) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const set = <K extends keyof QuestReward>(k: K, v: QuestReward[K]) =>
     onChange({ ...reward, [k]: v });
 
   const showAmount = reward.type === 'gold' || reward.type === 'exp';
   const showItem   = reward.type === 'item' || reward.type === 'weapon' || reward.type === 'armor';
+
+  const rewardItemNames = reward.type === 'weapon' ? refData.weaponNames
+    : reward.type === 'armor' ? refData.armorNames : refData.itemNames;
+  const rewardItemIcons = reward.type === 'weapon' ? refData.weaponIcons
+    : reward.type === 'armor' ? refData.armorIcons : refData.itemIcons;
+  const rewardPickerTitle = reward.type === 'weapon' ? '무기 선택'
+    : reward.type === 'armor' ? '방어구 선택' : '아이템 선택';
 
   return (
     <div className="qs-reward-row">
@@ -285,14 +348,21 @@ function RewardRow({ reward, onChange, onDelete }: RewardRowProps) {
       )}
       {showItem && (
         <>
-          <input
-            type="number"
-            value={reward.itemId ?? 1}
-            min={1}
-            onChange={(e) => set('itemId', Number(e.target.value))}
-            placeholder="ID"
-            style={{ width: 60 }}
-          />
+          <div className="qs-input-row">
+            <input
+              type="number"
+              value={reward.itemId ?? 1}
+              min={1}
+              onChange={(e) => set('itemId', Number(e.target.value))}
+              placeholder="ID"
+              style={{ width: 60 }}
+            />
+            <button
+              className="qs-picker-btn"
+              onClick={() => setPickerOpen(true)}
+              title="목록에서 선택"
+            >...</button>
+          </div>
           <input
             type="number"
             value={reward.count ?? 1}
@@ -304,6 +374,16 @@ function RewardRow({ reward, onChange, onDelete }: RewardRowProps) {
         </>
       )}
       <button onClick={onDelete} className="qs-btn-danger qs-reward-del" title="삭제">×</button>
+      {pickerOpen && rewardItemNames.length > 0 && (
+        <DataListPicker
+          title={rewardPickerTitle}
+          items={rewardItemNames}
+          value={reward.itemId ?? 1}
+          iconIndices={rewardItemIcons}
+          onChange={(id) => set('itemId', id)}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -319,6 +399,34 @@ interface QuestEditorProps {
 function QuestEditor({ quest, categories, onChange }: QuestEditorProps) {
   const set = <K extends keyof Quest>(k: K, v: Quest[K]) =>
     onChange({ ...quest, [k]: v });
+
+  const [refData, setRefData] = useState<RefData>(EMPTY_REF);
+  useEffect(() => {
+    type RefItem = { id: number; name: string; iconIndex?: number } | null;
+    const buildNamesIcons = (arr: RefItem[]) => {
+      const names: string[] = [];
+      const icons: (number | undefined)[] = [];
+      for (const item of arr) {
+        if (item) { names[item.id] = item.name; icons[item.id] = item.iconIndex; }
+      }
+      return { names, icons };
+    };
+    Promise.all([
+      apiClient.get<RefItem[]>('/database/enemies'),
+      apiClient.get<RefItem[]>('/database/items'),
+      apiClient.get<RefItem[]>('/database/weapons'),
+      apiClient.get<RefItem[]>('/database/armors'),
+    ]).then(([enemies, items, weapons, armors]) => {
+      const en = buildNamesIcons(enemies);
+      const it = buildNamesIcons(items);
+      const wp = buildNamesIcons(weapons);
+      const ar = buildNamesIcons(armors);
+      setRefData({
+        enemyNames: en.names, itemNames: it.names, itemIcons: it.icons,
+        weaponNames: wp.names, weaponIcons: wp.icons, armorNames: ar.names, armorIcons: ar.icons,
+      });
+    }).catch(() => {});
+  }, []);
 
   const nextObjId = quest.objectives.length > 0
     ? Math.max(...quest.objectives.map((o) => o.id)) + 1
@@ -434,6 +542,7 @@ function QuestEditor({ quest, categories, onChange }: QuestEditorProps) {
             onDelete={() => deleteObj(idx)}
             onMoveUp={() => moveObj(idx, -1)}
             onMoveDown={() => moveObj(idx, 1)}
+            refData={refData}
           />
         ))}
       </div>
@@ -453,6 +562,7 @@ function QuestEditor({ quest, categories, onChange }: QuestEditorProps) {
             reward={r}
             onChange={(nr) => updateReward(idx, nr)}
             onDelete={() => deleteReward(idx)}
+            refData={refData}
           />
         ))}
       </div>

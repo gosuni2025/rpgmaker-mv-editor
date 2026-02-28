@@ -308,6 +308,29 @@
   width: 80px;
 }
 
+.qs-input-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.qs-picker-btn {
+  background: #3a3a3a;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 11px;
+  padding: 2px 5px;
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.qs-picker-btn:hover {
+  background: #4a4a4a;
+  color: #fff;
+}
+
 .qs-cfg-manual {
   font-size: 11px;
   color: #888;
