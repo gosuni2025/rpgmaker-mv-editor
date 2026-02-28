@@ -118,7 +118,7 @@ export default function MenuBar() {
             fetch('/api/ui-editor/config', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ overrides: s.uiEditorOverrides }),
+              body: JSON.stringify({ overrides: s.uiEditorOverrides, sceneRedirects: s.sceneRedirects }),
             }).then(() => {
               s.setUiEditorDirty(false);
               s.showToast('UI 테마 저장 완료');
