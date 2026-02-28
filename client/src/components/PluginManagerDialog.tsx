@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import Dialog from './common/Dialog';
@@ -16,6 +16,25 @@ export default function PluginManagerDialog() {
   const handleClose = useCallback(() => setShow(false), [setShow]);
 
   const pm = usePluginManager();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  function fuzzyMatch(text: string, query: string): boolean {
+    if (!query) return true;
+    const t = text.toLowerCase(), q = query.toLowerCase();
+    let ti = 0;
+    for (let qi = 0; qi < q.length; qi++) {
+      while (ti < t.length && t[ti] !== q[qi]) ti++;
+      if (ti >= t.length) return false;
+      ti++;
+    }
+    return true;
+  }
+
+  function pluginMatches(name: string): boolean {
+    if (!searchQuery) return true;
+    const displayName = pm.metadata[name]?.pluginname || '';
+    return fuzzyMatch(name, searchQuery) || fuzzyMatch(displayName, searchQuery);
+  }
 
   return (
     <>
@@ -61,32 +80,48 @@ export default function PluginManagerDialog() {
           <div className="pm-layout">
             {/* Plugin list */}
             <div className="pm-plugin-list">
+              <div className="pm-search-box">
+                <input
+                  type="text"
+                  className="pm-search-input"
+                  placeholder="검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && setSearchQuery('')}
+                />
+                {searchQuery && (
+                  <button className="pm-search-clear" onClick={() => setSearchQuery('')}>✕</button>
+                )}
+              </div>
               <div className="pm-plugin-list-items">
-                {pm.plugins.map((plugin, index) => (
-                  <div key={index}
-                    className={`pm-plugin-item${pm.selectedIndex === index ? ' active' : ''}`}
-                    onClick={() => { pm.setSelectedIndex(index); pm.setEditingParamIndex(-1); }}>
-                    <input type="checkbox" checked={plugin.status}
-                      onClick={(e) => pm.toggleStatus(index, e)} onChange={() => {}} />
-                    <span className="pm-plugin-item-name">
-                      {pm.metadata[plugin.name]?.pluginname || plugin.name || t('pluginManager.noPlugins')}
-                    </span>
-                    {pm.editorPluginMap.has(plugin.name) && (
-                      <span className={`pm-plugin-badge editor${pm.editorPluginMap.get(plugin.name)!.hasUpdate ? ' has-update' : ''}`}
-                        title={pm.editorPluginMap.get(plugin.name)!.hasUpdate ? '업그레이드 가능' : '에디터 기본 제공'}>에디터</span>
-                    )}
-                    {pm.metadata[plugin.name]?.dependencies?.map(dep => (
-                      <span key={dep} className="pm-plugin-badge" title={`${dep} 필요`}>{dep}</span>
-                    ))}
-                  </div>
-                ))}
+                {pm.plugins.map((plugin, index) => {
+                  if (!pluginMatches(plugin.name)) return null;
+                  return (
+                    <div key={index}
+                      className={`pm-plugin-item${pm.selectedIndex === index ? ' active' : ''}`}
+                      onClick={() => { pm.setSelectedIndex(index); pm.setEditingParamIndex(-1); }}>
+                      <input type="checkbox" checked={plugin.status}
+                        onClick={(e) => pm.toggleStatus(index, e)} onChange={() => {}} />
+                      <span className="pm-plugin-item-name">
+                        {pm.metadata[plugin.name]?.pluginname || plugin.name || t('pluginManager.noPlugins')}
+                      </span>
+                      {pm.editorPluginMap.has(plugin.name) && (
+                        <span className={`pm-plugin-badge editor${pm.editorPluginMap.get(plugin.name)!.hasUpdate ? ' has-update' : ''}`}
+                          title={pm.editorPluginMap.get(plugin.name)!.hasUpdate ? '업그레이드 가능' : '에디터 기본 제공'}>에디터</span>
+                      )}
+                      {pm.metadata[plugin.name]?.dependencies?.map(dep => (
+                        <span key={dep} className="pm-plugin-badge" title={`${dep} 필요`}>{dep}</span>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
               {/* 미설치 에디터 플러그인 섹션 */}
-              {pm.editorPlugins.filter(ep => !pm.usedPluginNames.has(ep.name)).length > 0 && (
+              {pm.editorPlugins.filter(ep => !pm.usedPluginNames.has(ep.name) && pluginMatches(ep.name)).length > 0 && (
                 <div className="pm-uninstalled-section">
                   <div className="pm-uninstalled-header">에디터 플러그인 (미설치)</div>
                   {pm.editorPlugins
-                    .filter(ep => !pm.usedPluginNames.has(ep.name))
+                    .filter(ep => !pm.usedPluginNames.has(ep.name) && pluginMatches(ep.name))
                     .map(ep => (
                       <div key={ep.name} className="pm-uninstalled-item">
                         <span className="pm-uninstalled-name">
