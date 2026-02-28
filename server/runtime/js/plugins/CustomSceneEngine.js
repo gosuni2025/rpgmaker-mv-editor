@@ -2166,8 +2166,9 @@
       case 'script': {
         if (handler.code) {
           try {
-            var fn = new Function(handler.code);
-            fn.call(this);
+            var $ctx = this._ctx;
+            var fn = new Function('$ctx', handler.code);
+            fn.call(this, $ctx);
           } catch (e) {
             console.error('[CustomScene] script error:', e);
           }
@@ -2456,8 +2457,9 @@
       case 'script': {
         if (handler.code) {
           try {
-            var fn = new Function(handler.code);
-            fn.call(this);
+            var $ctx = this._ctx;
+            var fn = new Function('$ctx', handler.code);
+            fn.call(this, $ctx);
           } catch (e) {
             console.error('[CustomScene] script error:', e);
           }
