@@ -64,7 +64,25 @@
   //===========================================================================
   function resolveTemplate(text) {
     if (!text || typeof text !== 'string') return text || '';
-    return text.replace(/\{([^}]+)\}/g, function(match, expr) {
+    // 중첩 중괄호 지원: {(function(){...})()} 패턴 처리
+    var result = '';
+    var i = 0;
+    while (i < text.length) {
+      if (text[i] !== '{') { result += text[i++]; continue; }
+      var depth = 1, j = i + 1;
+      while (j < text.length && depth > 0) {
+        if (text[j] === '{') depth++;
+        else if (text[j] === '}') depth--;
+        j++;
+      }
+      if (depth !== 0) { result += text[i++]; continue; }
+      var expr = text.slice(i + 1, j - 1);
+      result += _evalTemplateExpr(expr);
+      i = j;
+    }
+    return result;
+  }
+  function _evalTemplateExpr(expr) {
       try {
         // actor[N].field (N은 숫자 리터럴 또는 $ctx.actorIndex 등 JS 식)
         var actorMatch = expr.match(/^actor\[([^\]]+)\]\.(\w+)$/);
@@ -138,7 +156,6 @@
         return '';
       } catch (e) {}
       return '';
-    });
   }
 
   //===========================================================================
