@@ -8,7 +8,7 @@ const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
   background: '#3a5a3a',
   panel: '#4a6fa5', label: '#5a8a5a', textArea: '#3a7a5a', image: '#8a5a8a',
   gauge: '#8a4a3a', separator: '#555',
-  button: '#2675bf', list: '#2a7a3a', rowSelector: '#7a3a7a', options: '#7a5a2a',
+  button: '#2675bf', list: '#2a7a3a', textList: '#3a8a3a', rowSelector: '#7a3a7a', options: '#7a5a2a',
   minimap: '#2a6a7a', scene: '#7a6a2a',
 };
 
@@ -16,7 +16,7 @@ const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   background: 'BG',
   panel: 'PANEL', label: 'LABEL', textArea: 'TEXT', image: 'IMG',
   gauge: 'GAUGE', separator: 'SEP',
-  button: 'BTN', list: 'LIST', rowSelector: 'SELECT', options: 'OPTS',
+  button: 'BTN', list: 'LIST', textList: 'TXTLIST', rowSelector: 'SELECT', options: 'OPTS',
   minimap: 'MAP', scene: 'SCENE',
 };
 
@@ -199,6 +199,8 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
       case 'separator': def = { id, type, x: 0, y: 0, width: 200, height: 4 }; break;
       case 'button': def = { id, type, x: 0, y: 0, width: 200, height: 52, label: '버튼', action: { action: 'popScene' } }; break;
       case 'list': def = { id, type, x: 0, y: 0, width: 200, items: [], handlers: {} }; break;
+      case 'textList': def = { id, type, x: 0, y: 0, width: 200, items: [], handlers: {} }; break;
+      case 'scene': def = { id, type, x: 0, y: 0, width: 300, height: 200, sceneId: '' }; break;
       case 'rowSelector': def = { id, type, x: 0, y: 0, width: 576, height: 624, numRows: 'party' as const, transparent: true, padding: 0 }; break;
       case 'options': def = { id, type, x: 0, y: 0, width: 400, options: [
         { name: '항상 대시', symbol: 'alwaysDash' },
@@ -217,12 +219,13 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
     onClose();
   };
 
-  const types: WidgetType[] = ['background', 'panel', 'label', 'textArea', 'image', 'gauge', 'separator', 'button', 'list', 'rowSelector', 'options', 'minimap'];
+  const types: WidgetType[] = ['background', 'panel', 'label', 'textArea', 'image', 'gauge', 'separator', 'button', 'list', 'textList', 'rowSelector', 'options', 'minimap', 'scene'];
   const typeLabels: Record<WidgetType, string> = {
     background: '배경 (맵 스크린샷)',
     panel: '패널', label: '레이블', textArea: '텍스트 영역 (멀티라인)', image: '이미지',
     gauge: '게이지', separator: '구분선',
-    button: '버튼', list: '리스트', rowSelector: '행 선택',
+    button: '버튼', list: '리스트 (itemScene)', textList: '텍스트 리스트',
+    rowSelector: '행 선택',
     options: '옵션(블랙박스)',
     minimap: '미니맵 (Minimap 플러그인 필요)',
     scene: '씬 (하위 씬 임베드)',

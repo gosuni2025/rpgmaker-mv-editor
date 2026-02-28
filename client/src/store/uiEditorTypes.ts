@@ -191,7 +191,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options' | 'minimap' | 'scene';
+export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'textList' | 'rowSelector' | 'options' | 'minimap' | 'scene';
 
 export interface WidgetDefBase {
   id: string;
@@ -240,6 +240,10 @@ export interface WidgetDef_Label extends WidgetDefBase {
   align?: 'left' | 'center' | 'right';
   verticalAlign?: 'top' | 'middle' | 'bottom';
   fontSize?: number;
+  /** true: \c[N] 등 확장 텍스트 코드 지원 */
+  useTextEx?: boolean;
+  /** 텍스트 색상 (hex). 없으면 기본 WindowSkin 색상 */
+  color?: string;
 }
 
 export interface WidgetDef_TextArea extends WidgetDefBase {
@@ -280,6 +284,8 @@ export interface WidgetDef_Gauge extends WidgetDefBase {
   // 레거시 방식 (하위 호환): hp/mp/tp + actorIndex
   gaugeType?: 'hp' | 'mp' | 'tp';
   actorIndex?: number;
+  /** JS 표현식 — 액터 인덱스를 동적으로 평가 (예: "$ctx.actorIndex") */
+  actorIndexExpr?: string;
   gaugeRenderMode?: 'palette' | 'image';
   gaugeSkinId?: string;
   showLabel?: boolean;
@@ -307,6 +313,33 @@ export interface WidgetDef_List extends WidgetDefBase {
   maxCols?: number;
   items: CustomCommandDef[];
   handlers: Record<string, CustomCommandHandler>;
+  /** 행 배열을 반환하는 JS 식 (dataScript 모드). 예: $gameParty.items().map(i=>({name:i.name,...})) */
+  dataScript?: string;
+  /** 커서 이동 시 실행할 코드 */
+  onCursor?: { code: string };
+  /** 각 행을 렌더링할 UIScene ID (itemScene 모드) */
+  itemScene?: string;
+  /** false로 설정하면 6프레임 자동 rebuild 비활성화 (기본 true) */
+  autoRefresh?: boolean;
+  /** false로 설정하면 NavigationManager 포커스에서 제외 (기본 true) */
+  focusable?: boolean;
+}
+
+export interface WidgetDef_TextList extends WidgetDefBase {
+  type: 'textList';
+  maxCols?: number;
+  items: CustomCommandDef[];
+  handlers: Record<string, CustomCommandHandler>;
+  /** 행 배열을 반환하는 JS 식 (dataScript 모드). 예: $gameParty.items().map(i=>({name:i.name,...})) */
+  dataScript?: string;
+  /** 커서 이동 시 실행할 코드 */
+  onCursor?: { code: string };
+  /** 각 행을 렌더링할 UIScene ID (itemScene 모드) */
+  itemScene?: string;
+  /** false로 설정하면 6프레임 자동 rebuild 비활성화 (기본 true) */
+  autoRefresh?: boolean;
+  /** false로 설정하면 NavigationManager 포커스에서 제외 (기본 true) */
+  focusable?: boolean;
 }
 
 export interface WidgetDef_RowSelector extends WidgetDefBase {
@@ -333,6 +366,14 @@ export interface WidgetDef_Minimap extends WidgetDefBase {
   type: 'minimap';
 }
 
+export interface WidgetDef_Scene extends WidgetDefBase {
+  type: 'scene';
+  /** UIScenes에 등록된 씬 ID */
+  sceneId?: string;
+  /** 씬 _ctx에 임시 주입할 키-값 오브젝트 */
+  instanceCtx?: Record<string, unknown>;
+}
+
 export type WidgetDef =
   | WidgetDef_Background
   | WidgetDef_Panel
@@ -343,9 +384,11 @@ export type WidgetDef =
   | WidgetDef_Separator
   | WidgetDef_Button
   | WidgetDef_List
+  | WidgetDef_TextList
   | WidgetDef_RowSelector
   | WidgetDef_Options
-  | WidgetDef_Minimap;
+  | WidgetDef_Minimap
+  | WidgetDef_Scene;
 
 export interface NavigationConfig {
   defaultFocus?: string;
