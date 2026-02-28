@@ -742,7 +742,15 @@
     this._withCtx(function() { self._subRoot.refresh(); });
   };
 
+  // Widget_Scene은 _children 대신 _subRoot를 통해 Window_Base 자손을 수집합니다.
+  Widget_Scene.prototype._collectWindowDescendants = function(out) {
+    if (!this._subRoot) return;
+    if (this._subRoot.displayObject() instanceof Window_Base) out.push(this._subRoot);
+    this._subRoot._collectWindowDescendants(out);
+  };
+
   Widget_Scene.prototype.update = function() {
+    this._syncWindowDescendants(); // container Sprite 이동 → 내부 Window_Base 자손 위치 동기화
     if (!this._subRoot) return;
     var self = this;
     this._withCtx(function() { self._subRoot.update(); });
@@ -1213,7 +1221,38 @@
     return true;
   };
 
+  /**
+   * displayObject(x/y)가 변경됐을 때 그 델타를 Window_Base 자손 위젯에 전파합니다.
+   * addWindow로 씬에 직접 추가된 Window_Base는 PIXI 계층 밖이라 부모 이동을 자동으로
+   * 따르지 않으므로, 매 프레임 delta를 계산해 절대좌표를 보정합니다.
+   */
+  Widget_Base.prototype._collectWindowDescendants = function(out) {
+    for (var i = 0; i < this._children.length; i++) {
+      var child = this._children[i];
+      if (child.displayObject() instanceof Window_Base) out.push(child);
+      child._collectWindowDescendants(out);
+    }
+  };
+
+  Widget_Base.prototype._syncWindowDescendants = function() {
+    var obj = this._displayObject;
+    if (!obj) return;
+    var cx = obj.x, cy = obj.y;
+    if (this._prevDispX === undefined) { this._prevDispX = cx; this._prevDispY = cy; return; }
+    var dx = cx - this._prevDispX, dy = cy - this._prevDispY;
+    if (dx === 0 && dy === 0) return;
+    this._prevDispX = cx; this._prevDispY = cy;
+    var wins = [];
+    this._collectWindowDescendants(wins);
+    for (var i = 0; i < wins.length; i++) {
+      var wo = wins[i].displayObject();
+      wo.x += dx; wo.y += dy;
+      if (wins[i]._decoSprite) { wins[i]._decoSprite.x += dx; wins[i]._decoSprite.y += dy; }
+    }
+  };
+
   Widget_Base.prototype.update = function() {
+    this._syncWindowDescendants();
     for (var i = 0; i < this._children.length; i++) {
       this._children[i].update();
     }
