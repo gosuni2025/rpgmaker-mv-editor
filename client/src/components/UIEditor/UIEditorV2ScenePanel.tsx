@@ -125,7 +125,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
           const parsed = JSON.parse(text);
           if (parsed?._type === WIDGET_CLIPBOARD_MARKER && parsed.widget) {
             sourceWidget = parsed.widget;
-            setWidgetClipboard(parsed.widget); // 내부 클립보드 동기화
+            setWidgetClipboard(parsed.widget);
           }
         } catch { /* 시스템 클립보드 읽기 실패 → 내부 클립보드 fallback */ }
 
