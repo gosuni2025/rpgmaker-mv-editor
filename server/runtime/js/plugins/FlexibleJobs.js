@@ -559,9 +559,6 @@
       });
       FJ._skillData = res;
       var jp = actor.fjJp();
-      console.log('[FJ] skillItems: actor=' + actor.name() + ' jp=' + jp +
-        ' activeClasses=' + actor.fjActiveClassIds() +
-        ' JP스킬수=' + res.length + ' _fjLearnedSk=' + JSON.stringify(actor._fjLearnedSk));
       return res.map(function (skillId) {
         var skill   = $dataSkills[skillId];
         var sd      = Note.skill(skillId);
