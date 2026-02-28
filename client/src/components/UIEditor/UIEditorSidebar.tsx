@@ -80,7 +80,15 @@ function WindowList() {
   return (
     <>
       <div className="ui-editor-sidebar-section">
-        <label>씬 선택</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <label style={{ marginBottom: 0 }}>씬 선택</label>
+          <button
+            className="ui-canvas-toolbar-btn"
+            style={{ padding: '1px 6px', fontSize: 11 }}
+            onClick={() => apiClient.post('/ui-editor/scenes/open-folder', {})}
+            title="UIScenes 폴더 열기"
+          >폴더</button>
+        </div>
         <div style={{ display: 'flex', gap: 4 }}>
           <button
             className="ui-editor-scene-select-btn"

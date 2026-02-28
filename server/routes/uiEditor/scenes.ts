@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 import express from 'express';
 import projectManager from '../../services/projectManager';
 import fileWatcher from '../../services/fileWatcher';
@@ -84,6 +85,21 @@ router.put('/', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
+});
+
+/** POST /api/ui-editor/scenes/open-folder — UIScenes 폴더를 파일 탐색기에서 열기 */
+router.post('/open-folder', (req, res) => {
+  const dir = getScenesDir();
+  if (!dir) return res.status(404).json({ error: 'No project' });
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  const cmd = process.platform === 'win32' ? `explorer "${dir}"` :
+              process.platform === 'darwin' ? `open "${dir}"` :
+              `xdg-open "${dir}"`;
+  exec(cmd, (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ ok: true });
+  });
 });
 
 /** PUT /api/ui-editor/scenes/:id — 개별 씬 저장 */
