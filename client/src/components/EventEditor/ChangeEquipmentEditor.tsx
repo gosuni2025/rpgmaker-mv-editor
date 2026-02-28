@@ -4,7 +4,7 @@ import { DataListPickerWithZero } from './actionEditorUtils';
 import { useDbNamesWithIcons } from './actionEditorUtils';
 import { useActorData, getLabel } from './actionEditorUtils';
 import { ActorDirectPicker, type EditorProps } from './actorEditorsCommon';
-import { ItemPreview } from '../common/ItemPreview';
+import { ItemPreview } from '../common/EnemyPreview';
 
 /**
  * 장비 변경 에디터 (코드 319)

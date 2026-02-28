@@ -6,8 +6,7 @@ import type {
 } from '../../types/rpgMakerMV';
 import { selectStyleFull, selectStyle } from '../../styles/editorStyles';
 import { DataListPicker } from '../EventEditor/dataListPicker';
-import { EnemyPreview } from '../common/EnemyPreview';
-import { ItemPreview } from '../common/ItemPreview';
+import { EnemyPreview, ItemPreview } from '../common/EnemyPreview';
 import apiClient from '../../api/client';
 import './QuestsTab.css';
 

@@ -4,7 +4,7 @@ import { DataListPicker } from './dataListPicker';
 import { radioStyle, rowStyle, disabledOpacity, getLabel, useDbNamesWithIcons } from './condBranchHelpers';
 import { ScriptSampleDialog } from './ScriptSampleDialog';
 import { COND_BRANCH_SAMPLES } from './scriptSamples';
-import { ItemPreview } from '../common/ItemPreview';
+import { ItemPreview } from '../common/EnemyPreview';
 
 interface Props {
   condType: number;

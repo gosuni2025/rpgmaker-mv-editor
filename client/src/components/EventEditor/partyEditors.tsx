@@ -3,7 +3,7 @@ import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker, type CharacterInfo } from './dataListPicker';
 import { useDbNamesWithIcons, useActorData, getLabel } from './actionEditorUtils';
-import { ItemPreview, type ItemPreviewType } from '../common/ItemPreview';
+import { ItemPreview, type ItemPreviewType } from '../common/EnemyPreview';
 
 export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [operation, setOperation] = useState<number>((p[0] as number) || 0);
