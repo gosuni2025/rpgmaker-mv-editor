@@ -66,11 +66,16 @@
     if (!text || typeof text !== 'string') return text || '';
     return text.replace(/\{([^}]+)\}/g, function(match, expr) {
       try {
-        // actor[N].field
-        var actorMatch = expr.match(/^actor\[(\d+)\]\.(\w+)$/);
+        // actor[N].field (N은 숫자 리터럴 또는 $ctx.actorIndex 등 JS 식)
+        var actorMatch = expr.match(/^actor\[([^\]]+)\]\.(\w+)$/);
         if (actorMatch && typeof $gameParty !== 'undefined') {
           var members = $gameParty.members();
-          var idx = parseInt(actorMatch[1]);
+          var idxExpr = actorMatch[1];
+          var idx = /^\d+$/.test(idxExpr) ? parseInt(idxExpr) : (function() {
+            try { var c = (SceneManager._scene && SceneManager._scene._ctx) || {};
+                  return Number(new Function('$ctx', 'return (' + idxExpr + ')')(c)) || 0;
+            } catch(e) { return 0; }
+          })();
           var field = actorMatch[2];
           var actor = members[idx];
           if (!actor) return '';
@@ -960,9 +965,10 @@
 
   Widget_Image.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._imageSource = def.imageSource || 'file';
-    this._actorIndex  = def.actorIndex  || 0;
-    this._bitmapExpr  = def.bitmapExpr  || null;
+    this._imageSource    = def.imageSource    || 'file';
+    this._actorIndex     = def.actorIndex     || 0;
+    this._actorIndexExpr = def.actorIndexExpr || null;
+    this._bitmapExpr     = def.bitmapExpr     || null;
     this._srcRectExpr = def.srcRectExpr || null;
     this._fitMode     = def.fitMode     || 'stretch';
     this._lastBitmap  = null;
@@ -1062,11 +1068,20 @@
     });
   };
 
+  Widget_Image.prototype._resolveActorIndex = function() {
+    if (this._actorIndexExpr) {
+      try { var c = (SceneManager._scene && SceneManager._scene._ctx) || {};
+            return Number(new Function('$ctx', 'return (' + this._actorIndexExpr + ')')(c)) || 0;
+      } catch(e) { return 0; }
+    }
+    return this._actorIndex;
+  };
   // 하위호환: actorFace — 내부적으로 CSHelper 위임
   Widget_Image.prototype._refreshActorFace = function(sprite) {
-    var bitmap = CSHelper.actorFace(this._actorIndex);
+    var aidx = this._resolveActorIndex();
+    var bitmap = CSHelper.actorFace(aidx);
     if (!bitmap) return;
-    var srcRect = CSHelper.actorFaceSrcRect(this._actorIndex);
+    var srcRect = CSHelper.actorFaceSrcRect(aidx);
     if (bitmap === this._lastBitmap && sprite.bitmap) return;
     this._lastBitmap = bitmap;
     var self = this;
@@ -1084,14 +1099,15 @@
 
   // 하위호환: actorCharacter — 내부적으로 CSHelper 위임
   Widget_Image.prototype._refreshActorCharacter = function(sprite) {
-    var bitmap = CSHelper.actorCharacter(this._actorIndex);
+    var aidx = this._resolveActorIndex();
+    var bitmap = CSHelper.actorCharacter(aidx);
     if (!bitmap) return;
     if (bitmap === this._lastBitmap && sprite.bitmap) return;
     this._lastBitmap = bitmap;
     var self = this;
     var w = this._width || 48, h = this._height || 48;
     bitmap.addLoadListener(function() {
-      var srcRect = CSHelper.actorCharacterSrcRect(self._actorIndex);
+      var srcRect = CSHelper.actorCharacterSrcRect(aidx);
       if (!self._bitmap) { self._bitmap = new Bitmap(w, h); sprite.bitmap = self._bitmap; }
       self._bitmap.clear();
       if (srcRect) {
@@ -1107,7 +1123,9 @@
     ++this._updateCount;
     var needRefresh = this._bitmapExpr
       ? (this._updateCount % 10 === 0)   // expr 모드: 10프레임마다 체크 (빠른 반응)
-      : (this._imageSource !== 'file' && this._updateCount % 60 === 0);
+      : (this._actorIndexExpr            // actorIndexExpr: 30프레임마다 (actor 전환 반응)
+          ? (this._updateCount % 30 === 0)
+          : (this._imageSource !== 'file' && this._updateCount % 60 === 0));
     if (needRefresh) this.refresh();
     Widget_Base.prototype.update.call(this);
   };
@@ -1122,11 +1140,12 @@
   Widget_Gauge.prototype.constructor = Widget_Gauge;
   Widget_Gauge.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._valueExpr  = def.valueExpr  || null;
-    this._maxExpr    = def.maxExpr    || null;
-    this._labelExpr  = def.labelExpr  || null;
-    this._gaugeType  = def.gaugeType  || 'hp';
-    this._actorIndex = def.actorIndex || 0;
+    this._valueExpr      = def.valueExpr      || null;
+    this._maxExpr        = def.maxExpr        || null;
+    this._labelExpr      = def.labelExpr      || null;
+    this._gaugeType      = def.gaugeType      || 'hp';
+    this._actorIndex     = def.actorIndex     || 0;
+    this._actorIndexExpr = def.actorIndexExpr || null;
     this._gaugeRenderMode = def.gaugeRenderMode || 'palette';
     this._gaugeSkinId = def.gaugeSkinId || null;
     this._showLabel = def.showLabel !== false;
@@ -1174,7 +1193,13 @@
       try { label = this._labelExpr ? String(eval(this._labelExpr)) : ''; } catch(e) { label = ''; }
       hasValue = true;
     } else if (typeof $gameParty !== 'undefined') {
-      var actor = $gameParty.members()[this._actorIndex];
+      var aidx = this._actorIndex;
+      if (this._actorIndexExpr) {
+        try { var c = (SceneManager._scene && SceneManager._scene._ctx) || {};
+              aidx = Number(new Function('$ctx', 'return (' + this._actorIndexExpr + ')')(c)) || 0;
+        } catch(e) { aidx = 0; }
+      }
+      var actor = $gameParty.members()[aidx];
       if (actor) {
         switch (this._gaugeType) {
           case 'hp': label='HP'; cur=actor.hp; max=actor.mhp; break;
@@ -1283,6 +1308,23 @@
         }
       }
     }
+    // label / value 텍스트 표시
+    if (hasValue) {
+      var textColor = (this._windowSkin && this._windowSkin.isReady())
+        ? this._windowSkin.getPixel(96 + (0 % 8) * 12 + 6, 144 + Math.floor(0 / 8) * 12 + 6)
+        : '#ffffff';
+      var textSize = Math.max(12, Math.round((h - barH) * 0.75));
+      this._bitmap.fontSize = textSize;
+      if (this._showLabel && label) {
+        this._bitmap.textColor = textColor;
+        this._bitmap.drawText(label, 2, 0, Math.floor(w * 0.4), h - barH, 'left');
+      }
+      if (this._showValue) {
+        var valStr = String(cur) + '/' + String(max);
+        this._bitmap.textColor = textColor;
+        this._bitmap.drawText(valStr, 0, 0, w - 2, h - barH, 'right');
+      }
+    }
     this._drawDecoBorder(this._bitmap, w, h, this._def);
     Widget_Base.prototype.refresh.call(this);
   };
@@ -1333,6 +1375,81 @@
     this._displayObject = sprite;
   };
   window.Widget_Background = Widget_Background;
+
+  //===========================================================================
+  // Widget_Icons — 범용 아이콘 배열 표시 위젯
+  //   iconsExpr {string} — JS 식, 아이콘 ID(숫자) 배열 반환
+  //                        예) "$gameParty.members()[$ctx.actorIndex].allIcons()"
+  //   maxCols   {number} — 행당 최대 아이콘 수 (기본 10)
+  //   iconSize  {number} — 아이콘 1개 크기 px (기본 Window_Base._iconWidth 또는 32)
+  //   iconGap   {number} — 아이콘 간격 px (기본 2)
+  //===========================================================================
+  function Widget_Icons() {}
+  Widget_Icons.prototype = Object.create(Widget_Base.prototype);
+  Widget_Icons.prototype.constructor = Widget_Icons;
+  Widget_Icons.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._iconsExpr = def.iconsExpr || null;
+    this._maxCols   = def.maxCols   || 10;
+    this._iconSize  = def.iconSize  || (typeof Window_Base !== 'undefined' && Window_Base._iconWidth) || 32;
+    this._iconGap   = def.iconGap   !== undefined ? def.iconGap : 2;
+    var h = this._height || (this._iconSize + this._iconGap);
+    var bitmap = new Bitmap(this._width, h);
+    this._bitmap = bitmap;
+    var sprite = new Sprite(bitmap);
+    sprite.x = this._x;
+    sprite.y = this._y;
+    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
+    this._displayObject = sprite;
+    this.refresh();
+  };
+  Widget_Icons.prototype._getIcons = function() {
+    if (!this._iconsExpr) return [];
+    try {
+      var c = (SceneManager._scene && SceneManager._scene._ctx) || {};
+      var result = new Function('$ctx', 'return (' + this._iconsExpr + ')')(c);
+      return Array.isArray(result) ? result : [];
+    } catch(e) { return []; }
+  };
+  Widget_Icons.prototype.refresh = function() {
+    if (!this._bitmap) return;
+    var w = this._width;
+    var h = this._bitmap.height;
+    this._bitmap.clear();
+    this._drawDecoBg(this._bitmap, w, h, this._def);
+    var icons = this._getIcons();
+    if (!icons.length) { this._drawDecoBorder(this._bitmap, w, h, this._def); return; }
+    var iconSet = ImageManager.loadSystem('IconSet');
+    var iconSize = this._iconSize;
+    var gap = this._iconGap;
+    var maxCols = this._maxCols;
+    var iconW = typeof Window_Base !== 'undefined' ? Window_Base._iconWidth  : 32;
+    var iconH = typeof Window_Base !== 'undefined' ? Window_Base._iconHeight : 32;
+    var cols = 16; // IconSet.png 열 수
+    var bmp = this._bitmap;
+    var def = this._def;
+    iconSet.addLoadListener(function() {
+      bmp.clear();
+      for (var i = 0; i < icons.length; i++) {
+        var iconIndex = icons[i];
+        if (!iconIndex) continue;
+        var col = i % maxCols;
+        var row = Math.floor(i / maxCols);
+        var sx = (iconIndex % cols) * iconW;
+        var sy = Math.floor(iconIndex / cols) * iconH;
+        var dx = col * (iconSize + gap);
+        var dy = row * (iconSize + gap);
+        bmp.blt(iconSet, sx, sy, iconW, iconH, dx, dy, iconSize, iconSize);
+      }
+    });
+    this._drawDecoBorder(this._bitmap, w, h, this._def);
+  };
+  Widget_Icons.prototype.update = function() {
+    if (this._updateCount === undefined) this._updateCount = 0;
+    if (++this._updateCount % 30 === 0) this.refresh();
+    Widget_Base.prototype.update.call(this);
+  };
+  window.Widget_Icons = Widget_Icons;
 
   //===========================================================================
   // Widget_RowSelector — 범용 N행 선택 위젯 (focusable)
@@ -1703,6 +1820,7 @@
     Scene_Base.prototype.initialize.call(this);
     this._sceneId = '';
     this._prepareData = {};
+    this._ctx = {};
     this._customWindows = {};
     this._pendingPersonalAction = null;
     this._personalOriginWidget = null;
@@ -1730,6 +1848,21 @@
     this.createWindowLayer();
     var sceneDef = this._getSceneDef();
     if (!sceneDef) return;
+
+    // _ctx 초기화: initCtx (씬 정의) → prepareData (prepare() 인자) 순서로 덮어쓰기
+    var initCtx = sceneDef.initCtx || {};
+    for (var ick in initCtx) {
+      var ickExpr = initCtx[ick];
+      if (typeof ickExpr === 'string') {
+        try { this._ctx[ick] = new Function('return (' + ickExpr + ')')(); }
+        catch(e) { this._ctx[ick] = ickExpr; }
+      } else {
+        this._ctx[ick] = ickExpr;
+      }
+    }
+    for (var pk in this._prepareData) {
+      this._ctx[pk] = this._prepareData[pk];
+    }
 
     // 포맷 감지: root 키 또는 formatVersion >= 2이면 위젯 트리 경로
     if (sceneDef.root || (sceneDef.formatVersion && sceneDef.formatVersion >= 2)) {
@@ -1841,6 +1974,7 @@
         case 'image':       widget = new Widget_Image();       break;
         case 'gauge':       widget = new Widget_Gauge();       break;
         case 'separator':   widget = new Widget_Separator();   break;
+        case 'icons':       widget = new Widget_Icons();       break;
         case 'button':      widget = new Widget_Button();      break;
         case 'list':        widget = new Widget_List();        break;
         case 'rowSelector':
@@ -2190,6 +2324,19 @@
     Scene_Base.prototype.update.call(this);
     if (this._navManager) this._navManager.update();
     if (this._rootWidget) this._rootWidget.update();
+    // 씬 레벨 keyHandlers: pageup/pagedown/cancel 등 임의 키 처리
+    var sceneDef = this._getSceneDef();
+    var keyHandlers = sceneDef && sceneDef.keyHandlers;
+    if (keyHandlers) {
+      var keys = Object.keys(keyHandlers);
+      for (var ki = 0; ki < keys.length; ki++) {
+        var key = keys[ki];
+        if (Input.isTriggered(key)) {
+          this._executeWidgetHandler(keyHandlers[key], null);
+          break;
+        }
+      }
+    }
   };
 
   Scene_CustomUI.prototype._setupHandlers = function (sceneDef) {
