@@ -3185,53 +3185,35 @@ Spriteset_Map.prototype.updateMapObjects = function() {
             var animSpr = container._mapObjAnimSprite;
             if (!animSpr.isPlaying()) {
                 var loop = container._mapObjAnimLoop;
-                var animData = null;
                 if (loop === 'forward') {
-                    animData = $dataAnimations[container._mapObjAnimId];
+                    // 기존 Sprite_Animation 재사용: _duration만 리셋 (geometry/texture 누수 방지)
+                    animSpr._duration = animSpr._animation.frames.length * animSpr._rate + 1;
+                    animSpr._delay = 0;
                 } else if (loop === 'pingpong') {
                     var origAnim = $dataAnimations[container._mapObjAnimId];
                     if (origAnim) {
                         container._mapObjAnimReverse = !container._mapObjAnimReverse;
                         if (container._mapObjAnimReverse) {
-                            animData = Object.create(origAnim);
-                            animData.frames = origAnim.frames.slice().reverse();
+                            var reversedAnim = Object.create(origAnim);
+                            reversedAnim.frames = origAnim.frames.slice().reverse();
                             var maxFrame = origAnim.frames.length - 1;
-                            animData.timings = origAnim.timings.map(function(t) {
+                            reversedAnim.timings = origAnim.timings.map(function(t) {
                                 return Object.assign({}, t, { frame: maxFrame - t.frame });
                             });
+                            animSpr._animation = reversedAnim;
                         } else {
-                            animData = origAnim;
+                            animSpr._animation = origAnim;
                         }
+                        animSpr._duration = animSpr._animation.frames.length * animSpr._rate + 1;
+                        animSpr._delay = 0;
                     }
-                }
-                // 이전 스프라이트의 Three.js 리소스 해제
-                if (animSpr.destroy) {
-                    animSpr.destroy();
-                } else if (animSpr.parent) {
-                    animSpr.parent.removeChild(animSpr);
-                }
-                if (animData) {
-                    // 새 애니메이션 스프라이트 생성
-                    var newAnimSpr = new Sprite_Animation();
-                    newAnimSpr.setup(container._mapObjAnimTarget, animData, false, 0);
-                    if (!container._mapObjAnimSe) {
-                        newAnimSpr.processTimingData = function(timing) {
-                            var duration = timing.flashDuration * this._rate;
-                            switch (timing.flashScope) {
-                            case 1: this._target.setBlendColor(timing.flashColor); this._flashDuration = duration; break;
-                            case 2: this._screenFlashDuration = duration; if (this._screenFlashSprite) { this._screenFlashSprite.setColor(timing.flashColor[0], timing.flashColor[1], timing.flashColor[2]); this._screenFlashSprite.opacity = timing.flashColor[3]; } break;
-                            case 3: this.startHiding(duration); break;
-                            }
-                        };
-                    }
-                    if (container._mapObjAnimScaleX) newAnimSpr.scale.x = container._mapObjAnimScaleX;
-                    if (container._mapObjAnimScaleY) newAnimSpr.scale.y = container._mapObjAnimScaleY;
-                    newAnimSpr.z = 0;  // 컨테이너 자식이므로 z=0
-                    newAnimSpr._mapObjPauseOnMsg = container._mapObjPauseOnMsg;
-                    container.addChild(newAnimSpr);
-                    container._mapObjAnimSprite = newAnimSpr;
                 } else {
-                    // 'once' 모드: 재생 완료 후 참조 정리
+                    // 'once' 모드: 재생 완료 후 스프라이트 제거 및 리소스 해제
+                    if (animSpr.destroy) {
+                        animSpr.destroy();
+                    } else if (animSpr.parent) {
+                        animSpr.parent.removeChild(animSpr);
+                    }
                     container._mapObjAnimSprite = null;
                 }
             }
