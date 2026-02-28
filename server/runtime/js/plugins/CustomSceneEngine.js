@@ -1705,7 +1705,15 @@
       if (this._window.refresh) this._window.refresh();
       // 빈 목록이거나 비활성이면 커서 숨김
       if (items.length === 0 || !this._window.active) {
-        this._window.deselect();
+        // deselect() = select(-1) → callUpdateHelp() 발화로 onCursor 코드가 실행되어
+        // 다른 위젯의 상태(FJ._curClassId 등)를 리셋하는 부작용을 방지하기 위해
+        // 비활성 창은 callUpdateHelp 없이 직접 _index를 -1로 설정
+        if (!this._window.active) {
+          this._window._index = -1;
+          this._window.updateCursor();
+        } else {
+          this._window.deselect();
+        }
         // height=0일 때 커서 스프라이트가 창 밖으로 삐져나오는 문제 방지
         if (this._window._windowCursorSprite) this._window._windowCursorSprite.visible = false;
       }
