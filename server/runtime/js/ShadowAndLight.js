@@ -1967,9 +1967,11 @@ ShadowLight._updateShadowMesh = function(shadowMesh, charSprite) {
     // 텍스처: 캐릭터와 같은 텍스처 사용 (알파 채널로 실루엣)
     if (charSprite._material.map !== shadowMesh.material.map) {
         // 개별 material 사용 (텍스처 다를 수 있으므로)
+        var _oldShadowMat = shadowMesh.material;
         shadowMesh.material = this._shadowMaterial.clone();
         shadowMesh.material.map = charSprite._material.map;
         shadowMesh.material.needsUpdate = true;
+        if (_oldShadowMat && _oldShadowMat !== this._shadowMaterial) _oldShadowMat.dispose();
     }
 
     // opacity: 캐릭터 투명도에 비례
