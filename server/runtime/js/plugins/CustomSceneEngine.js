@@ -2120,12 +2120,14 @@
   window.Widget_ShopNumber = Widget_ShopNumber;
 
   //===========================================================================
-  // Widget_List — 커맨드 리스트 (focusable)
+  // Widget_TextList — Window_CustomCommand 기반 텍스트 커맨드 리스트 (focusable)
+  //   itemScene 없는 순수 텍스트/아이콘 텍스트 메뉴. sugar syntax.
+  //   Widget_List를 상속.
   //===========================================================================
-  function Widget_List() {}
-  Widget_List.prototype = Object.create(Widget_Base.prototype);
-  Widget_List.prototype.constructor = Widget_List;
-  Widget_List.prototype.initialize = function(def, parentWidget) {
+  function Widget_TextList() {}
+  Widget_TextList.prototype = Object.create(Widget_Base.prototype);
+  Widget_TextList.prototype.constructor = Widget_TextList;
+  Widget_TextList.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._items = def.items || def.commands || [];
     this._handlersDef = def.handlers || {};
@@ -2197,7 +2199,7 @@
       this._rowOverlay = overlay;
     }
   };
-  Widget_List.prototype._rebuildFromScript = function() {
+  Widget_TextList.prototype._rebuildFromScript = function() {
     if (!this._dataScript || !this._window) return;
     try {
       var items = (new Function('return (' + this._dataScript + ')'))();
@@ -2232,7 +2234,7 @@
    * itemScene 모드: 현재 commands를 기반으로 행 Widget_Scene을 재생성.
    * 각 행 씬의 _ctx에는 rowData(행 객체)의 모든 키를 flat하게 주입한다.
    */
-  Widget_List.prototype._rebuildRows = function() {
+  Widget_TextList.prototype._rebuildRows = function() {
     if (!this._itemSceneId || !this._rowOverlay) return;
     var scene = SceneManager._scene;
     if (!scene || !scene._buildWidget) return;
@@ -2320,7 +2322,7 @@
   };
 
   /** itemScene 모드: 스크롤에 따라 행 Sprite y 위치를 갱신 */
-  Widget_List.prototype._updateRowPositions = function() {
+  Widget_TextList.prototype._updateRowPositions = function() {
     if (!this._rowWidgets.length || !this._window) return;
     var win = this._window;
     var commands = (win._winDef && win._winDef.commands) || [];
@@ -2335,10 +2337,10 @@
       rw._container.opacity = (rowData.enabled === false) ? 160 : 255;
     }
   };
-  Widget_List.prototype.collectFocusable = function(out) {
+  Widget_TextList.prototype.collectFocusable = function(out) {
     if (this._focusable !== false) out.push(this);
   };
-  Widget_List.prototype.activate = function() {
+  Widget_TextList.prototype.activate = function() {
     if (this._dataScript) this._rebuildFromScript();
     if (this._window) {
       this._window.activate();
@@ -2360,25 +2362,25 @@
       }
     }
   };
-  Widget_List.prototype.deactivate = function() {
+  Widget_TextList.prototype.deactivate = function() {
     if (this._window) {
       this._lastIndex = this._window.index();
       this._window.deactivate();
       this._window.deselect();
     }
   };
-  Widget_List.prototype.refresh = function() {
+  Widget_TextList.prototype.refresh = function() {
     if (this._dataScript) this._rebuildFromScript();
     else if (this._itemSceneId) this._rebuildRows();
     Widget_Base.prototype.refresh.call(this);
   };
-  Widget_List.prototype.setHandler = function(symbol, fn) {
+  Widget_TextList.prototype.setHandler = function(symbol, fn) {
     if (this._window) this._window.setHandler(symbol, fn);
   };
-  Widget_List.prototype.setCancelHandler = function(fn) {
+  Widget_TextList.prototype.setCancelHandler = function(fn) {
     if (this._window) this._window.setHandler('cancel', fn);
   };
-  Widget_List.prototype.update = function() {
+  Widget_TextList.prototype.update = function() {
     if (this._updateCount === undefined) this._updateCount = 0;
     ++this._updateCount;
     if (this._dataScript && this._autoRefresh !== false) {
@@ -2405,8 +2407,8 @@
     }
     Widget_Base.prototype.update.call(this);
   };
-  Widget_List.prototype.handlesUpDown = function() { return true; };
-  Widget_List.prototype.destroy = function() {
+  Widget_TextList.prototype.handlesUpDown = function() { return true; };
+  Widget_TextList.prototype.destroy = function() {
     if (this._itemSceneId) {
       for (var di = 0; di < this._rowWidgets.length; di++) {
         if (this._rowWidgets[di]) this._rowWidgets[di].destroy();
@@ -2415,6 +2417,16 @@
     }
     Widget_Base.prototype.destroy.call(this);
   };
+  window.Widget_TextList = Widget_TextList;
+
+  //===========================================================================
+  // Widget_List — Sprite 기반 씬 렌더링 리스트 (itemScene 사용, focusable)
+  //   Widget_TextList를 상속. itemScene 없이 사용하면 Widget_TextList와 동일 동작.
+  //===========================================================================
+  function Widget_List() {}
+  Widget_List.prototype = Object.create(Widget_TextList.prototype);
+  Widget_List.prototype.constructor = Widget_List;
+
   window.Widget_List = Widget_List;
 
   //===========================================================================
@@ -2683,6 +2695,7 @@
         case 'icons':       widget = new Widget_Icons();       break;
         case 'button':      widget = new Widget_Button();      break;
         case 'list':        widget = new Widget_List();        break;
+        case 'textList':    widget = new Widget_TextList();    break;
         case 'rowSelector':
         case 'actorList':   widget = new Widget_RowSelector(); break;
         case 'scene':       widget = new Widget_Scene();       break;
@@ -2713,7 +2726,7 @@
   Scene_CustomUI.prototype._setupWidgetHandlers = function(rootWidget) {
     var self = this;
     function traverse(widget) {
-      if (widget instanceof Widget_List) {
+      if (widget instanceof Widget_TextList) {
         var handlersDef = widget._handlersDef || {};
         for (var symbol in handlersDef) {
           (function(sym, handler, w) {
