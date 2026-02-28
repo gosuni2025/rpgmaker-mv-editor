@@ -479,33 +479,6 @@
         return { label: label, value: value };
     };
 
-    //=========================================================================
-    // Widget_ItemBookDetail — 아이템 도감 상세 패널 (커스텀 위젯)
-    //=========================================================================
-    function Widget_ItemBookDetail() {}
-    Widget_ItemBookDetail.prototype = Object.create(Widget_Base.prototype);
-    Widget_ItemBookDetail.prototype.constructor = Widget_ItemBookDetail;
-
-    Widget_ItemBookDetail.prototype.initialize = function(def, parentWidget) {
-        Widget_Base.prototype.initialize.call(this, def, parentWidget);
-        var w = new Window_ItemBookStatus(this._x, this._y, this._width, this._height);
-        this._window = w;
-        this._displayObject = w;
-    };
-
-    Widget_ItemBookDetail.prototype.displayObject = function() {
-        return this._window;
-    };
-
-    Widget_ItemBookDetail.prototype.setItem = function(item) {
-        if (this._window) this._window.setItem(item);
-    };
-
-    Widget_ItemBookDetail.prototype.refresh = function() {};
-    Widget_ItemBookDetail.prototype.update = function() {
-        if (this._window) this._window.update();
-    };
-
     //-------------------------------------------------------------------------
     // 메뉴 통합
     //-------------------------------------------------------------------------
@@ -531,8 +504,6 @@
     // CustomSceneEngine 통합
     //-------------------------------------------------------------------------
     if (hasCSEngine()) {
-        // 커스텀 위젯 등록
-        window.__customSceneEngine.registerWidget('itemBookDetail', Widget_ItemBookDetail);
 
         // menu_v2 cmd_main에 항목 추가
         if (showInMenu) {

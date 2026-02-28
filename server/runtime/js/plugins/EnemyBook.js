@@ -377,33 +377,6 @@
         this.resetTextColor();
     };
 
-    //=========================================================================
-    // Widget_EnemyBookDetail — 적 도감 상세 패널 (커스텀 위젯)
-    //=========================================================================
-    function Widget_EnemyBookDetail() {}
-    Widget_EnemyBookDetail.prototype = Object.create(Widget_Base.prototype);
-    Widget_EnemyBookDetail.prototype.constructor = Widget_EnemyBookDetail;
-
-    Widget_EnemyBookDetail.prototype.initialize = function(def, parentWidget) {
-        Widget_Base.prototype.initialize.call(this, def, parentWidget);
-        var w = new Window_EnemyBookStatus(this._x, this._y, this._width, this._height);
-        this._window = w;
-        this._displayObject = w;
-    };
-
-    Widget_EnemyBookDetail.prototype.displayObject = function() {
-        return this._window;
-    };
-
-    Widget_EnemyBookDetail.prototype.setEnemy = function(enemy) {
-        if (this._window) this._window.setEnemy(enemy);
-    };
-
-    Widget_EnemyBookDetail.prototype.refresh = function() {};
-    Widget_EnemyBookDetail.prototype.update = function() {
-        if (this._window) this._window.update();
-    };
-
     //-------------------------------------------------------------------------
     // 메뉴 통합
     //-------------------------------------------------------------------------
@@ -430,8 +403,6 @@
     // CustomSceneEngine 통합
     //-------------------------------------------------------------------------
     if (hasCSEngine()) {
-        // 커스텀 위젯 등록
-        window.__customSceneEngine.registerWidget('enemyBookDetail', Widget_EnemyBookDetail);
 
         // menu_v2 cmd_main에 항목 추가
         if (showInMenu) {

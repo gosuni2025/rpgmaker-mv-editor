@@ -117,12 +117,92 @@
           var v = ConfigManager[cfgMatch[1]];
           return typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : String(v !== undefined ? v : '');
         }
+        // $ctx — 씬 컨텍스트 단축어 (안전한 처리)
+        if (/^\$ctx\b/.test(expr)) {
+          try {
+            var ctx = (SceneManager._scene && SceneManager._scene._ctx) || {};
+            var result = new Function('$ctx', 'return (' + expr + ')')(ctx);
+            return result === null || result === undefined ? '' : String(result);
+          } catch(e) { return ''; }
+        }
         // 임의 JS 표현식 폴백
-        return String(new Function('return (' + expr + ')')());
+        try {
+          var val = new Function('return (' + expr + ')')();
+          return val === null || val === undefined ? '' : String(val);
+        } catch (e) {}
+        return '';
       } catch (e) {}
-      return match;
+      return '';
     });
   }
+
+  //===========================================================================
+  // $ctx — 현재 씬 컨텍스트 전역 단축어
+  //===========================================================================
+  Object.defineProperty(window, '$ctx', {
+    get: function() { return (SceneManager._scene && SceneManager._scene._ctx) || {}; },
+    configurable: true,
+  });
+
+  //===========================================================================
+  // CSHelper — 이미지/데이터 접근 헬퍼
+  //===========================================================================
+  var CSHelper = {
+    /** 파티 멤버의 페이스 Bitmap 반환 */
+    actorFace: function(actorIndex) {
+      if (typeof $gameParty === 'undefined') return null;
+      var actor = $gameParty.members()[actorIndex || 0];
+      return actor ? ImageManager.loadFace(actor.faceName()) : null;
+    },
+    /** 파티 멤버의 페이스 소스 직사각형 {x,y,w,h} */
+    actorFaceSrcRect: function(actorIndex) {
+      if (typeof $gameParty === 'undefined') return null;
+      var actor = $gameParty.members()[actorIndex || 0];
+      if (!actor) return null;
+      var i = actor.faceIndex();
+      return { x: i % 4 * 144, y: Math.floor(i / 4) * 144, w: 144, h: 144 };
+    },
+    /** 파티 멤버의 캐릭터 스프라이트 Bitmap 반환 */
+    actorCharacter: function(actorIndex) {
+      if (typeof $gameParty === 'undefined') return null;
+      var actor = $gameParty.members()[actorIndex || 0];
+      return actor ? ImageManager.loadCharacter(actor.characterName()) : null;
+    },
+    /** 파티 멤버의 캐릭터 스프라이트 소스 직사각형 {x,y,w,h} */
+    actorCharacterSrcRect: function(actorIndex) {
+      if (typeof $gameParty === 'undefined') return null;
+      var actor = $gameParty.members()[actorIndex || 0];
+      if (!actor) return null;
+      var charName  = actor.characterName();
+      var charIndex = actor.characterIndex();
+      var bitmap    = ImageManager.loadCharacter(charName);
+      var isBig     = ImageManager.isBigCharacter(charName);
+      var cw, ch, sx, sy;
+      if (isBig) {
+        cw = Math.floor(bitmap.width  / 3);
+        ch = Math.floor(bitmap.height / 4);
+        sx = cw; sy = 0;
+      } else {
+        cw = Math.floor(bitmap.width  / 12);
+        ch = Math.floor(bitmap.height / 8);
+        sx = (charIndex % 4 * 3 + 1) * cw;
+        sy = Math.floor(charIndex / 4) * 4 * ch;
+      }
+      return { x: sx, y: sy, w: cw, h: ch };
+    },
+    /** 적 배틀러 Bitmap 반환 (SV/FV 자동 분기) */
+    enemyBattler: function(enemy) {
+      if (!enemy) return null;
+      return (typeof $gameSystem !== 'undefined' && $gameSystem.isSideView())
+        ? ImageManager.loadSvEnemy(enemy.battlerName, enemy.battlerHue)
+        : ImageManager.loadEnemy(enemy.battlerName, enemy.battlerHue);
+    },
+    /** 임의 폴더/파일의 Bitmap 반환 */
+    bitmap: function(folder, name) {
+      return ImageManager.loadBitmap(folder, name);
+    },
+  };
+  window.CSHelper = CSHelper;
 
   //===========================================================================
   // 외부 플러그인 위젯 레지스트리
@@ -862,20 +942,36 @@
 
   //===========================================================================
   // Widget_Image — 이미지 표시
+  //
+  //  신규: bitmapExpr / srcRectExpr / fitMode
+  //    bitmapExpr  {string} — Bitmap을 반환하는 JS 표현식
+  //                예) "CSHelper.actorFace(0)"
+  //                    "CSHelper.enemyBattler($ctx.enemy)"
+  //                    "ImageManager.loadBitmap('img/system/','Arrow')"
+  //    srcRectExpr {string} — {x,y,w,h} 를 반환하는 JS 표현식 (생략 시 전체)
+  //                예) "CSHelper.actorFaceSrcRect(0)"
+  //    fitMode     {string} — 'stretch'(기본) | 'contain' | 'none'
+  //
+  //  하위호환: imageSource:'actorFace'|'actorCharacter'|'file' 도 계속 동작.
   //===========================================================================
   function Widget_Image() {}
   Widget_Image.prototype = Object.create(Widget_Base.prototype);
   Widget_Image.prototype.constructor = Widget_Image;
+
   Widget_Image.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._imageSource = def.imageSource || 'file';
     this._actorIndex  = def.actorIndex  || 0;
+    this._bitmapExpr  = def.bitmapExpr  || null;
+    this._srcRectExpr = def.srcRectExpr || null;
+    this._fitMode     = def.fitMode     || 'stretch';
+    this._lastBitmap  = null;
     var sprite = new Sprite();
     sprite.x = this._x;
     sprite.y = this._y;
     if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
-    // actorFace/actorCharacter는 빈 bitmap을 미리 생성해 sprite에 설정
-    if (this._imageSource !== 'file') {
+    // 하위호환 타입 (actorFace/actorCharacter): 빈 bitmap 미리 할당
+    if (!this._bitmapExpr && this._imageSource !== 'file') {
       var bmp = new Bitmap(this._width || 144, this._height || 144);
       sprite.bitmap = bmp;
       this._bitmap = bmp;
@@ -883,22 +979,65 @@
     this._displayObject = sprite;
     this.refresh();
   };
+
   Widget_Image.prototype.refresh = function() {
     var sprite = this._displayObject;
     if (!sprite) return;
-    switch (this._imageSource) {
-      case 'actorFace':      this._refreshActorFace(sprite);      break;
-      case 'actorCharacter': this._refreshActorCharacter(sprite); break;
-      default:               this._refreshFile(sprite);           break;
+    if (this._bitmapExpr) {
+      this._refreshFromExpr(sprite);
+    } else {
+      switch (this._imageSource) {
+        case 'actorFace':      this._refreshActorFace(sprite);      break;
+        case 'actorCharacter': this._refreshActorCharacter(sprite); break;
+        default:               this._refreshFile(sprite);           break;
+      }
     }
     Widget_Base.prototype.refresh.call(this);
   };
+
+  // bitmapExpr 기반 렌더링
+  Widget_Image.prototype._refreshFromExpr = function(sprite) {
+    var bitmap;
+    try { bitmap = new Function('return (' + this._bitmapExpr + ')')(); }
+    catch(e) { console.error('[Widget_Image] bitmapExpr error:', e); return; }
+    if (!bitmap) { sprite.bitmap = null; this._lastBitmap = null; return; }
+    if (bitmap === this._lastBitmap) return; // 동일 bitmap이면 재렌더 불필요
+    this._lastBitmap = bitmap;
+    var self     = this;
+    var w        = this._width  || 100;
+    var h        = this._height || 100;
+    var srcExpr  = this._srcRectExpr;
+    var fitMode  = this._fitMode;
+    bitmap.addLoadListener(function() {
+      var srcRect = null;
+      if (srcExpr) { try { srcRect = new Function('return (' + srcExpr + ')')(); } catch(e) {} }
+      var sx = srcRect ? srcRect.x : 0;
+      var sy = srcRect ? srcRect.y : 0;
+      var sw = srcRect ? srcRect.w : bitmap.width;
+      var sh = srcRect ? srcRect.h : bitmap.height;
+      if (!sw || !sh) return;
+      var bmp = new Bitmap(w, h);
+      if (fitMode === 'contain') {
+        var scale = Math.min(w / sw, h / sh);
+        var dw = Math.floor(sw * scale);
+        var dh = Math.floor(sh * scale);
+        bmp.blt(bitmap, sx, sy, sw, sh,
+          Math.floor((w - dw) / 2), Math.floor((h - dh) / 2), dw, dh);
+      } else if (fitMode === 'none') {
+        bmp.blt(bitmap, sx, sy, Math.min(sw, w), Math.min(sh, h), 0, 0);
+      } else { // stretch
+        bmp.blt(bitmap, sx, sy, sw, sh, 0, 0, w, h);
+      }
+      sprite.bitmap = bmp;
+    });
+  };
+
+  // 하위호환: file 모드
   Widget_Image.prototype._refreshFile = function(sprite) {
     var def = this._def;
     var w = this._width;
     var h = this._height || 100;
     if (!def.imageName) {
-      // 이미지 없음 → bgColor 또는 기본 흰색으로 채움 (Unity-like)
       if (!this._bitmap) {
         this._bitmap = new Bitmap(w, h);
         sprite.bitmap = this._bitmap;
@@ -922,72 +1061,57 @@
       sprite.bitmap = bmp;
     });
   };
+
+  // 하위호환: actorFace — 내부적으로 CSHelper 위임
   Widget_Image.prototype._refreshActorFace = function(sprite) {
-    if (typeof $gameParty === 'undefined') return;
-    var actor = $gameParty.members()[this._actorIndex];
-    if (!actor || typeof ImageManager === 'undefined') return;
-    var faceName  = actor.faceName();
-    var faceIndex = actor.faceIndex();
-    if (!faceName) return;
+    var bitmap = CSHelper.actorFace(this._actorIndex);
+    if (!bitmap) return;
+    var srcRect = CSHelper.actorFaceSrcRect(this._actorIndex);
+    if (bitmap === this._lastBitmap && sprite.bitmap) return;
+    this._lastBitmap = bitmap;
     var self = this;
-    var w = this._width  || 144;
-    var h = this._height || 144;
-    var bitmap = ImageManager.loadFace(faceName);
+    var w = this._width || 144, h = this._height || 144;
     bitmap.addLoadListener(function() {
-      if (!self._bitmap) {
-        self._bitmap = new Bitmap(w, h);
-        sprite.bitmap = self._bitmap;
-      }
+      if (!self._bitmap) { self._bitmap = new Bitmap(w, h); sprite.bitmap = self._bitmap; }
       self._bitmap.clear();
-      var pw = Window_Base._faceWidth  || 144;
-      var ph = Window_Base._faceHeight || 144;
-      var sw = Math.min(w, pw);
-      var sh = Math.min(h, ph);
-      var sx = (faceIndex % 4) * pw + (pw - sw) / 2;
-      var sy = Math.floor(faceIndex / 4) * ph + (ph - sh) / 2;
-      self._bitmap.blt(bitmap, sx, sy, sw, sh, 0, 0, w, h);
-    });
-  };
-  Widget_Image.prototype._refreshActorCharacter = function(sprite) {
-    if (typeof $gameParty === 'undefined') return;
-    var actor = $gameParty.members()[this._actorIndex];
-    if (!actor || typeof ImageManager === 'undefined') return;
-    var charName  = actor.characterName();
-    var charIndex = actor.characterIndex();
-    if (!charName) return;
-    var self = this;
-    var w = this._width  || 48;
-    var h = this._height || 48;
-    var bitmap = ImageManager.loadCharacter(charName);
-    bitmap.addLoadListener(function() {
-      if (!self._bitmap) {
-        self._bitmap = new Bitmap(w, h);
-        sprite.bitmap = self._bitmap;
-      }
-      self._bitmap.clear();
-      var isBig = ImageManager.isBigCharacter(charName);
-      var cw, ch, sx, sy;
-      if (isBig) {
-        cw = Math.floor(bitmap.width  / 3);
-        ch = Math.floor(bitmap.height / 4);
-        sx = cw;  // 중간 프레임 (frame 1)
-        sy = 0;   // 아래 방향 (row 0)
+      if (srcRect) {
+        self._bitmap.blt(bitmap, srcRect.x, srcRect.y, srcRect.w, srcRect.h, 0, 0, w, h);
       } else {
-        cw = Math.floor(bitmap.width  / 12);
-        ch = Math.floor(bitmap.height / 8);
-        sx = (charIndex % 4 * 3 + 1) * cw;          // 캐릭터 중간 프레임
-        sy = Math.floor(charIndex / 4) * 4 * ch;    // 아래 방향
+        self._bitmap.blt(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, w, h);
       }
-      self._bitmap.blt(bitmap, sx, sy, cw, ch, 0, 0, w, h);
     });
   };
+
+  // 하위호환: actorCharacter — 내부적으로 CSHelper 위임
+  Widget_Image.prototype._refreshActorCharacter = function(sprite) {
+    var bitmap = CSHelper.actorCharacter(this._actorIndex);
+    if (!bitmap) return;
+    if (bitmap === this._lastBitmap && sprite.bitmap) return;
+    this._lastBitmap = bitmap;
+    var self = this;
+    var w = this._width || 48, h = this._height || 48;
+    bitmap.addLoadListener(function() {
+      var srcRect = CSHelper.actorCharacterSrcRect(self._actorIndex);
+      if (!self._bitmap) { self._bitmap = new Bitmap(w, h); sprite.bitmap = self._bitmap; }
+      self._bitmap.clear();
+      if (srcRect) {
+        self._bitmap.blt(bitmap, srcRect.x, srcRect.y, srcRect.w, srcRect.h, 0, 0, w, h);
+      } else {
+        self._bitmap.blt(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, w, h);
+      }
+    });
+  };
+
   Widget_Image.prototype.update = function() {
-    if (this._imageSource !== 'file') {
-      if (this._updateCount === undefined) this._updateCount = 0;
-      if (++this._updateCount % 60 === 0) this.refresh();
-    }
+    if (this._updateCount === undefined) this._updateCount = 0;
+    ++this._updateCount;
+    var needRefresh = this._bitmapExpr
+      ? (this._updateCount % 10 === 0)   // expr 모드: 10프레임마다 체크 (빠른 반응)
+      : (this._imageSource !== 'file' && this._updateCount % 60 === 0);
+    if (needRefresh) this.refresh();
     Widget_Base.prototype.update.call(this);
   };
+
   window.Widget_Image = Widget_Image;
 
   //===========================================================================
