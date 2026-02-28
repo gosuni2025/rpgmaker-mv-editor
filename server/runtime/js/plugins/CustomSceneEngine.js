@@ -1879,8 +1879,13 @@
     win.deactivate();
     win.deselect(); // Window_Command.initialize가 select(0)을 호출하므로 명시적으로 해제
     if (this._autoHeight) {
-      win.height = 0; // 초기 빈 윈도우 flash 방지
-      console.log('[CSE] Widget_List autoHeight init, id=' + def.id + ', height set to 0');
+      if (this._dataScript) {
+        win.height = 0; // dataScript 결과가 나오기 전 빈 윈도우 flash 방지
+      } else {
+        // 정적 items인 경우 초기화 즉시 높이 계산
+        var itemCount = this._items.length;
+        win.height = itemCount > 0 ? win.fittingHeight(itemCount) : 0;
+      }
     }
     if (!this._focusable) {
       // updateCursor: RPG Maker MV 레벨 커서 rect 0으로 설정
