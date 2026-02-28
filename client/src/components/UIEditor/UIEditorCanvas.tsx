@@ -158,16 +158,19 @@ export default function UIEditorCanvas() {
   // iframe ready 후 씬 로드
   useEffect(() => {
     if (!uiEditorIframeReady) return;
-    // 커스텀 씬인 경우 먼저 reloadCustomScenes를 보내서 최신 정의를 반영
-    if (uiEditorScene.startsWith('Scene_CS_')) {
+    const redirects = useEditorStore.getState().sceneRedirects;
+    const currentRedirect = redirects[uiEditorScene];
+    const hasCustomRedirect = currentRedirect?.startsWith('Scene_CS_');
+    // 커스텀 씬이거나, 현재 씬이 커스텀 씬으로 리다이렉트된 경우 reloadCustomScenes 먼저 전송
+    if (uiEditorScene.startsWith('Scene_CS_') || hasCustomRedirect) {
       iframeRef.current?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
     }
     // 저장된 리다이렉트 재적용 (씬 전환 시 초기화되므로)
-    // 단, 현재 직접 선택한 씬의 리다이렉트는 제외 — 선택한 씬은 원본 그대로 프리뷰
-    const redirects = useEditorStore.getState().sceneRedirects;
-    const previewRedirects = Object.fromEntries(
-      Object.entries(redirects).filter(([k]) => k !== uiEditorScene)
-    );
+    // 현재 씬의 리다이렉트가 커스텀 씬이면 포함 (커스텀 씬으로 교체된 씬은 커스텀 씬을 프리뷰)
+    // 원본 씬 편집 중이거나 비커스텀 리다이렉트인 경우 현재 씬 리다이렉트 제외
+    const previewRedirects = hasCustomRedirect
+      ? redirects
+      : Object.fromEntries(Object.entries(redirects).filter(([k]) => k !== uiEditorScene));
     iframeRef.current?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: previewRedirects }, '*');
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'loadScene', sceneName: uiEditorScene }, '*'

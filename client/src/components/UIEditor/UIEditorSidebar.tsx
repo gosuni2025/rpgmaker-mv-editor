@@ -41,8 +41,12 @@ function WindowList() {
   // 커스텀 씬 로드
   useEffect(() => { if (projectPath) loadCustomScenes(); }, [projectPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const sceneRedirects = useEditorStore((s) => s.sceneRedirects);
   const isCustomScene = uiEditorScene.startsWith('Scene_CS_');
   const customSceneId = isCustomScene ? uiEditorScene.replace('Scene_CS_', '') : null;
+  // 현재 씬이 커스텀 씬으로 리다이렉트된 경우, 그 커스텀 씬 패널을 표시
+  const redirectedTo = !isCustomScene ? sceneRedirects[uiEditorScene] : undefined;
+  const redirectedCustomSceneId = redirectedTo?.startsWith('Scene_CS_') ? redirectedTo.replace('Scene_CS_', '') : null;
 
   const sceneSelected = uiEditorSelectedWindowId === null;
   const hasSceneFont = !!uiFontSceneFonts[uiEditorScene];
@@ -96,8 +100,8 @@ function WindowList() {
         />
       )}
 
-      {isCustomScene && customSceneId ? (
-        <UIEditorCustomScenePanel sceneId={customSceneId} />
+      {(isCustomScene && customSceneId) || redirectedCustomSceneId ? (
+        <UIEditorCustomScenePanel sceneId={customSceneId ?? redirectedCustomSceneId!} />
       ) : (
         <div className="ui-editor-window-list">
           {/* 씬 자체 항목 */}

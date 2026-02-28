@@ -149,10 +149,13 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
     if (!customSceneDirty) return;
     const timer = setTimeout(async () => {
       await saveCustomScenes();
-      if (uiEditorScene === `Scene_CS_${sceneId}`) {
+      const curScene = useEditorStore.getState().uiEditorScene;
+      const curRedirects = useEditorStore.getState().sceneRedirects;
+      const isActive = curScene === `Scene_CS_${sceneId}` || curRedirects[curScene] === `Scene_CS_${sceneId}`;
+      if (isActive) {
         const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
         iframe?.contentWindow?.postMessage({ type: 'reloadCustomScenes' }, '*');
-        iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: uiEditorScene }, '*');
+        iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: curScene }, '*');
       }
     }, 600);
     return () => clearTimeout(timer);
