@@ -60,6 +60,21 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
   const [treeKey, setTreeKey] = React.useState(0);
   const [treeInitialExpanded, setTreeInitialExpanded] = React.useState(true);
 
+  // 위젯 선택 중 Delete/Backspace → 삭제 (입력 요소 포커스 시 무시)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedId || selectedId === 'root') return;
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      e.preventDefault();
+      pushCustomSceneUndo();
+      removeWidget(sceneId, selectedId);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedId, sceneId, removeWidget, pushCustomSceneUndo]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // dirty 상태 감지 → debounce 자동저장 + iframe 프리뷰 갱신
   React.useEffect(() => {
     if (!customSceneDirty) return;
