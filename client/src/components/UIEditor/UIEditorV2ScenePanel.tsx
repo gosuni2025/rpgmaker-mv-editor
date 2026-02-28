@@ -202,6 +202,18 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
           <input style={{ ...inputStyle, flex: 1 }} value={scene.displayName}
             onChange={(e) => updateCustomScene(sceneId, { displayName: e.target.value })} />
         </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>분류</span>
+          <select
+            style={{ ...selectStyle, flex: 1 }}
+            value={scene.category ?? ''}
+            onChange={(e) => updateCustomScene(sceneId, { category: (e.target.value || undefined) as 'sub' | 'plugin' | undefined })}
+          >
+            <option value="">커스텀 복제</option>
+            <option value="sub">서브씬 (행 렌더링용)</option>
+            <option value="plugin">플러그인 씬</option>
+          </select>
+        </div>
         <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
           <button
             style={{ ...smallBtnStyle, flex: 1, background: '#3a6ea8', padding: '4px 8px' }}

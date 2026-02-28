@@ -543,7 +543,7 @@ function ListCommonSection({ widget, update }: {
   const [showScenePicker, setShowScenePicker] = useState(false);
   const customScenes = useEditorStore(s => s.customScenes);
   const customSceneEntries = Object.values(customScenes.scenes).map(s => ({
-    id: s.id, displayName: s.displayName,
+    id: s.id, displayName: s.displayName, category: s.category,
   }));
 
   return (

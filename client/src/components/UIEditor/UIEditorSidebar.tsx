@@ -56,6 +56,7 @@ function WindowList() {
   const customSceneEntries = Object.values(customScenes.scenes).map((s) => ({
     id: s.id,
     displayName: s.displayName,
+    category: s.category,
   }));
 
   // 현재 씬의 표시 레이블

@@ -2,13 +2,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import useEscClose from '../../hooks/useEscClose';
 
-type SceneCategory = 'original' | 'custom' | 'sub' | 'plugin';
+type SceneTab = 'original' | 'custom' | 'sub' | 'plugin';
 
 interface SceneEntry {
   value: string;
   label: string;
-  category: SceneCategory;
-  isCustom: boolean;
+  tab: SceneTab;
   /** sceneRedirects에서 이 씬을 가리키는 오리지널 씬 이름 */
   redirectsFrom?: string;
 }
@@ -16,13 +15,13 @@ interface SceneEntry {
 interface Props {
   currentScene: string;
   availableScenes: { value: string; label: string; category?: string }[];
-  customScenes: { id: string; displayName: string }[];
+  customScenes: { id: string; displayName: string; category?: string }[];
   sceneRedirects?: Record<string, string>;
   onSelect: (scene: string) => void;
   onClose: () => void;
 }
 
-const TAB_DEFS: { id: SceneCategory; label: string }[] = [
+const TAB_DEFS: { id: SceneTab; label: string }[] = [
   { id: 'original', label: '오리지널' },
   { id: 'custom',   label: '커스텀 복제' },
   { id: 'sub',      label: '서브씬' },
@@ -59,19 +58,22 @@ export default function UIEditorScenePickerDialog({
   }, [sceneRedirects]);
 
   const allScenes = useMemo<SceneEntry[]>(() => [
+    // 오리지널 씬 (AVAILABLE_SCENES 전체)
     ...availableScenes.map((s) => ({
       value: s.value,
       label: s.label,
-      category: (s.category ?? 'original') as SceneCategory,
-      isCustom: false,
+      tab: 'original' as SceneTab,
     })),
+    // 커스텀 씬 — category로 탭 분류
     ...customScenes.map((s) => {
       const csKey = `Scene_CS_${s.id}`;
+      const tab: SceneTab = s.category === 'sub' ? 'sub'
+        : s.category === 'plugin' ? 'plugin'
+        : 'custom';
       return {
         value: csKey,
         label: `${s.displayName} (${csKey})`,
-        category: 'custom' as SceneCategory,
-        isCustom: true,
+        tab,
         redirectsFrom: redirectFromMap[csKey],
       };
     }),
@@ -79,22 +81,24 @@ export default function UIEditorScenePickerDialog({
 
   // 비어있지 않은 탭 목록
   const activeTabs = useMemo(
-    () => TAB_DEFS.filter((t) => allScenes.some((s) => s.category === t.id)),
+    () => TAB_DEFS.filter((t) => allScenes.some((s) => s.tab === t.id)),
     [allScenes],
   );
 
-  // 초기 탭: currentScene의 카테고리
-  const initialTab = useMemo<SceneCategory>(() => {
-    if (currentScene.startsWith('Scene_CS_')) return 'custom';
-    const entry = allScenes.find((s) => s.value === currentScene);
-    return (entry?.category as SceneCategory) ?? activeTabs[0]?.id ?? 'original';
+  // 초기 탭: currentScene의 탭
+  const initialTab = useMemo<SceneTab>(() => {
+    if (currentScene.startsWith('Scene_CS_')) {
+      const entry = allScenes.find((s) => s.value === currentScene);
+      return (entry?.tab as SceneTab) ?? 'custom';
+    }
+    return 'original';
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [activeTab, setActiveTab] = useState<SceneCategory>(initialTab);
+  const [activeTab, setActiveTab] = useState<SceneTab>(initialTab);
 
   // 탭 내 검색 필터
   const tabScenes = useMemo<SceneEntry[]>(() => {
-    const inTab = allScenes.filter((s) => s.category === activeTab);
+    const inTab = allScenes.filter((s) => s.tab === activeTab);
     if (!search.trim()) return inTab;
     const q = search.trim();
     return inTab.filter((s) => fuzzyMatch(s.label, q) || fuzzyMatch(s.value, q));
@@ -191,7 +195,7 @@ export default function UIEditorScenePickerDialog({
             {showTabs && (
               <div className="sp-tabs">
                 {activeTabs.map((t) => {
-                  const count = allScenes.filter((s) => s.category === t.id).length;
+                  const count = allScenes.filter((s) => s.tab === t.id).length;
                   return (
                     <button
                       key={t.id}
