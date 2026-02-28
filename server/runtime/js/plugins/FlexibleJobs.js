@@ -51,6 +51,12 @@
  * @text 스킬 습득 메뉴 이름
  * @default 스킬 습득
  *
+ * @param menuSwitch
+ * @text 메뉴 접근 스위치
+ * @desc 이 스위치가 ON일 때만 메뉴에 전직/스킬습득 항목을 표시합니다. 0이면 항상 표시.
+ * @type switch
+ * @default 0
+ *
  * @help
  * FlexibleJobs.js
  *
@@ -99,8 +105,9 @@
   var JP_BATTLE = parseInt(p['jpPerBattle']  || 10);
   var JP_LEVEL  = parseInt(p['jpPerLevel']   || 50);
   var JP_NAME   = String(p['jpName']         || 'JP');
-  var CMD_CLASS = String(p['cmdClassChange'] || '전직');
-  var CMD_LEARN = String(p['cmdSkillLearn']  || '스킬 습득');
+  var CMD_CLASS   = String(p['cmdClassChange'] || '전직');
+  var CMD_LEARN   = String(p['cmdSkillLearn']  || '스킬 습득');
+  var MENU_SWITCH = parseInt(p['menuSwitch'] || 0);
 
   //===========================================================================
   // 노트태그 파서
@@ -655,8 +662,11 @@
   var _addOriginalCmds = Window_MenuCommand.prototype.addOriginalCommands;
   Window_MenuCommand.prototype.addOriginalCommands = function () {
     _addOriginalCmds.call(this);
-    this.addCommand(CMD_CLASS, 'fjClassChange', true);
-    this.addCommand(CMD_LEARN, 'fjSkillLearn',  true);
+    var ok = !MENU_SWITCH || ($gameSwitches && $gameSwitches.value(MENU_SWITCH));
+    if (ok) {
+      this.addCommand(CMD_CLASS, 'fjClassChange', true);
+      this.addCommand(CMD_LEARN, 'fjSkillLearn',  true);
+    }
   };
 
   var _createCmdWindow = Scene_Menu.prototype.createCommandWindow;
