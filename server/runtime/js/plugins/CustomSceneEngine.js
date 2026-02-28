@@ -1581,6 +1581,7 @@
     sprite.x = this._x;
     sprite.y = this._y;
     sprite.bitmap = SceneManager.backgroundBitmap();
+    if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
     this._displayObject = sprite;
   };
   window.Widget_Background = Widget_Background;
