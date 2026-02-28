@@ -246,6 +246,7 @@ export interface WidgetDef_TextArea extends WidgetDefBase {
   type: 'textArea';
   text: string;
   align?: 'left' | 'center' | 'right';
+  verticalAlign?: 'top' | 'middle' | 'bottom';
   fontSize?: number;
   /** 줄 간격 (px, 기본: lineHeight()) */
   lineHeight?: number;

@@ -191,6 +191,16 @@ function TextAreaTypeSection({ widget, update }: { widget: WidgetDef_TextArea; u
         </select>
       </div>
       <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 50 }}>세로정렬</span>
+        <select style={{ ...selectStyle, flex: 1 }}
+          value={widget.verticalAlign || 'top'}
+          onChange={(e) => update({ verticalAlign: e.target.value as any } as any)}>
+          <option value="top">위</option>
+          <option value="middle">가운데</option>
+          <option value="bottom">아래</option>
+        </select>
+      </div>
+      <div style={rowStyle}>
         <span style={{ fontSize: 11, color: '#888', width: 50 }}>줄 높이</span>
         <input style={{ ...inputStyle, width: 60 }} type="number"
           value={widget.lineHeight ?? ''}

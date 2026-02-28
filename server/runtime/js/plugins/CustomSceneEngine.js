@@ -920,6 +920,7 @@
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._template = def.text || '';
     this._align = def.align || 'left';
+    this._vAlign = def.verticalAlign || 'top';
     this._fontSize = def.fontSize || 20;
     this._color = def.color || '#dddddd';
     this._lineHeight = def.lineHeight || (this._fontSize + 8);
@@ -937,18 +938,28 @@
   Widget_TextArea.prototype.refresh = function() {
     if (!this._bitmap) return;
     var text = resolveTemplate(this._template);
-    if (text === this._lastText) return;
+    if (text === this._lastText && this._align === this._lastAlign && this._vAlign === this._lastVAlign) return;
     this._lastText = text;
+    this._lastAlign = this._align;
+    this._lastVAlign = this._vAlign;
     this._bitmap.clear();
     this._bitmap.fontSize = this._fontSize;
     this._bitmap.textColor = this._color;
     var lh = this._lineHeight;
     var lines = text ? text.split('\n') : [];
-    var y = 0;
+    var totalH = Math.min(lines.length, Math.floor(this._height / lh)) * lh;
+    var startY;
+    if (this._vAlign === 'middle') {
+      startY = Math.floor((this._height - totalH) / 2);
+    } else if (this._vAlign === 'bottom') {
+      startY = this._height - totalH;
+    } else {
+      startY = 0;
+    }
     for (var i = 0; i < lines.length; i++) {
+      var y = startY + i * lh;
       if (y + lh > this._height) break;
       this._bitmap.drawText(lines[i], 0, y, this._width, lh, this._align);
-      y += lh;
     }
     Widget_Base.prototype.refresh.call(this);
   };
