@@ -85,15 +85,8 @@
             this._triggerConsumed = false;
         } else if (!this._triggerConsumed && hover >= 0) {
             this._triggerConsumed = true;
-            console.log('[BattleDebug] click symbol=%s', BUTTONS[hover].symbol);
             var fn = this._handlers[BUTTONS[hover].symbol];
-            if (fn) {
-                fn();
-                // 실제 반영 확인
-                $gameParty.members().forEach(function(m) {
-                    console.log('[BattleDebug]  %s hp=%d/%d mp=%d/%d tp=%d', m.name(), m.hp, m.mhp, m.mp, m.mmp, m.tp);
-                });
-            }
+            if (fn) fn();
         }
     };
 
@@ -106,15 +99,19 @@
         this._battleDebugWindow = new Window_BattleDebug();
         this._battleDebugWindow.setHandler('enemyDamage', function() {
             $gameTroop.aliveMembers().forEach(function(e) { e.gainHp(-100); e.refresh(); });
+            $gameTemp.requestBattleRefresh();
         });
         this._battleDebugWindow.setHandler('allyDamage', function() {
             $gameParty.aliveMembers().forEach(function(m) { m.gainHp(-100); m.refresh(); });
+            $gameTemp.requestBattleRefresh();
         });
         this._battleDebugWindow.setHandler('allyMpFull', function() {
             $gameParty.members().forEach(function(m) { m.setMp(m.mmp); m.refresh(); });
+            $gameTemp.requestBattleRefresh();
         });
         this._battleDebugWindow.setHandler('allyTpFull', function() {
             $gameParty.members().forEach(function(m) { m.setTp(m.maxTp()); m.refresh(); });
+            $gameTemp.requestBattleRefresh();
         });
         this.addWindow(this._battleDebugWindow);
     };
