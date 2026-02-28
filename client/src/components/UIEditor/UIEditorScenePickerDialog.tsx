@@ -43,6 +43,10 @@ export default function UIEditorScenePickerDialog({
   const listRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [previewLayout, setPreviewLayout] = useState({ scale: 1, left: 0, top: 0 });
+  const [leftWidth, setLeftWidth] = useState(240);
+  const draggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(0);
 
   const GAME_W = 816;
   const GAME_H = 624;
@@ -160,6 +164,26 @@ export default function UIEditorScenePickerDialog({
     items[focusedIdx]?.scrollIntoView({ block: 'nearest' });
   }, [focusedIdx]);
 
+  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = leftWidth;
+
+    const onMove = (me: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const delta = me.clientX - dragStartXRef.current;
+      setLeftWidth(Math.max(150, Math.min(500, dragStartWidthRef.current + delta)));
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
@@ -183,7 +207,7 @@ export default function UIEditorScenePickerDialog({
 
         <div className="sp-body">
           {/* ── 왼쪽: 탭 + 검색 + 목록 ── */}
-          <div className="sp-left">
+          <div className="sp-left" style={{ width: leftWidth }}>
             <div className="sp-tabs">
               {TAB_DEFS.map((t) => {
                 const count = allScenes.filter((s) => s.tab === t.id).length;
@@ -238,6 +262,9 @@ export default function UIEditorScenePickerDialog({
               ))}
             </div>
           </div>
+
+          {/* ── 스플리터 ── */}
+          <div className="sp-splitter" onMouseDown={handleSplitterMouseDown} />
 
           {/* ── 오른쪽: 프리뷰 ── */}
           <div className="sp-preview">
