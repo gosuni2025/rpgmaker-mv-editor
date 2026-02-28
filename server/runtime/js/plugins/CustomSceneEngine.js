@@ -2,16 +2,17 @@
 // CustomSceneEngine.js
 //=============================================================================
 /*:
- * @plugindesc 커스텀 씬 엔진 - UIEditorScenes.json에서 씬을 동적으로 생성
+ * @plugindesc 커스텀 씬 엔진 - UIScenes/ 디렉터리에서 씬을 동적으로 생성
  * @author UI Editor
  *
  * @help CustomSceneEngine.js
  *
- * data/UIEditorScenes.json 파일을 읽어 커스텀 씬(Scene_CS_*)을 동적으로 생성합니다.
+ * data/UIScenes/_index.json + 씬별 JSON 파일을 읽어 커스텀 씬(Scene_CS_*)을 동적으로 생성합니다.
  * 에디터의 씬 에디터에서 정의한 씬을 게임 런타임에서 실행할 수 있습니다.
+ * 구 방식(data/UIEditorScenes.json)도 폴백으로 지원합니다.
  *
  * ● 기본 동작
- *   UIEditorScenes.json이 없으면 아무 씬도 등록하지 않습니다.
+ *   data/UIScenes/_index.json 이 없으면 아무 씬도 등록하지 않습니다.
  *
  * ● 오버레이 씬 (Overlay Scene)
  *   에디터에서 커스텀 씬의 "오버레이 모드"를 활성화하면,
@@ -56,7 +57,39 @@
     return {};
   }
 
-  _scenesData = loadJSON('data/UIEditorScenes.json');
+  /** 404/오류 시 null 반환 (loadJSON과 달리 {} 반환 안 함) */
+  function loadJSONSafe(url) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url + '?_=' + Date.now(), false);
+      xhr.send();
+      if (xhr.status === 200 || xhr.status === 0) {
+        return JSON.parse(xhr.responseText);
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  /**
+   * 씬 데이터 로드:
+   *   1) UIScenes/_index.json → 씬별 파일 로드
+   *   2) 폴백: UIEditorScenes.json (구 방식)
+   */
+  function loadScenesData() {
+    var index = loadJSONSafe('data/UIScenes/_index.json');
+    if (index && Array.isArray(index)) {
+      var scenes = {};
+      for (var i = 0; i < index.length; i++) {
+        var scene = loadJSONSafe('data/UIScenes/' + index[i] + '.json');
+        if (scene && scene.id) scenes[scene.id] = scene;
+      }
+      return { scenes: scenes };
+    }
+    // 구 방식 폴백
+    return loadJSON('data/UIEditorScenes.json');
+  }
+
+  _scenesData = loadScenesData();
   _configData = loadJSON('data/UIEditorConfig.json');
 
   //===========================================================================
@@ -3125,7 +3158,7 @@
   }
 
   function reloadCustomScenes() {
-    _scenesData = loadJSON('data/UIEditorScenes.json');
+    _scenesData = loadScenesData();
     _configData = loadJSON('data/UIEditorConfig.json');
     registerCustomScenes();
     // noRedirect URL 파라미터가 있으면 씬 리다이렉트 비활성화

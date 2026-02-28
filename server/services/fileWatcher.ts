@@ -4,6 +4,7 @@ import { WebSocket } from 'ws';
 
 let dataWatcher: FSWatcher | null = null;
 let imgWatcher: FSWatcher | null = null;
+let scenesWatcher: FSWatcher | null = null;
 const clients = new Set<WebSocket>();
 
 // API를 통한 저장 시 일정 시간 동안 해당 파일의 fileChanged를 무시
@@ -61,6 +62,7 @@ function watch(dataPath: string): void {
   // 이전 watcher를 동기적으로 정리 (close는 비동기지만 새 watcher 생성에 영향 없음)
   if (dataWatcher) { dataWatcher.close(); dataWatcher = null; }
   if (imgWatcher) { imgWatcher.close(); imgWatcher = null; }
+  if (scenesWatcher) { scenesWatcher.close(); scenesWatcher = null; }
   recentApiWrites.clear();
 
   // data/ 폴더 감시 (JSON 파일) - depth 0 = 직접 하위만
@@ -71,6 +73,18 @@ function watch(dataPath: string): void {
   });
   dataWatcher.on('change', (fp) => handleDataChange(fp));
   dataWatcher.on('add', (fp) => handleDataChange(fp));
+
+  // UIScenes/ 서브디렉터리 감시 → 가상 UIEditorScenes.json 이벤트 발생
+  const uiScenesPath = path.join(dataPath, 'UIScenes');
+  scenesWatcher = chokidarWatch(uiScenesPath, {
+    depth: 0,
+    ignoreInitial: true,
+    awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 50 },
+  });
+  const virtualPath = path.join(dataPath, 'UIEditorScenes.json');
+  scenesWatcher.on('change', () => handleDataChange(virtualPath));
+  scenesWatcher.on('add',    () => handleDataChange(virtualPath));
+  scenesWatcher.on('unlink', () => handleDataChange(virtualPath));
 
   // img/ 폴더 감시 (이미지 파일)
   const imgPath = path.join(path.dirname(dataPath), 'img');
@@ -83,14 +97,9 @@ function watch(dataPath: string): void {
 }
 
 async function stop(): Promise<void> {
-  if (dataWatcher) {
-    await dataWatcher.close();
-    dataWatcher = null;
-  }
-  if (imgWatcher) {
-    await imgWatcher.close();
-    imgWatcher = null;
-  }
+  if (dataWatcher) { await dataWatcher.close(); dataWatcher = null; }
+  if (imgWatcher) { await imgWatcher.close(); imgWatcher = null; }
+  if (scenesWatcher) { await scenesWatcher.close(); scenesWatcher = null; }
   recentApiWrites.clear();
 }
 
