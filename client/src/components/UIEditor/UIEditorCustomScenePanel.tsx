@@ -4,7 +4,6 @@ import type { CustomSceneDef, CustomSceneDefV2 } from '../../store/uiEditorTypes
 import { isV2Scene, convertLegacyToV2 } from './UIEditorSceneUtils';
 import { V2ScenePanel } from './UIEditorV2ScenePanel';
 import { LegacyScenePanel } from './UIEditorLegacyPanels';
-import UIEditorTemplatePanel from './UIEditorTemplatePanel';
 
 // Re-export for external consumers
 export { WidgetInspector } from './UIEditorWidgetInspector';
@@ -14,12 +13,6 @@ export default function UIEditorCustomScenePanel({ sceneId }: { sceneId: string 
   const updateSceneRoot = useEditorStore((s) => s.updateSceneRoot);
   const updateNavigation = useEditorStore((s) => s.updateNavigation);
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
-  const selectedTemplateId = useEditorStore((s) => s.selectedTemplateId);
-
-  // 템플릿이 선택되면 템플릿 패널 우선 표시
-  if (selectedTemplateId) {
-    return <UIEditorTemplatePanel />;
-  }
 
   const scene = customScenes.scenes[sceneId] as CustomSceneDefV2 | undefined;
   if (!scene) return <div style={{ padding: 12, color: '#888' }}>씬을 찾을 수 없습니다</div>;

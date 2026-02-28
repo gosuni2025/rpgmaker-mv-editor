@@ -43,7 +43,6 @@ import useAutoSave from './hooks/useAutoSave';
 import useDialogDrag from './hooks/useDialogDrag';
 import i18n from './i18n';
 import UIEditorCanvas from './components/UIEditor/UIEditorCanvas';
-import UIEditorTemplateCanvas from './components/UIEditor/UIEditorTemplateCanvas';
 import UIEditorSidebar from './components/UIEditor/UIEditorSidebar';
 import UIEditorInspector from './components/UIEditor/UIEditorInspector';
 import UIEditorToolbar from './components/UIEditor/UIEditorToolbar';
@@ -61,7 +60,6 @@ export default function App() {
   const editMode = useEditorStore((s) => s.editMode);
   const editorMode = useEditorStore((s) => s.editorMode);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
-  const selectedTemplateId = useEditorStore((s) => s.selectedTemplateId);
   const showDatabaseDialog = useEditorStore((s) => s.showDatabaseDialog);
   const showOpenProjectDialog = useEditorStore((s) => s.showOpenProjectDialog);
   const showNewProjectDialog = useEditorStore((s) => s.showNewProjectDialog);
@@ -223,8 +221,6 @@ export default function App() {
               </>
             ) : uiEditSubMode === 'font' ? (
               <UIEditorFontEditor />
-            ) : selectedTemplateId ? (
-              <UIEditorTemplateCanvas />
             ) : <UIEditorCanvas />}
           </div>
           <div className="inspector-area">

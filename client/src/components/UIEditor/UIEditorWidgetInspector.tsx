@@ -463,8 +463,6 @@ function ButtonWidgetInspector({ sceneId: _sceneId, widget, update }: {
 function ListWidgetInspector({ sceneId: _sceneId, widget, update }: {
   sceneId: string; widget: WidgetDef_List; update: (u: Partial<WidgetDef>) => void;
 }) {
-  const templates = useEditorStore((s) => s.templates);
-  const templateOptions = Object.values(templates.templates);
   const items = widget.items || [];
   const handlers = widget.handlers || {};
 
@@ -494,19 +492,6 @@ function ListWidgetInspector({ sceneId: _sceneId, widget, update }: {
         <span style={{ fontSize: 11, color: '#888', width: 50 }}>열 수</span>
         <input style={{ ...inputStyle, width: 55 }} type="number" value={widget.maxCols || 1}
           onChange={(e) => update({ maxCols: parseInt(e.target.value) || 1 } as any)} />
-      </div>
-      <div style={{ marginBottom: 6, marginTop: 6 }}>
-        <label style={labelStyle}>아이템 템플릿</label>
-        <select
-          value={(widget as any).itemTemplate || ''}
-          onChange={(e) => update({ itemTemplate: e.target.value || undefined } as any)}
-          style={{ ...selectStyle, display: 'block', width: '100%' }}
-        >
-          <option value="">(기본 렌더)</option>
-          {templateOptions.map((t) => (
-            <option key={t.id} value={t.id}>{t.displayName} ({t.id})</option>
-          ))}
-        </select>
       </div>
       <label style={{ ...labelStyle, marginTop: 6 }}>커맨드 목록</label>
       {items.map((item, idx) => (

@@ -42,7 +42,6 @@
   //===========================================================================
   var _scenesData = {};
   var _configData = {};
-  var _templatesData = {};
 
   function loadJSON(url) {
     try {
@@ -92,20 +91,6 @@
 
   _scenesData = loadScenesData();
   _configData = loadJSON('data/UIEditorConfig.json');
-
-  function loadTemplatesData() {
-    var index = loadJSONSafe('data/UITemplates/_index.json');
-    if (index && Array.isArray(index)) {
-      var templates = {};
-      for (var i = 0; i < index.length; i++) {
-        var tpl = loadJSONSafe('data/UITemplates/' + index[i] + '.json');
-        if (tpl && tpl.id) templates[tpl.id] = tpl;
-      }
-      return templates;
-    }
-    return {};
-  }
-  _templatesData = loadTemplatesData();
 
   //===========================================================================
   // 템플릿 resolve 함수
@@ -205,92 +190,6 @@
         return '';
       } catch (e) {}
       return '';
-  }
-
-  //===========================================================================
-  // 템플릿 바인딩 resolve 함수
-  //===========================================================================
-  /** 템플릿 텍스트에서 {$.field} 또는 임의 JS 표현식 치환. $ = rowData */
-  function resolveTemplateBindingText(text, rowData) {
-    if (!text || typeof text !== 'string') return text || '';
-    var result = '';
-    var i = 0;
-    while (i < text.length) {
-      if (text[i] !== '{') { result += text[i++]; continue; }
-      var depth = 1, j = i + 1;
-      while (j < text.length && depth > 0) {
-        if (text[j] === '{') depth++;
-        else if (text[j] === '}') depth--;
-        j++;
-      }
-      if (depth !== 0) { result += text[i++]; continue; }
-      var expr = text.slice(i + 1, j - 1);
-      try {
-        var val = new Function('$', 'return (' + expr + ')')(rowData);
-        result += (val === null || val === undefined) ? '' : String(val);
-      } catch(e) { result += ''; }
-      i = j;
-    }
-    return result;
-  }
-
-  /** bind 문자열 ("iconIndex", "data.hp") を rowData에서 resolve */
-  function resolveFieldBind(bind, rowData) {
-    if (!bind || typeof bind !== 'string') return undefined;
-    var parts = bind.split('.');
-    var val = rowData;
-    for (var i = 0; i < parts.length; i++) {
-      if (val == null) return undefined;
-      val = val[parts[i]];
-    }
-    return val;
-  }
-
-  /**
-   * 템플릿 element를 현재 Window 캔버스에 재귀 렌더
-   * this = Window_CustomCommand 인스턴스
-   */
-  function drawTemplateElement(el, rowRect, rowData) {
-    var children = el.children || [];
-    var iw = Window_Base._iconWidth || 32;
-    var lh = this.lineHeight();
-    for (var i = 0; i < children.length; i++) {
-      var child = children[i];
-      var cx = rowRect.x + (child.x || 0);
-      var cy = rowRect.y + (child.y || 0);
-      var cw = (child.width != null) ? child.width : (rowRect.width - (child.x || 0));
-      switch (child.type) {
-        case 'icon': {
-          var iconIdx = resolveFieldBind(child.bind, rowData);
-          if (iconIdx) this.drawIcon(iconIdx, cx, cy + Math.floor((lh - iw) / 2));
-          break;
-        }
-        case 'label': {
-          var text = resolveTemplateBindingText(child.text || '', rowData);
-          var align = child.align || 'left';
-          if (align === 'right') {
-            this.drawText(text, rowRect.x, cy, rowRect.width - (child.x || 0), 'right');
-          } else {
-            this.drawText(text, cx, cy, cw, align);
-          }
-          break;
-        }
-        case 'gauge': {
-          var bindObj = child.bind || {};
-          var cur = Number(typeof bindObj === 'object' ? resolveFieldBind(bindObj.current, rowData) : 0) || 0;
-          var max = Number(typeof bindObj === 'object' ? resolveFieldBind(bindObj.max, rowData) : 1) || 1;
-          var gw = child.width || 100;
-          var colorIdx = child.color !== undefined ? child.color : 28;
-          this.drawGauge(cx, cy, gw, max > 0 ? cur / max : 0,
-            this.textColor(colorIdx), this.textColor(colorIdx + 1));
-          break;
-        }
-        case 'panel': {
-          drawTemplateElement.call(this, child, rowRect, rowData);
-          break;
-        }
-      }
-    }
   }
 
   //===========================================================================
@@ -440,18 +339,6 @@
   };
 
   Window_CustomCommand.prototype.drawItem = function(index) {
-    // 템플릿 모드
-    var templateId = this._winDef.itemTemplate;
-    if (templateId && _templatesData[templateId]) {
-      var tCmd = this._winDef.commands && this._winDef.commands[index];
-      var tRect = this.itemRectForText(index);
-      this.resetTextColor();
-      this.changePaintOpacity(this.isCommandEnabled(index));
-      if (tCmd && _templatesData[templateId].root) {
-        drawTemplateElement.call(this, _templatesData[templateId].root, tRect, tCmd);
-      }
-      return;
-    }
     var cmd = this._winDef.commands && this._winDef.commands[index];
     var rect = this.itemRectForText(index);
     var rh   = this._winDef.rowHeight || this.lineHeight();
@@ -2144,7 +2031,6 @@
       commands: this._items,
       maxCols: def.maxCols || 1,
       rowHeight: def.rowHeight || 0,
-      itemTemplate: (this._itemSceneId ? null : (def.itemTemplate || null))
     };
     if (def.height) listDef.height = def.height;
     var win = new Window_CustomCommand(this._x, this._y, listDef);
@@ -3583,7 +3469,6 @@
 
   function reloadCustomScenes() {
     _scenesData = loadScenesData();
-    _templatesData = loadTemplatesData();
     _configData = loadJSON('data/UIEditorConfig.json');
     registerCustomScenes();
     // noRedirect URL 파라미터가 있으면 씬 리다이렉트 비활성화

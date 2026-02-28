@@ -5,7 +5,6 @@ import ImagePicker from '../common/ImagePicker';
 import UIEditorNewSceneDialog from './UIEditorNewSceneDialog';
 import UIEditorCustomScenePanel from './UIEditorCustomScenePanel';
 import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
-import UIEditorTemplatePanel from './UIEditorTemplatePanel';
 import './UIEditor.css';
 
 interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; gaugeFile?: string; gaugeBgX?: number; gaugeBgY?: number; gaugeBgW?: number; gaugeBgH?: number; gaugeFillX?: number; gaugeFillY?: number; gaugeFillW?: number; gaugeFillH?: number; gaugeFillDir?: 'horizontal' | 'vertical'; }
@@ -39,16 +38,8 @@ function WindowList() {
   const [showNewSceneDialog, setShowNewSceneDialog] = useState(false);
   const [showScenePicker, setShowScenePicker] = useState(false);
 
-  // 커스텀 씬 & 템플릿 로드
-  useEffect(() => { if (projectPath) { loadCustomScenes(); loadTemplates(); } }, [projectPath]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const templates = useEditorStore((s) => s.templates);
-  const selectedTemplateId = useEditorStore((s) => s.selectedTemplateId);
-  const setSelectedTemplate = useEditorStore((s) => s.setSelectedTemplate);
-  const addTemplate = useEditorStore((s) => s.addTemplate);
-  const removeTemplate = useEditorStore((s) => s.removeTemplate);
-  const loadTemplates = useEditorStore((s) => s.loadTemplates);
-  const saveTemplates = useEditorStore((s) => s.saveTemplates);
+  // 커스텀 씬 로드
+  useEffect(() => { if (projectPath) { loadCustomScenes(); } }, [projectPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sceneRedirects = useEditorStore((s) => s.sceneRedirects);
   const isCustomScene = uiEditorScene.startsWith('Scene_CS_');
@@ -117,9 +108,7 @@ function WindowList() {
         />
       )}
 
-      {selectedTemplateId ? (
-        <UIEditorTemplatePanel />
-      ) : (isCustomScene && customSceneId) || redirectedCustomSceneId ? (
+      {(isCustomScene && customSceneId) || redirectedCustomSceneId ? (
         <UIEditorCustomScenePanel sceneId={customSceneId ?? redirectedCustomSceneId!} />
       ) : (
         <div className="ui-editor-window-list">
@@ -162,52 +151,6 @@ function WindowList() {
           )}
         </div>
       )}
-
-      {/* 템플릿 목록 */}
-      <div className="ui-editor-sidebar-section" style={{ borderBottom: 'none', padding: '6px 8px 4px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label>템플릿</label>
-          <button
-            className="ui-canvas-toolbar-btn"
-            style={{ padding: '1px 6px', fontSize: 12 }}
-            onClick={() => {
-              const newId = 'template_' + Date.now();
-              addTemplate({
-                id: newId,
-                displayName: '새 템플릿',
-                rowHeight: 36,
-                root: { id: 'root', type: 'panel', children: [] },
-              });
-              setSelectedTemplate(newId);
-              saveTemplates();
-            }}
-            title="새 템플릿 만들기"
-          >+</button>
-        </div>
-      </div>
-      <div className="ui-editor-window-list" style={{ flex: 'none', maxHeight: 200 }}>
-        {Object.values(templates.templates).length === 0 ? (
-          <div className="ui-editor-no-windows">템플릿 없음</div>
-        ) : (
-          Object.values(templates.templates).map((tmpl) => (
-            <div
-              key={tmpl.id}
-              className={`ui-editor-window-item${selectedTemplateId === tmpl.id ? ' selected' : ''}`}
-              onClick={() => setSelectedTemplate(selectedTemplateId === tmpl.id ? null : tmpl.id)}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div>{tmpl.displayName}</div>
-                <div className="window-class">{tmpl.id}</div>
-              </div>
-              <button
-                className="ui-skin-delete-btn"
-                onClick={(e) => { e.stopPropagation(); removeTemplate(tmpl.id); }}
-                title="삭제"
-              >×</button>
-            </div>
-          ))
-        )}
-      </div>
 
       {showNewSceneDialog && (
         <UIEditorNewSceneDialog
