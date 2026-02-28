@@ -40,11 +40,13 @@ export default function UIEditorToolbar() {
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
+  const uiNavVisual = useEditorStore((s) => s.uiNavVisual);
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
   const setUiShowSkinLabels = useEditorStore((s) => s.setUiShowSkinLabels);
   const setUiShowCheckerboard = useEditorStore((s) => s.setUiShowCheckerboard);
   const setUiShowRegionOverlay = useEditorStore((s) => s.setUiShowRegionOverlay);
+  const setUiNavVisual = useEditorStore((s) => s.setUiNavVisual);
 
   const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
   const [showHelp, setShowHelp] = useState(false);
@@ -217,6 +219,20 @@ export default function UIEditorToolbar() {
         {/* 창 편집 전용 옵션 */}
         {uiEditSubMode === 'window' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* 커스텀 씬일 때만 네비게이션 시각화 표시 */}
+            {uiEditorScene.startsWith('Scene_CS_') && (
+              <label
+                className="draw-toolbar-checkbox-label"
+                title="위젯 간 방향키 네비게이션 연결선을 시각적으로 표시 (Unity 스타일)"
+              >
+                <input
+                  type="checkbox"
+                  checked={uiNavVisual}
+                  onChange={(e) => setUiNavVisual(e.target.checked)}
+                />
+                🔗 Nav Visual
+              </label>
+            )}
             <label
               className="draw-toolbar-checkbox-label"
               title="선택된 창이 숨겨진 상태여도 강제로 보여줌"

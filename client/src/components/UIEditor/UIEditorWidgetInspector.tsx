@@ -610,15 +610,66 @@ function ListCommonSection({ widget, update }: {
         <HelpButton text={'true (기본): dataScript를 6프레임마다 재실행하여 목록을 갱신합니다.\nfalse: 자동 갱신 비활성화 (수동으로 refresh 호출 시에만 갱신).'} />
       </label>
 
-      {/* focusable */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
-        <input type="checkbox" checked={widget.focusable !== false}
-          onChange={(e) => update({ focusable: e.target.checked ? undefined : false } as any)}
-          style={{ accentColor: '#4af', cursor: 'pointer' }} />
-        포커스 가능 (focusable)
-        <HelpButton text={'false: NavigationManager 포커스 순환에서 제외됩니다.\n표시 전용 리스트에 사용합니다.'} />
-      </label>
     </div>
+  );
+}
+
+// ── FocusableNavigationSection — 모든 위젯 공통 네비게이션 설정 ──────────────
+
+const FOCUSABLE_BY_DEFAULT_TYPES = new Set<WidgetType>(['button', 'list', 'textList', 'rowSelector', 'options']);
+
+const NAV_DIRS = [
+  { key: 'navUp',    label: '↑ 위',    color: '#4af' },
+  { key: 'navDown',  label: '↓ 아래',  color: '#f84' },
+  { key: 'navLeft',  label: '← 왼쪽',  color: '#4f4' },
+  { key: 'navRight', label: '→ 오른쪽', color: '#fa4' },
+] as const;
+
+function FocusableNavigationSection({ widget, update }: {
+  widget: WidgetDef; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const isFocusableByDefault = FOCUSABLE_BY_DEFAULT_TYPES.has(widget.type);
+  const effectiveFocusable = widget.focusable !== undefined ? widget.focusable : isFocusableByDefault;
+  const hasNavTargets = NAV_DIRS.some(d => !!(widget as any)[d.key]);
+
+  return (
+    <details open={effectiveFocusable || hasNavTargets}>
+      <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>
+        네비게이션
+        {hasNavTargets && <span style={{ background: '#2675bf', color: '#fff', fontSize: 9, padding: '1px 5px', borderRadius: 8, marginLeft: 4, verticalAlign: 'middle' }}>설정됨</span>}
+      </summary>
+      <div style={sectionStyle}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+          <input type="checkbox" checked={effectiveFocusable}
+            onChange={(e) => {
+              const newVal = e.target.checked;
+              update({ focusable: newVal === isFocusableByDefault ? undefined : newVal } as any);
+            }}
+            style={{ accentColor: '#4af', cursor: 'pointer' }} />
+          포커스 가능 (Focusable)
+          <HelpButton text={
+            '이 위젯이 키보드 포커스를 받을 수 있는지 여부입니다.\n' +
+            '방향키 네비게이션에 포함됩니다.\n\n' +
+            'button / list / textList / rowSelector / options: 기본 true\n' +
+            '그 외 위젯: 기본 false'
+          } />
+        </label>
+        {effectiveFocusable && (
+          <div style={{ marginTop: 6 }}>
+            <div style={{ fontSize: 10, color: '#666', marginBottom: 4 }}>방향키 시 이동할 위젯 ID (비워두면 기본 동작)</div>
+            {NAV_DIRS.map(({ key, label, color }) => (
+              <div key={key} style={rowStyle}>
+                <span style={{ fontSize: 11, color, width: 58, flexShrink: 0 }}>{label}</span>
+                <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
+                  placeholder="widget-id"
+                  value={(widget as any)[key] || ''}
+                  onChange={(e) => update({ [key]: e.target.value || undefined } as any)} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -1191,6 +1242,9 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
           </div>
         </details>
       )}
+
+      {/* ── 섹션: 네비게이션 ── */}
+      <FocusableNavigationSection widget={widget} update={update} />
 
       {/* ── 섹션: 스크립트 ── */}
       <WidgetScriptsSection widget={widget} update={update} />

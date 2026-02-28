@@ -1148,6 +1148,12 @@
     this._children = [];
     this._parent = parentWidget || null;
     this._displayObject = null;
+    // 방향키 네비게이션 타겟 파싱
+    var nt = def.navUp || def.navDown || def.navLeft || def.navRight;
+    this._navTargets = nt ? {
+      up: def.navUp || null, down: def.navDown || null,
+      left: def.navLeft || null, right: def.navRight || null,
+    } : null;
     // 라이프사이클 스크립트 파싱
     var rawScripts = def.scripts;
     if (rawScripts) {
@@ -1377,10 +1383,15 @@
     return null;
   };
   Widget_Base.prototype.collectFocusable = function(out) {
+    // 명시적으로 focusable=true 설정된 비인터랙티브 위젯 지원
+    if (this._def && this._def.focusable === true) out.push(this);
     for (var i = 0; i < this._children.length; i++) {
       this._children[i].collectFocusable(out);
     }
   };
+  // 기본 activate/deactivate — 인터랙티브 위젯이 override. 비인터랙티브 위젯이 focusable=true일 때 crash 방지
+  Widget_Base.prototype.activate = function() {};
+  Widget_Base.prototype.deactivate = function() {};
   Widget_Base.prototype.destroy = function() {
     if (this._scripts) this._runScript('onDestroy');
     for (var i = 0; i < this._children.length; i++) {
@@ -2702,9 +2713,26 @@
     this._activateAt(prev);
   };
   NavigationManager.prototype.update = function() {
+    if (this._focusables.length === 0) return;
+    var activeWidget = this._activeIndex >= 0 ? this._focusables[this._activeIndex] : null;
+
+    // ── 방향키 명시적 네비게이션 (navUp/navDown/navLeft/navRight) ──
+    if (activeWidget && activeWidget._def) {
+      var def = activeWidget._def;
+      var navTarget = null;
+      if (Input.isTriggered('up')    && def.navUp)    navTarget = def.navUp;
+      else if (Input.isTriggered('down')  && def.navDown)  navTarget = def.navDown;
+      else if (Input.isTriggered('left')  && def.navLeft)  navTarget = def.navLeft;
+      else if (Input.isTriggered('right') && def.navRight) navTarget = def.navRight;
+      if (navTarget) {
+        if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
+        this.focusWidget(navTarget);
+        return;
+      }
+    }
+
     if (this._focusables.length <= 1) return;
     if (this._upDownNavigation) {
-      var activeWidget = this._focusables[this._activeIndex];
       var delegated = activeWidget && typeof activeWidget.handlesUpDown === 'function' && activeWidget.handlesUpDown();
       if (!delegated) {
         if (Input.isRepeated('down')) this.focusNext();

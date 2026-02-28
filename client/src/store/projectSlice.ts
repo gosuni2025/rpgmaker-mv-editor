@@ -130,6 +130,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
         if (typeof tb.uiShowSkinLabels === 'boolean') updates.uiShowSkinLabels = tb.uiShowSkinLabels;
         if (typeof tb.uiShowCheckerboard === 'boolean') updates.uiShowCheckerboard = tb.uiShowCheckerboard;
         if (typeof tb.uiShowRegionOverlay === 'boolean') updates.uiShowRegionOverlay = tb.uiShowRegionOverlay;
+        if (typeof tb.uiNavVisual === 'boolean') updates.uiNavVisual = tb.uiNavVisual;
         set(updates);
       }
     } catch {}

@@ -206,6 +206,16 @@ export interface WidgetDefBase {
   visible?: boolean;
   /** false로 설정하면 preview에서 클릭 선택 불가 (로직 위젯 등) */
   previewSelectable?: boolean;
+  /** 포커스 가능 여부. button/list/textList/rowSelector/options는 기본 true, 나머지는 기본 false */
+  focusable?: boolean;
+  /** 위쪽 방향키 시 이동할 위젯 ID */
+  navUp?: string;
+  /** 아래쪽 방향키 시 이동할 위젯 ID */
+  navDown?: string;
+  /** 왼쪽 방향키 시 이동할 위젯 ID */
+  navLeft?: string;
+  /** 오른쪽 방향키 시 이동할 위젯 ID */
+  navRight?: string;
   children?: WidgetDef[];
   /** 배경 색상 (hex, e.g. '#000000'). Image 위젯은 이미지 없을 때 이 색상으로 채움 (기본 '#ffffff') */
   bgColor?: string;
@@ -335,8 +345,6 @@ export interface WidgetDef_List extends WidgetDefBase {
   itemScene?: string;
   /** false로 설정하면 6프레임 자동 rebuild 비활성화 (기본 true) */
   autoRefresh?: boolean;
-  /** false로 설정하면 NavigationManager 포커스에서 제외 (기본 true) */
-  focusable?: boolean;
 }
 
 export interface WidgetDef_TextList extends WidgetDefBase {
@@ -352,8 +360,6 @@ export interface WidgetDef_TextList extends WidgetDefBase {
   itemScene?: string;
   /** false로 설정하면 6프레임 자동 rebuild 비활성화 (기본 true) */
   autoRefresh?: boolean;
-  /** false로 설정하면 NavigationManager 포커스에서 제외 (기본 true) */
-  focusable?: boolean;
 }
 
 export interface WidgetDef_RowSelector extends WidgetDefBase {

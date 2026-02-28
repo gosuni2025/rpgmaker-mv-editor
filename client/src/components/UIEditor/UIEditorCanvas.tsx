@@ -45,6 +45,7 @@ export default function UIEditorCanvas() {
   const setCustomSceneSelectedWidget = useEditorStore((s) => s.setCustomSceneSelectedWidget);
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+  const uiNavVisual = useEditorStore((s) => s.uiNavVisual);
 
   const [widgetDragState, setWidgetDragState] = useState<WidgetDragState | null>(null);
 
@@ -529,6 +530,56 @@ export default function UIEditorCanvas() {
               );
             })}
           </div>
+
+          {/* Nav Visual: 위젯 간 방향키 네비게이션 연결 화살표 */}
+          {customSceneId && uiNavVisual && (() => {
+            const NAV_COLORS = { navUp: '#4af', navDown: '#f84', navLeft: '#4f4', navRight: '#fa4' } as const;
+            type NavKey = keyof typeof NAV_COLORS;
+            const arrows: React.ReactNode[] = [];
+            widgetById.forEach((w, srcId) => {
+              const srcPos = widgetPositions.get(srcId);
+              if (!srcPos) return;
+              const sx = srcPos.absX + srcPos.width / 2;
+              const sy = srcPos.absY + (srcPos.height ?? 40) / 2;
+              (Object.keys(NAV_COLORS) as NavKey[]).forEach((key) => {
+                const tgtId = (w as any)[key] as string | undefined;
+                if (!tgtId) return;
+                const tgtPos = widgetPositions.get(tgtId);
+                if (!tgtPos) return;
+                const tx = tgtPos.absX + tgtPos.width / 2;
+                const ty = tgtPos.absY + (tgtPos.height ?? 40) / 2;
+                const color = NAV_COLORS[key];
+                const markerId = `nav-arrow-${key}`;
+                const dx = tx - sx, dy = ty - sy;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const margin = 8;
+                const mx = len > 0 ? (dx / len) * margin : 0;
+                const my = len > 0 ? (dy / len) * margin : 0;
+                arrows.push(
+                  <line key={`${srcId}-${key}`}
+                    x1={sx + mx} y1={sy + my}
+                    x2={tx - mx} y2={ty - my}
+                    stroke={color} strokeWidth={1.5} opacity={0.85}
+                    markerEnd={`url(#${markerId})`}
+                  />
+                );
+              });
+            });
+            return (
+              <svg style={{ position: 'absolute', left: 0, top: 0, width: GAME_W, height: GAME_H, pointerEvents: 'none', overflow: 'visible' }}
+                viewBox={`0 0 ${GAME_W} ${GAME_H}`}
+              >
+                <defs>
+                  {(Object.keys(NAV_COLORS) as NavKey[]).map((key) => (
+                    <marker key={key} id={`nav-arrow-${key}`} markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L7,3 z" fill={NAV_COLORS[key]} />
+                    </marker>
+                  ))}
+                </defs>
+                {arrows}
+              </svg>
+            );
+          })()}
         </div>
 
         {!uiEditorIframeReady && (

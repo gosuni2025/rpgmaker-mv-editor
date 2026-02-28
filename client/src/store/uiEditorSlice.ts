@@ -36,14 +36,14 @@ function calcCenterFill(frameX: number, frameY: number, frameW: number, frameH: 
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' | 'uiEditorOriginalWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinGaugeFile' | 'uiSkinGaugeBgX' | 'uiSkinGaugeBgY' | 'uiSkinGaugeBgW' | 'uiSkinGaugeBgH' | 'uiSkinGaugeFillX' | 'uiSkinGaugeFillY' | 'uiSkinGaugeFillW' | 'uiSkinGaugeFillH' | 'uiSkinGaugeFillDir' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinGaugeFile' | 'uiSkinGaugeBgX' | 'uiSkinGaugeBgY' | 'uiSkinGaugeBgW' | 'uiSkinGaugeBgH' | 'uiSkinGaugeFillX' | 'uiSkinGaugeFillY' | 'uiSkinGaugeFillW' | 'uiSkinGaugeFillH' | 'uiSkinGaugeFillDir' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' | 'uiNavVisual' |
   'uiFontSelectedFamily' | 'uiFontDefaultFace' | 'uiFontList' | 'uiFontSceneFonts' |
   'uiEditorSelectedElementType' |
   'customScenes' | 'customSceneDirty' | 'sceneRedirects' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'setUiSkinCursorRenderMode' | 'setUiSkinCursorBlendMode' | 'setUiSkinCursorOpacity' | 'setUiSkinCursorBlink' | 'setUiSkinCursorPadding' | 'setUiSkinCursorTone' | 'setUiSkinGaugeFile' | 'setUiSkinGaugeBg' | 'setUiSkinGaugeFill' | 'setUiSkinGaugeFillDir' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'setUiSkinCursorRenderMode' | 'setUiSkinCursorBlendMode' | 'setUiSkinCursorOpacity' | 'setUiSkinCursorBlink' | 'setUiSkinCursorPadding' | 'setUiSkinCursorTone' | 'setUiSkinGaugeFile' | 'setUiSkinGaugeBg' | 'setUiSkinGaugeFill' | 'setUiSkinGaugeFillDir' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' | 'setUiNavVisual' |
   'setUiFontSelectedFamily' | 'setUiFontDefaultFace' | 'setUiFontList' | 'setUiFontSceneFonts' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride' |
   'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride' |
@@ -104,6 +104,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiShowSkinLabels: false,
   uiShowCheckerboard: false,
   uiShowRegionOverlay: false,
+  uiNavVisual: false,
   uiFontSelectedFamily: 'GameFont',
   uiFontDefaultFace: '',
   uiFontList: [],
@@ -279,6 +280,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiShowSkinLabels: (show) => { saveToolbarKeys({ uiShowSkinLabels: show }); set({ uiShowSkinLabels: show }); },
   setUiShowCheckerboard: (show) => { saveToolbarKeys({ uiShowCheckerboard: show }); set({ uiShowCheckerboard: show }); },
   setUiShowRegionOverlay: (show) => { saveToolbarKeys({ uiShowRegionOverlay: show }); set({ uiShowRegionOverlay: show }); },
+  setUiNavVisual: (show) => { saveToolbarKeys({ uiNavVisual: show }); set({ uiNavVisual: show }); },
   setUiFontSelectedFamily: (family) => set({ uiFontSelectedFamily: family }),
   setUiFontDefaultFace: (face) => set({ uiFontDefaultFace: face }),
   setUiFontList: (list) => set({ uiFontList: list }),
