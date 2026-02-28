@@ -7,6 +7,7 @@ import type {
 } from '../../store/uiEditorTypes';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
+import { WIDGET_TYPE_COLORS, WIDGET_TYPE_LABELS } from './UIEditorWidgetTree';
 import HelpButton from '../common/HelpButton';
 import { ExpressionPickerButton } from './UIEditorExpressionPicker';
 
@@ -569,6 +570,16 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
 
   return (
     <div>
+      {/* 위젯 타입 배지 */}
+      <div style={{ padding: '6px 10px 4px', borderBottom: '1px solid #3a3a3a', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{
+          fontSize: 10, padding: '2px 6px', borderRadius: 3,
+          background: WIDGET_TYPE_COLORS[widget.type] || '#555', color: '#fff', fontWeight: 'bold',
+        }}>
+          {WIDGET_TYPE_LABELS[widget.type] || widget.type.toUpperCase()}
+        </span>
+        <span style={{ fontSize: 11, color: '#888', fontFamily: 'monospace' }}>{widget.id}</span>
+      </div>
       {/* 공통 속성 */}
       <div style={sectionStyle}>
         <label style={labelStyle}>공통 속성</label>

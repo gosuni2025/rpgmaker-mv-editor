@@ -191,7 +191,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options' | 'minimap';
+export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options' | 'minimap' | 'scene';
 
 export interface WidgetDefBase {
   id: string;

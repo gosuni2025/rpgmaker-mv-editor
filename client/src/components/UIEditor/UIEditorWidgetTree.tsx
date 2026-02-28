@@ -9,7 +9,7 @@ const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
   panel: '#4a6fa5', label: '#5a8a5a', textArea: '#3a7a5a', image: '#8a5a8a',
   gauge: '#8a4a3a', separator: '#555',
   button: '#2675bf', list: '#2a7a3a', rowSelector: '#7a3a7a', options: '#7a5a2a',
-  minimap: '#2a6a7a',
+  minimap: '#2a6a7a', scene: '#7a6a2a',
 };
 
 const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
@@ -17,7 +17,7 @@ const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   panel: 'PANEL', label: 'LABEL', textArea: 'TEXT', image: 'IMG',
   gauge: 'GAUGE', separator: 'SEP',
   button: 'BTN', list: 'LIST', rowSelector: 'SELECT', options: 'OPTS',
-  minimap: 'MAP',
+  minimap: 'MAP', scene: 'SCENE',
 };
 
 export { WIDGET_TYPE_COLORS, WIDGET_TYPE_LABELS };
@@ -225,6 +225,7 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
     button: '버튼', list: '리스트', rowSelector: '행 선택',
     options: '옵션(블랙박스)',
     minimap: '미니맵 (Minimap 플러그인 필요)',
+    scene: '씬 (하위 씬 임베드)',
   };
 
   return (
