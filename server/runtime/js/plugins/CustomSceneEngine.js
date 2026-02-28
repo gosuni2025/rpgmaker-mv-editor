@@ -196,9 +196,10 @@
             return result === null || result === undefined ? '' : String(result);
           } catch(e) { return ''; }
         }
-        // 임의 JS 표현식 폴백
+        // 임의 JS 표현식 폴백 — $ctx 주입
         try {
-          var val = new Function('return (' + expr + ')')();
+          var $ctx = (SceneManager._scene && SceneManager._scene._ctx) || {};
+          var val = new Function('$ctx', 'return (' + expr + ')')($ctx);
           return val === null || val === undefined ? '' : String(val);
         } catch (e) {}
         return '';
@@ -789,6 +790,89 @@
   // backward compat alias
   window.Window_CustomActorList = Window_RowSelector;
   window.Window_RowSelector = Window_RowSelector;
+
+  //===========================================================================
+  // Widget_SubScene — 서브씬 인스턴싱 위젯
+  //  sceneId:      UIScenes에 등록된 씬 ID
+  //  instanceCtx:  씬 _ctx에 임시 주입할 키-값 오브젝트
+  //  width/height: 서브씬 루트의 크기 (지정 시 루트 def를 오버라이드)
+  //===========================================================================
+  function Widget_SubScene() {}
+  Widget_SubScene.prototype = Object.create(Widget_Base.prototype);
+  Widget_SubScene.prototype.constructor = Widget_SubScene;
+
+  Widget_SubScene.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._instanceCtx = def.instanceCtx || {};
+    this._sceneId = def.sceneId || '';
+    this._subRoot = null;
+
+    var container = new Sprite();
+    container.x = this._x;
+    container.y = this._y;
+    this._displayObject = container;
+
+    var subSceneDef = _scenesData[this._sceneId];
+    if (!subSceneDef || !subSceneDef.root) return;
+
+    // 루트 def 복제 후 위치/크기 오버라이드
+    var rootDef = JSON.parse(JSON.stringify(subSceneDef.root));
+    rootDef.x = 0;
+    rootDef.y = 0;
+    if (def.width  !== undefined) rootDef.width  = def.width;
+    if (def.height !== undefined) rootDef.height = def.height;
+
+    var self = this;
+    this._withCtx(function() {
+      var scene = SceneManager._scene;
+      if (!scene || !scene._buildWidget) return;
+      var root = scene._buildWidget(rootDef, null);
+      if (!root) return;
+      self._subRoot = root;
+      var dobj = root.displayObject();
+      if (dobj && !(dobj instanceof Window_Base)) {
+        container.addChild(dobj);
+      }
+    });
+  };
+
+  // instanceCtx를 씬 _ctx에 임시 주입 (JS 단일 스레드이므로 동기 실행 시 안전)
+  Widget_SubScene.prototype._withCtx = function(fn) {
+    var scene = SceneManager._scene;
+    if (!scene || !scene._ctx) { fn(); return; }
+    var ctx = scene._ctx;
+    var ic = this._instanceCtx;
+    var saved = {};
+    Object.keys(ic).forEach(function(k) { saved[k] = ctx[k]; ctx[k] = ic[k]; });
+    try { fn(); } finally {
+      Object.keys(saved).forEach(function(k) { ctx[k] = saved[k]; });
+    }
+  };
+
+  Widget_SubScene.prototype.refresh = function() {
+    if (!this._subRoot) return;
+    var self = this;
+    this._withCtx(function() { self._subRoot.refresh(); });
+  };
+
+  Widget_SubScene.prototype.update = function() {
+    if (!this._subRoot) return;
+    var self = this;
+    this._withCtx(function() { self._subRoot.update(); });
+  };
+
+  Widget_SubScene.prototype.findWidget = function(id) {
+    if (this._id === id) return this;
+    if (this._subRoot) return this._subRoot.findWidget(id);
+    return null;
+  };
+
+  Widget_SubScene.prototype.destroy = function() {
+    if (this._subRoot) { this._subRoot.destroy(); this._subRoot = null; }
+    Widget_Base.prototype.destroy.call(this);
+  };
+
+  window.Widget_SubScene = Widget_SubScene;
 
   //===========================================================================
   // Window_CustomOptions — Window_Command 상속, 옵션 설정 창
@@ -1544,6 +1628,7 @@
     var label = '', cur = 0, max = 1;
     var hasValue = false;
     if (this._valueExpr) {
+      var $ctx = (SceneManager._scene && SceneManager._scene._ctx) || {};
       try { cur = Number(eval(this._valueExpr)) || 0; } catch(e) { cur = 0; }
       try { max = Number(eval(this._maxExpr))   || 1; } catch(e) { max = 1; }
       try { label = this._labelExpr ? String(eval(this._labelExpr)) : ''; } catch(e) { label = ''; }
@@ -2408,6 +2493,7 @@
         case 'list':        widget = new Widget_List();        break;
         case 'rowSelector':
         case 'actorList':   widget = new Widget_RowSelector(); break;
+        case 'subScene':    widget = new Widget_SubScene();    break;
         case 'options':     widget = new Widget_Options();     break;
         case 'background':  widget = new Widget_Background();  break;
         case 'shopNumber':  widget = new Widget_ShopNumber();  break;
@@ -2715,8 +2801,14 @@
         if (useAction.isForFriend() && handler.actorWidget) {
           // 아군 대상 → 파티원 선택
           this._ctx._pendingUseItem = useItem;
-          this._pendingPersonalAction = { action: 'applyItemToActor', itemListWidget: ilId };
+          this._pendingPersonalAction = { action: 'applyItemToActor', itemListWidget: ilId, actorPanelsWidget: handler.actorPanelsWidget };
           this._personalOriginWidget = ilWidget;
+          // actorPanelsWidget 표시
+          if (handler.actorPanelsWidget) {
+            this._pendingActorPanelsWidgetId = handler.actorPanelsWidget;
+            var apwShow = this._widgetMap[handler.actorPanelsWidget];
+            if (apwShow && apwShow.displayObject()) apwShow.displayObject().visible = true;
+          }
           var awUI = this._widgetMap[handler.actorWidget];
           if (awUI) {
             awUI.setFormationMode(false);
@@ -2741,6 +2833,13 @@
         this._applyItemTo(pendingItem, targetActor, pendingUser);
         delete this._ctx._pendingUseItem;
         delete this._ctx._pendingUseItemUser;
+        // actorPanelsWidget 숨기기
+        var apwHideId = handler.actorPanelsWidget || this._pendingActorPanelsWidgetId;
+        if (apwHideId) {
+          var apwHide = this._widgetMap[apwHideId];
+          if (apwHide && apwHide.displayObject()) apwHide.displayObject().visible = false;
+          this._pendingActorPanelsWidgetId = null;
+        }
         if (this._rootWidget) this._rootWidget.refresh();
         var retId = handler.itemListWidget;
         if (retId && this._navManager) {
@@ -2863,6 +2962,12 @@
         return;
       }
       win.deselect();
+      // actorPanelsWidget 숨기기
+      if (this._pendingActorPanelsWidgetId) {
+        var apwCancel = this._widgetMap[this._pendingActorPanelsWidgetId];
+        if (apwCancel && apwCancel.displayObject()) apwCancel.displayObject().visible = false;
+        this._pendingActorPanelsWidgetId = null;
+      }
       var originId = this._personalOriginWidget ? this._personalOriginWidget._id : null;
       if (!originId && this._navManager && this._navManager._cancelWidgetId) {
         originId = this._navManager._cancelWidgetId;
