@@ -1,4 +1,4 @@
-import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from './types';
+import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride, TemplatesData, TemplateDef } from './types';
 import type { CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, NavigationConfig, CustomSceneDefV2 } from './uiEditorTypes';
 import { TOOLBAR_STORAGE_KEY } from './types';
 import apiClient from '../api/client';
@@ -39,6 +39,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinGaugeFile' | 'uiSkinGaugeBgX' | 'uiSkinGaugeBgY' | 'uiSkinGaugeBgW' | 'uiSkinGaugeBgH' | 'uiSkinGaugeFillX' | 'uiSkinGaugeFillY' | 'uiSkinGaugeFillW' | 'uiSkinGaugeFillH' | 'uiSkinGaugeFillDir' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiFontSelectedFamily' | 'uiFontDefaultFace' | 'uiFontList' | 'uiFontSceneFonts' |
   'uiEditorSelectedElementType' |
+  'templates' | 'templateDirty' | 'selectedTemplateId' |
+  'loadTemplates' | 'saveTemplates' | 'saveTemplate' | 'addTemplate' | 'removeTemplate' | 'updateTemplate' | 'setSelectedTemplate' |
   'customScenes' | 'customSceneDirty' | 'sceneRedirects' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
@@ -115,6 +117,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   sceneRedirects: {},
   customScenesUndoStack: [],
   customScenesRedoStack: [],
+
+  // Templates
+  templates: { templates: {} },
+  templateDirty: false,
+  selectedTemplateId: null as string | null,
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
   setUiEditorScene: (scene) => { saveToolbarKeys({ uiEditorScene: scene }); set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorOriginalWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }); },
@@ -304,6 +311,67 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       };
     });
   },
+
+  // ── Templates ──────────────────────────────────────────
+  loadTemplates: async () => {
+    try {
+      const data = await apiClient.get<TemplatesData>('/ui-editor/templates');
+      set({ templates: data, templateDirty: false });
+    } catch {
+      // API가 없거나 실패 시 빈 상태 유지
+    }
+  },
+  saveTemplates: async () => {
+    try {
+      await apiClient.put('/ui-editor/templates', get().templates);
+      set({ templateDirty: false });
+    } catch {
+      // ignore
+    }
+  },
+  saveTemplate: async (id: string) => {
+    try {
+      const tmpl = get().templates.templates[id];
+      if (tmpl) {
+        await apiClient.put(`/ui-editor/templates/${id}`, tmpl);
+        set({ templateDirty: false });
+      }
+    } catch {
+      // ignore
+    }
+  },
+  addTemplate: (def: TemplateDef) => {
+    set((state) => ({
+      templates: { templates: { ...state.templates.templates, [def.id]: def } },
+      templateDirty: true,
+    }));
+  },
+  removeTemplate: async (id: string) => {
+    set((state) => {
+      const { [id]: _, ...rest } = state.templates.templates;
+      return {
+        templates: { templates: rest },
+        templateDirty: true,
+        selectedTemplateId: state.selectedTemplateId === id ? null : state.selectedTemplateId,
+      };
+    });
+    try {
+      await apiClient.delete(`/ui-editor/templates/${id}`);
+    } catch {
+      // ignore
+    }
+  },
+  updateTemplate: (id: string, updates: Partial<TemplateDef>) => {
+    set((state) => {
+      const tmpl = state.templates.templates[id];
+      if (!tmpl) return {};
+      return {
+        templates: { templates: { ...state.templates.templates, [id]: { ...tmpl, ...updates } } },
+        templateDirty: true,
+      };
+    });
+  },
+  setSelectedTemplate: (id: string | null) => set({ selectedTemplateId: id }),
 
   // ── Custom Scenes ──────────────────────────────────────
   loadCustomScenes: async () => {

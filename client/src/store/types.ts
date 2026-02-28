@@ -105,6 +105,11 @@ export interface EditorState {
   customScenesUndoStack: CustomScenesData[];
   customScenesRedoStack: CustomScenesData[];
 
+  // Templates
+  templates: TemplatesData;
+  templateDirty: boolean;
+  selectedTemplateId: string | null;
+
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
 
@@ -287,6 +292,15 @@ export interface EditorState {
   setUiFontDefaultFace: (face: string) => void;
   setUiFontList: (list: Array<{ name: string; file: string; family: string }>) => void;
   setUiFontSceneFonts: (sceneFonts: Record<string, string>) => void;
+
+  // Actions - Templates
+  loadTemplates: () => Promise<void>;
+  saveTemplates: () => Promise<void>;
+  saveTemplate: (id: string) => Promise<void>;
+  addTemplate: (def: TemplateDef) => void;
+  removeTemplate: (id: string) => Promise<void>;
+  updateTemplate: (id: string, updates: Partial<TemplateDef>) => void;
+  setSelectedTemplate: (id: string | null) => void;
 
   // Actions - Custom Scenes
   loadCustomScenes: () => Promise<void>;
@@ -495,6 +509,31 @@ export interface EditorState {
   setMaxUndo: (max: number) => void;
   setZoomStep: (step: number) => void;
 }
+
+// ── Template 타입 ─────────────────────────────────────────
+export interface TemplateElementDef {
+  id: string;
+  type: 'panel' | 'icon' | 'label' | 'gauge' | 'image';
+  x?: number;
+  y?: number;
+  width?: number | null;
+  height?: number;
+  bind?: string | Record<string, string>;
+  text?: string;
+  align?: 'left' | 'center' | 'right';
+  size?: number;
+  color?: number;
+  children?: TemplateElementDef[];
+}
+
+export interface TemplateDef {
+  id: string;
+  displayName: string;
+  rowHeight: number;
+  root: TemplateElementDef;
+}
+
+export type TemplatesData = { templates: Record<string, TemplateDef> };
 
 export type SliceCreator<T> = (
   set: (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void,
