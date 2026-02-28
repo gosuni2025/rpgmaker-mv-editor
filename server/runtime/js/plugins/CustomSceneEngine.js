@@ -2905,6 +2905,7 @@
             var apwShow = this._widgetMap[handler.actorPanelsWidget];
             if (apwShow && apwShow.displayObject()) apwShow.displayObject().visible = true;
           }
+          this._pendingActorWidgetId = handler.actorWidget || null;
           var awUI = this._widgetMap[handler.actorWidget];
           if (awUI) {
             awUI.setFormationMode(false);
@@ -2929,6 +2930,13 @@
         this._applyItemTo(pendingItem, targetActor, pendingUser);
         delete this._ctx._pendingUseItem;
         delete this._ctx._pendingUseItemUser;
+        // actorWidget 커서 숨기기
+        var awDoneId = this._pendingActorWidgetId;
+        if (awDoneId) {
+          var awDone = this._widgetMap[awDoneId];
+          if (awDone && awDone.deactivate) awDone.deactivate();
+          this._pendingActorWidgetId = null;
+        }
         // actorPanelsWidget 숨기기 + itemListWidget 복원
         var apwHideId = handler.actorPanelsWidget || this._pendingActorPanelsWidgetId;
         if (apwHideId) {
@@ -3065,6 +3073,12 @@
         return;
       }
       win.deselect();
+      // actorWidget 커서 숨기기
+      if (this._pendingActorWidgetId) {
+        var awCancel = this._widgetMap[this._pendingActorWidgetId];
+        if (awCancel && awCancel.deactivate) awCancel.deactivate();
+        this._pendingActorWidgetId = null;
+      }
       // actorPanelsWidget 숨기기 + itemListWidget 복원
       if (this._pendingActorPanelsWidgetId) {
         var apwCancel = this._widgetMap[this._pendingActorPanelsWidgetId];
