@@ -4,7 +4,6 @@ import { DataListPickerWithZero } from './actionEditorUtils';
 import { useDbNamesWithIcons } from './actionEditorUtils';
 import { useActorData, getLabel } from './actionEditorUtils';
 import { ActorDirectPicker, type EditorProps } from './actorEditorsCommon';
-import { ItemPreview } from '../common/EnemyPreview';
 
 /**
  * 장비 변경 에디터 (코드 319)
@@ -76,8 +75,7 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: EditorProps) {
 
       {showItemPicker && (
         <DataListPickerWithZero items={filteredItems} value={itemId} onChange={setItemId}
-          onClose={() => setShowItemPicker(false)} title="장비 아이템 선택" iconIndices={filteredIcons}
-          renderPreview={(id) => id > 0 ? <ItemPreview id={id} type={isWeapon ? 'weapon' : 'armor'} /> : null} />
+          onClose={() => setShowItemPicker(false)} title="장비 아이템 선택" iconIndices={filteredIcons} />
       )}
     </>
   );
