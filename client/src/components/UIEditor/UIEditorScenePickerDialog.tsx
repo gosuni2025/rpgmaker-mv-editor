@@ -28,6 +28,11 @@ export default function UIEditorScenePickerDialog({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [previewLayout, setPreviewLayout] = useState({ scale: 1, left: 0, top: 0 });
+
+  const GAME_W = 816;
+  const GAME_H = 624;
 
   useEscClose(onClose);
 
@@ -62,6 +67,24 @@ export default function UIEditorScenePickerDialog({
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
+  }, []);
+
+  // 프리뷰 영역 크기에 맞춰 동적 스케일 계산
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const update = () => {
+      const s = Math.min(wrap.clientWidth / GAME_W, wrap.clientHeight / GAME_H);
+      setPreviewLayout({
+        scale: s,
+        left: Math.max(0, (wrap.clientWidth - GAME_W * s) / 2),
+        top: Math.max(0, (wrap.clientHeight - GAME_H * s) / 2),
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    return () => ro.disconnect();
   }, []);
 
   // 포커스 씬 변경 시 iframe 로드
@@ -144,12 +167,17 @@ export default function UIEditorScenePickerDialog({
           {/* ── 오른쪽: 프리뷰 ── */}
           <div className="sp-preview">
             <div className="sp-preview-scene-name">{focused}</div>
-            <div className="sp-preview-wrap">
+            <div className="sp-preview-wrap" ref={wrapRef}>
               <iframe
                 ref={iframeRef}
                 src="/api/ui-editor/preview"
                 className="sp-preview-iframe"
                 title="씬 미리보기"
+                style={{
+                  transform: `scale(${previewLayout.scale})`,
+                  left: previewLayout.left,
+                  top: previewLayout.top,
+                }}
               />
               {!iframeReady && (
                 <div className="sp-preview-loading">로딩 중...</div>
