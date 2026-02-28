@@ -2728,7 +2728,7 @@
       var idx = options != null && options.index != null ? options.index : null;
       if (idx !== null) {
         var len = widgetDef.items.length;
-        widgetDef.items.splice(idx < 0 ? Math.max(0, len + 1 + idx) : idx, 0, item);
+        widgetDef.items.splice(idx < 0 ? Math.max(0, len + idx) : idx, 0, item);
       } else {
         widgetDef.items.push(item);
       }
