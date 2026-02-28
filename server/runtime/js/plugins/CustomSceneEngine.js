@@ -295,7 +295,8 @@
       } else {
         isEnabled = cmd.enabled !== false;
       }
-      this.addCommand(cmd.name, cmd.symbol, isEnabled, cmd.ext !== undefined ? cmd.ext : null);
+      var name = resolveTemplate(cmd.name);
+      this.addCommand(name, cmd.symbol, isEnabled, cmd.ext !== undefined ? cmd.ext : null);
     }
   };
 
