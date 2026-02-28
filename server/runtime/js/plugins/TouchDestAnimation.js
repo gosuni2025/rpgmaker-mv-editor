@@ -791,7 +791,7 @@
 
         // 점멸: 사인파로 min~max alpha 왕복
         _glowFrame++;
-        var t = 0.5 - 0.5 * Math.cos((_glowFrame / eventHoverLineSpeed) * Math.PI);
+        var t = 0.5 + 0.5 * Math.cos((_glowFrame / eventHoverLineSpeed) * Math.PI);
         var alpha = eventHoverLineMinAlpha + (eventHoverLineMaxAlpha - eventHoverLineMinAlpha) * t;
         if (targetSprite._eventGlowChild) {
             targetSprite._eventGlowChild.opacity = Math.round(alpha * 255);
