@@ -99,67 +99,6 @@
 .qs-list-header button:hover:not(:disabled) { background: #555; }
 .qs-list-header button:disabled { opacity: 0.4; cursor: default; }
 
-/* 붙여넣기 드롭다운 */
-.qs-paste-wrap {
-  position: relative;
-}
-
-.qs-paste-toggle {
-  padding: 2px 8px;
-  font-size: 12px;
-  cursor: pointer;
-  background: #3a5a3a;
-  border: 1px solid #5a8a5a;
-  border-radius: 3px;
-  color: #aaddaa;
-}
-
-.qs-paste-toggle:hover {
-  background: #4a6a4a;
-}
-
-.qs-paste-toggle.active {
-  background: #4a6a4a;
-  border-color: #7aba7a;
-}
-
-.qs-paste-dropdown {
-  position: absolute;
-  top: calc(100% + 3px);
-  left: 0;
-  z-index: 200;
-  background: #2b2b2b;
-  border: 1px solid #555;
-  border-radius: 4px;
-  min-width: 130px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  overflow: hidden;
-}
-
-.qs-paste-label {
-  padding: 5px 10px 3px;
-  font-size: 10px;
-  color: #888;
-  border-bottom: 1px solid #444;
-}
-
-.qs-paste-dropdown button {
-  display: block;
-  width: 100%;
-  padding: 6px 10px;
-  text-align: left;
-  font-size: 12px;
-  background: transparent;
-  border: none;
-  color: #ddd;
-  cursor: pointer;
-}
-
-.qs-paste-dropdown button:hover {
-  background: #2675bf;
-  color: #fff;
-}
-
 /* 퀘스트 목록 */
 .qs-quest-list {
   flex: 1;

@@ -643,7 +643,6 @@ export default function QuestsTab({ data, onChange }: QuestsTabProps) {
   const [selectedCat, setSelectedCat] = useState<string>('__all__');
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
   const [showCatManager, setShowCatManager] = useState(false);
-  const [pasteMenuOpen, setPasteMenuOpen] = useState(false);
 
   const setDb = useCallback((newDb: QuestDatabase) => onChange(newDb), [onChange]);
 
@@ -671,40 +670,55 @@ export default function QuestsTab({ data, onChange }: QuestsTabProps) {
     setSelectedQuestId(quests.length > 0 ? quests[quests.length - 1].id : null);
   };
 
-  const handleDuplicateQuest = async () => {
+  const handleDuplicateQuest = () => {
     if (!selectedQuest) return;
     const id = generateQuestId(db.quests);
     const copy: Quest = { ...selectedQuest, id, title: `${selectedQuest.title} (복사)` };
     setDb({ ...db, quests: [...db.quests, copy] });
     setSelectedQuestId(id);
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(selectedQuest, null, 2));
-    } catch { /* 클립보드 미지원 환경 무시 */ }
   };
 
-  const handlePasteFromClipboard = useCallback(async (categoryId: string) => {
-    setPasteMenuOpen(false);
-    try {
-      const text = await navigator.clipboard.readText();
-      const parsed = JSON.parse(text) as Partial<Quest>;
-      if (!parsed || typeof parsed !== 'object' || !parsed.title) return;
-      const id = generateQuestId(db.quests);
-      const newQ: Quest = {
-        id,
-        title: parsed.title,
-        category: categoryId,
-        description: parsed.description || '',
-        difficulty: parsed.difficulty || '',
-        requester: parsed.requester || '',
-        location: parsed.location || '',
-        objectives: parsed.objectives || [],
-        rewards: parsed.rewards || [],
-        note: parsed.note || '',
-      };
-      setDb({ ...db, quests: [...db.quests, newQ] });
-      setSelectedQuestId(id);
-    } catch { /* 클립보드 파싱 실패 무시 */ }
-  }, [db, setDb]);
+  // Cmd+C / Cmd+V 단축키
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+
+      if (e.key === 'c') {
+        if (!selectedQuest) return;
+        e.preventDefault();
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(selectedQuest, null, 2));
+        } catch { /* 무시 */ }
+      } else if (e.key === 'v') {
+        e.preventDefault();
+        try {
+          const text = await navigator.clipboard.readText();
+          const parsed = JSON.parse(text) as Partial<Quest>;
+          if (!parsed?.title) return;
+          const catId = selectedCat === '__all__' ? (db.categories[0]?.id || 'main') : selectedCat;
+          const id = generateQuestId(db.quests);
+          const newQ: Quest = {
+            id,
+            title: parsed.title,
+            category: catId,
+            description: parsed.description || '',
+            difficulty: parsed.difficulty || '',
+            requester: parsed.requester || '',
+            location: parsed.location || '',
+            objectives: parsed.objectives || [],
+            rewards: parsed.rewards || [],
+            note: parsed.note || '',
+          };
+          setDb({ ...db, quests: [...db.quests, newQ] });
+          setSelectedQuestId(id);
+        } catch { /* 무시 */ }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedQuest, selectedCat, db, setDb]);
 
   const handleQuestChange = (q: Quest) => {
     setDb({ ...db, quests: db.quests.map((old) => old.id === q.id ? q : old) });
@@ -757,22 +771,7 @@ export default function QuestsTab({ data, onChange }: QuestsTabProps) {
         {/* 퀘스트 목록 헤더 */}
         <div className="qs-list-header">
           <button onClick={handleAddQuest} title={t('common.add')}>+</button>
-          <button onClick={handleDuplicateQuest} title="복제 + 클립보드 복사" disabled={!selectedQuestId}>⎘</button>
-          <div className="qs-paste-wrap">
-            <button
-              className={`qs-paste-toggle${pasteMenuOpen ? ' active' : ''}`}
-              onClick={() => setPasteMenuOpen(v => !v)}
-              title="클립보드에서 붙여넣기"
-            >붙여넣기</button>
-            {pasteMenuOpen && (
-              <div className="qs-paste-dropdown">
-                <div className="qs-paste-label">카테고리 선택</div>
-                {db.categories.map(c => (
-                  <button key={c.id} onClick={() => handlePasteFromClipboard(c.id)}>{c.name}</button>
-                ))}
-              </div>
-            )}
-          </div>
+          <button onClick={handleDuplicateQuest} title={t('common.duplicate')} disabled={!selectedQuestId}>⎘</button>
           <button onClick={handleDeleteQuest} title={t('common.delete')} disabled={!selectedQuestId} className="qs-btn-danger">−</button>
         </div>
 
