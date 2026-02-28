@@ -2,24 +2,38 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import useEscClose from '../../hooks/useEscClose';
 
+type SceneCategory = 'original' | 'custom' | 'sub' | 'plugin';
+
 interface SceneEntry {
   value: string;
   label: string;
+  category: SceneCategory;
   isCustom: boolean;
+  /** sceneRedirects에서 이 씬을 가리키는 오리지널 씬 이름 */
+  redirectsFrom?: string;
 }
 
 interface Props {
   currentScene: string;
-  availableScenes: { value: string; label: string }[];
+  availableScenes: { value: string; label: string; category?: string }[];
   customScenes: { id: string; displayName: string }[];
+  sceneRedirects?: Record<string, string>;
   onSelect: (scene: string) => void;
   onClose: () => void;
 }
+
+const TAB_DEFS: { id: SceneCategory; label: string }[] = [
+  { id: 'original', label: '오리지널' },
+  { id: 'custom',   label: '커스텀 복제' },
+  { id: 'sub',      label: '서브씬' },
+  { id: 'plugin',   label: '플러그인' },
+];
 
 export default function UIEditorScenePickerDialog({
   currentScene,
   availableScenes,
   customScenes,
+  sceneRedirects,
   onSelect,
   onClose,
 }: Props) {
@@ -36,28 +50,71 @@ export default function UIEditorScenePickerDialog({
 
   useEscClose(onClose);
 
+  // redirectsFrom 역인덱스: 커스텀씬값 → 오리지널씬명
+  const redirectFromMap = useMemo<Record<string, string>>(() => {
+    if (!sceneRedirects) return {};
+    return Object.fromEntries(
+      Object.entries(sceneRedirects).map(([orig, cs]) => [cs, orig])
+    );
+  }, [sceneRedirects]);
+
   const allScenes = useMemo<SceneEntry[]>(() => [
-    ...availableScenes.map((s) => ({ ...s, isCustom: false })),
-    ...customScenes.map((s) => ({
-      value: `Scene_CS_${s.id}`,
-      label: `${s.displayName} (Scene_CS_${s.id})`,
-      isCustom: true,
+    ...availableScenes.map((s) => ({
+      value: s.value,
+      label: s.label,
+      category: (s.category ?? 'original') as SceneCategory,
+      isCustom: false,
     })),
-  ], [availableScenes, customScenes]);
+    ...customScenes.map((s) => {
+      const csKey = `Scene_CS_${s.id}`;
+      return {
+        value: csKey,
+        label: `${s.displayName} (${csKey})`,
+        category: 'custom' as SceneCategory,
+        isCustom: true,
+        redirectsFrom: redirectFromMap[csKey],
+      };
+    }),
+  ], [availableScenes, customScenes, redirectFromMap]);
 
-  const filtered = useMemo<SceneEntry[]>(() => {
-    if (!search.trim()) return allScenes;
+  // 비어있지 않은 탭 목록
+  const activeTabs = useMemo(
+    () => TAB_DEFS.filter((t) => allScenes.some((s) => s.category === t.id)),
+    [allScenes],
+  );
+
+  // 초기 탭: currentScene의 카테고리
+  const initialTab = useMemo<SceneCategory>(() => {
+    if (currentScene.startsWith('Scene_CS_')) return 'custom';
+    const entry = allScenes.find((s) => s.value === currentScene);
+    return (entry?.category as SceneCategory) ?? activeTabs[0]?.id ?? 'original';
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [activeTab, setActiveTab] = useState<SceneCategory>(initialTab);
+
+  // 탭 내 검색 필터
+  const tabScenes = useMemo<SceneEntry[]>(() => {
+    const inTab = allScenes.filter((s) => s.category === activeTab);
+    if (!search.trim()) return inTab;
     const q = search.trim();
-    return allScenes.filter((s) => fuzzyMatch(s.label, q) || fuzzyMatch(s.value, q));
-  }, [allScenes, search]);
+    return inTab.filter((s) => fuzzyMatch(s.label, q) || fuzzyMatch(s.value, q));
+  }, [allScenes, activeTab, search]);
 
-  // 필터 결과가 바뀌면 focused 보정
+  // 탭 전환 시 focused 보정
   useEffect(() => {
-    if (filtered.length === 0) return;
-    if (!filtered.find((s) => s.value === focused)) {
-      setFocused(filtered[0].value);
+    if (tabScenes.length === 0) return;
+    if (!tabScenes.find((s) => s.value === focused)) {
+      setFocused(tabScenes[0].value);
     }
-  }, [filtered]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 검색 결과 변경 시 focused 보정
+  useEffect(() => {
+    if (tabScenes.length === 0) return;
+    if (!tabScenes.find((s) => s.value === focused)) {
+      setFocused(tabScenes[0].value);
+    }
+  }, [tabScenes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // iframe 메시지 수신
   useEffect(() => {
@@ -97,7 +154,7 @@ export default function UIEditorScenePickerDialog({
   }, [iframeReady, focused]);
 
   // 포커스된 항목 스크롤 뷰
-  const focusedIdx = filtered.findIndex((s) => s.value === focused);
+  const focusedIdx = tabScenes.findIndex((s) => s.value === focused);
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
@@ -108,15 +165,17 @@ export default function UIEditorScenePickerDialog({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      const idx = filtered.findIndex((s) => s.value === focused);
+      const idx = tabScenes.findIndex((s) => s.value === focused);
       const next = e.key === 'ArrowDown'
-        ? Math.min(Math.max(idx, 0) + 1, filtered.length - 1)
-        : Math.max(Math.min(idx, filtered.length) - 1, 0);
-      if (filtered[next]) setFocused(filtered[next].value);
+        ? Math.min(Math.max(idx, 0) + 1, tabScenes.length - 1)
+        : Math.max(Math.min(idx, tabScenes.length) - 1, 0);
+      if (tabScenes[next]) setFocused(tabScenes[next].value);
     } else if (e.key === 'Enter') {
       if (focused) { onSelect(focused); onClose(); }
     }
   };
+
+  const showTabs = activeTabs.length >= 2;
 
   return (
     <div className="sp-overlay" onKeyDown={handleKeyDown}>
@@ -127,8 +186,26 @@ export default function UIEditorScenePickerDialog({
         </div>
 
         <div className="sp-body">
-          {/* ── 왼쪽: 검색 + 목록 ── */}
+          {/* ── 왼쪽: 탭 + 검색 + 목록 ── */}
           <div className="sp-left">
+            {showTabs && (
+              <div className="sp-tabs">
+                {activeTabs.map((t) => {
+                  const count = allScenes.filter((s) => s.category === t.id).length;
+                  return (
+                    <button
+                      key={t.id}
+                      className={`sp-tab${activeTab === t.id ? ' active' : ''}`}
+                      onClick={() => { setActiveTab(t.id); setSearch(''); }}
+                    >
+                      {t.label}
+                      <span className="sp-tab-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="sp-search-wrap">
               <input
                 autoFocus
@@ -147,10 +224,10 @@ export default function UIEditorScenePickerDialog({
             </div>
 
             <div className="sp-list" ref={listRef}>
-              {filtered.length === 0 && (
+              {tabScenes.length === 0 && (
                 <div className="sp-empty">결과 없음</div>
               )}
-              {filtered.map((s) => (
+              {tabScenes.map((s) => (
                 <div
                   key={s.value}
                   className={`sp-item${s.value === focused ? ' focused' : ''}${s.value === currentScene ? ' current' : ''}`}
@@ -158,7 +235,11 @@ export default function UIEditorScenePickerDialog({
                   onMouseEnter={() => setFocused(s.value)}
                 >
                   <span className="sp-item-label">{s.label}</span>
-                  {s.isCustom && <span className="sp-badge">커스텀</span>}
+                  {s.redirectsFrom && (
+                    <span className="sp-badge sp-badge-redirect" title={`${s.redirectsFrom} 교체`}>
+                      ↩ {s.redirectsFrom.replace('Scene_', '')}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

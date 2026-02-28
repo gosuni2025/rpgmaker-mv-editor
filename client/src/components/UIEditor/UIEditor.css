@@ -132,6 +132,41 @@
   flex-shrink: 0;
 }
 
+.sp-tabs {
+  display: flex;
+  border-bottom: 1px solid #444;
+  background: #252525;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.sp-tab {
+  padding: 5px 8px;
+  font-size: 11px;
+  color: #888;
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  user-select: none;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.sp-tab:hover { color: #ccc; background: #2e2e2e; }
+.sp-tab.active { color: #ddd; border-bottom-color: #2675bf; }
+
+.sp-tab-count {
+  font-size: 10px;
+  color: #666;
+  background: #333;
+  border-radius: 8px;
+  padding: 0 4px;
+  line-height: 14px;
+}
+.sp-tab.active .sp-tab-count { color: #aaa; background: #3a3a3a; }
+
 .sp-search-wrap {
   position: relative;
   padding: 6px 8px;

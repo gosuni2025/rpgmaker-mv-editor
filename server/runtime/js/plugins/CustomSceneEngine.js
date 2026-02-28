@@ -2895,6 +2895,10 @@
           this._ctx._pendingUseItem = useItem;
           this._pendingPersonalAction = { action: 'applyItemToActor', itemListWidget: ilId, actorPanelsWidget: handler.actorPanelsWidget };
           this._personalOriginWidget = ilWidget;
+          // itemListWidget 숨기기 (아군 대상 선택 중에는 목록 비표시)
+          if (ilWidget.displayObject()) ilWidget.displayObject().visible = false;
+          if (ilWidget._rowOverlay) ilWidget._rowOverlay.visible = false;
+          this._pendingItemListWidgetId = ilId;
           // actorPanelsWidget 표시
           if (handler.actorPanelsWidget) {
             this._pendingActorPanelsWidgetId = handler.actorPanelsWidget;
@@ -2925,12 +2929,19 @@
         this._applyItemTo(pendingItem, targetActor, pendingUser);
         delete this._ctx._pendingUseItem;
         delete this._ctx._pendingUseItemUser;
-        // actorPanelsWidget 숨기기
+        // actorPanelsWidget 숨기기 + itemListWidget 복원
         var apwHideId = handler.actorPanelsWidget || this._pendingActorPanelsWidgetId;
         if (apwHideId) {
           var apwHide = this._widgetMap[apwHideId];
           if (apwHide && apwHide.displayObject()) apwHide.displayObject().visible = false;
           this._pendingActorPanelsWidgetId = null;
+        }
+        var ilRestoreId = handler.itemListWidget || this._pendingItemListWidgetId;
+        if (ilRestoreId) {
+          var ilRestore = this._widgetMap[ilRestoreId];
+          if (ilRestore && ilRestore.displayObject()) ilRestore.displayObject().visible = true;
+          if (ilRestore && ilRestore._rowOverlay) ilRestore._rowOverlay.visible = true;
+          this._pendingItemListWidgetId = null;
         }
         if (this._rootWidget) this._rootWidget.refresh();
         var retId = handler.itemListWidget;
@@ -3054,11 +3065,17 @@
         return;
       }
       win.deselect();
-      // actorPanelsWidget 숨기기
+      // actorPanelsWidget 숨기기 + itemListWidget 복원
       if (this._pendingActorPanelsWidgetId) {
         var apwCancel = this._widgetMap[this._pendingActorPanelsWidgetId];
         if (apwCancel && apwCancel.displayObject()) apwCancel.displayObject().visible = false;
         this._pendingActorPanelsWidgetId = null;
+      }
+      if (this._pendingItemListWidgetId) {
+        var ilCancel = this._widgetMap[this._pendingItemListWidgetId];
+        if (ilCancel && ilCancel.displayObject()) ilCancel.displayObject().visible = true;
+        if (ilCancel && ilCancel._rowOverlay) ilCancel._rowOverlay.visible = true;
+        this._pendingItemListWidgetId = null;
       }
       var originId = this._personalOriginWidget ? this._personalOriginWidget._id : null;
       if (!originId && this._navManager && this._navManager._cancelWidgetId) {
