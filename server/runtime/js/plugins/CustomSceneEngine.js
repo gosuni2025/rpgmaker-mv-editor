@@ -2035,9 +2035,10 @@
     if (def.height) listDef.height = def.height;
     var win = new Window_CustomCommand(this._x, this._y, listDef);
     win._customClassName = 'Widget_CS_' + this._id;
-    // itemScene 모드: 윈도우 배경/프레임 숨김 (커서/스크롤만 활용)
+    // itemScene 모드: 윈도우 배경/프레임 숨김, 텍스트 렌더링 비활성 (커서/스크롤만 활용)
     if (this._itemSceneId) {
       win.setBackgroundType(2);
+      win.drawItem = function() {}; // 스프라이트 오버레이가 그리므로 window 텍스트 렌더링 스킵
     }
     win.deactivate();
     win.deselect(); // Window_Command.initialize가 select(0)을 호출하므로 명시적으로 해제
