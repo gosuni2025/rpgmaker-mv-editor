@@ -1408,6 +1408,7 @@
     this._imageSource    = def.imageSource    || 'file';
     this._actorIndex     = def.actorIndex     || 0;
     this._actorIndexExpr = def.actorIndexExpr || null;
+    this._iconIndexExpr  = def.iconIndexExpr  || null;
     this._bitmapExpr     = def.bitmapExpr     || null;
     this._srcRectExpr = def.srcRectExpr || null;
     this._fitMode     = def.fitMode     || 'stretch';
@@ -1417,7 +1418,7 @@
     sprite.y = this._y;
     if (def.bgAlpha !== undefined) sprite.opacity = Math.round(def.bgAlpha * 255);
     // 하위호환 타입 (actorFace/actorCharacter): 빈 bitmap 미리 할당
-    if (!this._bitmapExpr && this._imageSource !== 'file') {
+    if (!this._bitmapExpr && this._imageSource !== 'file' && this._imageSource !== 'icon') {
       var bmp = new Bitmap(this._width || 144, this._height || 144);
       sprite.bitmap = bmp;
       this._bitmap = bmp;
@@ -1435,6 +1436,7 @@
       switch (this._imageSource) {
         case 'actorFace':      this._refreshActorFace(sprite);      break;
         case 'actorCharacter': this._refreshActorCharacter(sprite); break;
+        case 'icon':           this._refreshIcon(sprite);           break;
         default:               this._refreshFile(sprite);           break;
       }
     }
@@ -1558,14 +1560,46 @@
     });
   };
 
+  // icon 모드: IconSet에서 아이콘 1개를 렌더링
+  Widget_Image.prototype._refreshIcon = function(sprite) {
+    var iconIdx = 0;
+    if (this._iconIndexExpr) {
+      try {
+        var $ctx = (SceneManager._scene && SceneManager._scene._ctx) || {};
+        iconIdx = Number(new Function('$ctx', 'return (' + this._iconIndexExpr + ')')($ctx)) || 0;
+      } catch(e) {}
+    }
+    if (iconIdx === this._lastIconIdx && sprite.bitmap) return;
+    this._lastIconIdx = iconIdx;
+    var iconSet = ImageManager.loadSystem('IconSet');
+    var w = this._width  || 32;
+    var h = this._height || 32;
+    var self = this;
+    iconSet.addLoadListener(function() {
+      var pw = (typeof Window_Base !== 'undefined' && Window_Base._iconWidth)  || 32;
+      var ph = (typeof Window_Base !== 'undefined' && Window_Base._iconHeight) || 32;
+      var cols = Math.floor(iconSet.width / pw);
+      var sx = (iconIdx % cols) * pw;
+      var sy = Math.floor(iconIdx / cols) * ph;
+      if (!self._bitmap || self._bitmap.width !== w || self._bitmap.height !== h) {
+        self._bitmap = new Bitmap(w, h);
+        sprite.bitmap = self._bitmap;
+      }
+      self._bitmap.clear();
+      self._bitmap.blt(iconSet, sx, sy, pw, ph, 0, 0, w, h);
+    });
+  };
+
   Widget_Image.prototype.update = function() {
     if (this._updateCount === undefined) this._updateCount = 0;
     ++this._updateCount;
     var needRefresh = this._bitmapExpr
       ? (this._updateCount % 10 === 0)   // expr 모드: 10프레임마다 체크 (빠른 반응)
-      : (this._actorIndexExpr            // actorIndexExpr: 30프레임마다 (actor 전환 반응)
-          ? (this._updateCount % 30 === 0)
-          : (this._imageSource !== 'file' && this._updateCount % 60 === 0));
+      : (this._iconIndexExpr             // icon 모드: 10프레임마다 (아이콘 변경 반응)
+          ? (this._updateCount % 10 === 0)
+          : (this._actorIndexExpr        // actorIndexExpr: 30프레임마다 (actor 전환 반응)
+              ? (this._updateCount % 30 === 0)
+              : (this._imageSource !== 'file' && this._updateCount % 60 === 0)));
     if (needRefresh) this.refresh();
     Widget_Base.prototype.update.call(this);
   };
@@ -2100,16 +2134,23 @@
     this._autoHeight = def.autoHeight || false;
     this._autoRefresh = (def.autoRefresh !== false); // false로 명시하면 6프레임 자동 rebuild 비활성화
     this._focusable = (def.focusable !== false); // false로 명시하면 NavigationManager 포커스 제외
+    this._itemSceneId = def.itemScene || null;  // itemScene 모드
+    this._rowWidgets = [];  // itemScene 모드 행 Widget_Scene 목록
+    this._rowOverlay = null; // itemScene 모드 오버레이 컨테이너 Sprite
     var listDef = {
       id: def.id, width: def.width,
       commands: this._items,
       maxCols: def.maxCols || 1,
       rowHeight: def.rowHeight || 0,
-      itemTemplate: def.itemTemplate || null
+      itemTemplate: (this._itemSceneId ? null : (def.itemTemplate || null))
     };
     if (def.height) listDef.height = def.height;
     var win = new Window_CustomCommand(this._x, this._y, listDef);
     win._customClassName = 'Widget_CS_' + this._id;
+    // itemScene 모드: 윈도우 배경/프레임 숨김 (커서/스크롤만 활용)
+    if (this._itemSceneId) {
+      win.setBackgroundType(2);
+    }
     win.deactivate();
     win.deselect(); // Window_Command.initialize가 select(0)을 호출하므로 명시적으로 해제
     if (this._autoHeight) {
@@ -2128,8 +2169,11 @@
       win._updateCursor = function() { if (this._windowCursorSprite) this._windowCursorSprite.visible = false; };
       console.log('[CSE] Widget_List focusable=false, updateCursor override, id=' + def.id);
     }
-    this._applyWindowStyle(win, def);
-    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
+    if (!this._itemSceneId) {
+      // itemScene 모드가 아닐 때만 UITheme 윈도우 스타일 적용
+      this._applyWindowStyle(win, def);
+      if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
+    }
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, def.height || 400);
@@ -2145,6 +2189,13 @@
         }
       };
     }
+    // itemScene 모드: 오버레이 Sprite 생성
+    if (this._itemSceneId) {
+      var overlay = new Sprite();
+      overlay.x = this._x + (win._padding || win.standardPadding());
+      overlay.y = this._y + (win._padding || win.standardPadding());
+      this._rowOverlay = overlay;
+    }
   };
   Widget_List.prototype._rebuildFromScript = function() {
     if (!this._dataScript || !this._window) return;
@@ -2156,6 +2207,8 @@
         this._window.height = items.length > 0 ? this._window.fittingHeight(items.length) : 0;
       }
       if (this._window.refresh) this._window.refresh();
+      // itemScene 모드: 행 Sprite 재구성
+      if (this._itemSceneId) this._rebuildRows();
       // 빈 목록이거나 비활성이면 커서 숨김
       if (items.length === 0 || !this._window.active) {
         // deselect() = select(-1) → callUpdateHelp() 발화로 onCursor 코드가 실행되어
@@ -2172,6 +2225,114 @@
       }
     } catch(e) {
       console.error('[Widget_List] dataScript error:', e);
+    }
+  };
+
+  /**
+   * itemScene 모드: 현재 commands를 기반으로 행 Widget_Scene을 재생성.
+   * 각 행 씬의 _ctx에는 rowData(행 객체)의 모든 키를 flat하게 주입한다.
+   */
+  Widget_List.prototype._rebuildRows = function() {
+    if (!this._itemSceneId || !this._rowOverlay) return;
+    var scene = SceneManager._scene;
+    if (!scene || !scene._buildWidget) return;
+    var subSceneDef = (_scenesData.scenes || {})[this._itemSceneId];
+    if (!subSceneDef || !subSceneDef.root) return;
+
+    // 기존 행 위젯 destroy
+    for (var di = 0; di < this._rowWidgets.length; di++) {
+      if (this._rowWidgets[di]) this._rowWidgets[di].destroy();
+    }
+    this._rowWidgets = [];
+    // 오버레이의 기존 자식 제거
+    while (this._rowOverlay.children.length > 0) {
+      this._rowOverlay.removeChildAt(0);
+    }
+
+    var win = this._window;
+    var commands = (win._winDef && win._winDef.commands) || [];
+    var itemW = win.itemWidth ? win.itemWidth() : (this._width - (win._padding || win.standardPadding()) * 2);
+    var itemH = win.itemHeight ? win.itemHeight() : win.lineHeight();
+
+    for (var i = 0; i < commands.length; i++) {
+      var rowData = commands[i] || {};
+      // instanceCtx: rowData의 모든 key를 flat하게 주입 ($ctx.name, $ctx.iconIndex 등으로 접근)
+      var instanceCtx = {};
+      for (var k in rowData) {
+        if (Object.prototype.hasOwnProperty.call(rowData, k)) instanceCtx[k] = rowData[k];
+      }
+
+      // 행 씬 루트 def 복제 후 width/height 동적 설정
+      var rootDef = JSON.parse(JSON.stringify(subSceneDef.root));
+      rootDef.x = 0;
+      rootDef.y = 0;
+      rootDef.width = itemW;
+      rootDef.height = itemH;
+      // fillWidth: true인 자식의 width를 itemW로 설정
+      (function patchFillWidth(node, w) {
+        var children = node.children || [];
+        for (var ci = 0; ci < children.length; ci++) {
+          if (children[ci].fillWidth) children[ci].width = w;
+          patchFillWidth(children[ci], w);
+        }
+      })(rootDef, itemW);
+
+      // Widget_Scene 방식으로 행 위젯 생성
+      var rowWidget = {
+        _subRoot: null,
+        _instanceCtx: instanceCtx,
+        _scene: scene,
+        destroy: function() { if (this._subRoot) { this._subRoot.destroy(); this._subRoot = null; } },
+        _withCtx: function(fn) {
+          var c = this._scene && this._scene._ctx;
+          if (!c) { fn(); return; }
+          var ic = this._instanceCtx;
+          var sv = {};
+          Object.keys(ic).forEach(function(key) { sv[key] = c[key]; c[key] = ic[key]; });
+          try { fn(); } finally { Object.keys(sv).forEach(function(key) { c[key] = sv[key]; }); }
+        }
+      };
+      var rowContainer = new Sprite();
+      rowWidget._container = rowContainer;
+
+      // _ctx에 instanceCtx 주입한 상태로 위젯 빌드
+      rowWidget._withCtx(function() {
+        var built = scene._buildWidget(rootDef, null);
+        if (built) {
+          rowWidget._subRoot = built;
+          var dobj = built.displayObject();
+          if (dobj && !(dobj instanceof Window_Base)) {
+            rowContainer.addChild(dobj);
+          }
+        }
+      });
+
+      // 행 위치: padding은 오버레이 자체가 offset하므로 itemRect 기준 (padding 미포함)
+      var rect = win.itemRect(i);
+      rowContainer.x = rect.x;
+      rowContainer.y = rect.y;
+      // disabled 표시
+      rowContainer.opacity = (rowData.enabled === false) ? 160 : 255;
+
+      this._rowOverlay.addChild(rowContainer);
+      this._rowWidgets.push(rowWidget);
+    }
+  };
+
+  /** itemScene 모드: 스크롤에 따라 행 Sprite y 위치를 갱신 */
+  Widget_List.prototype._updateRowPositions = function() {
+    if (!this._rowWidgets.length || !this._window) return;
+    var win = this._window;
+    var commands = (win._winDef && win._winDef.commands) || [];
+    for (var i = 0; i < this._rowWidgets.length; i++) {
+      var rw = this._rowWidgets[i];
+      if (!rw || !rw._container) continue;
+      var rect = win.itemRect(i);
+      rw._container.x = rect.x;
+      rw._container.y = rect.y;
+      // enabled 상태도 반영
+      var rowData = commands[i] || {};
+      rw._container.opacity = (rowData.enabled === false) ? 160 : 255;
     }
   };
   Widget_List.prototype.collectFocusable = function(out) {
@@ -2208,6 +2369,7 @@
   };
   Widget_List.prototype.refresh = function() {
     if (this._dataScript) this._rebuildFromScript();
+    else if (this._itemSceneId) this._rebuildRows();
     Widget_Base.prototype.refresh.call(this);
   };
   Widget_List.prototype.setHandler = function(symbol, fn) {
@@ -2230,9 +2392,29 @@
         if (this._window) this._window.refresh();
       }
     }
+    // itemScene 모드: 매 프레임 행 위치 갱신 (스크롤 반영)
+    if (this._itemSceneId && this._rowWidgets.length > 0) {
+      this._updateRowPositions();
+      // 행 위젯들의 update 호출 (라벨 텍스트 갱신 등) — rowData ctx 주입 상태에서 실행
+      for (var ri = 0; ri < this._rowWidgets.length; ri++) {
+        (function(rw) {
+          if (!rw || !rw._subRoot) return;
+          rw._withCtx(function() { rw._subRoot.update(); });
+        })(this._rowWidgets[ri]);
+      }
+    }
     Widget_Base.prototype.update.call(this);
   };
   Widget_List.prototype.handlesUpDown = function() { return true; };
+  Widget_List.prototype.destroy = function() {
+    if (this._itemSceneId) {
+      for (var di = 0; di < this._rowWidgets.length; di++) {
+        if (this._rowWidgets[di]) this._rowWidgets[di].destroy();
+      }
+      this._rowWidgets = [];
+    }
+    Widget_Base.prototype.destroy.call(this);
+  };
   window.Widget_List = Widget_List;
 
   //===========================================================================
@@ -2459,6 +2641,16 @@
       var obj = w2.displayObject();
       if (obj && obj instanceof Window_Base) {
         this.addWindow(obj);
+      }
+    }
+
+    // itemScene 모드 Widget_List의 _rowOverlay를 windowLayer 위에 addChild
+    for (var id3 in this._widgetMap) {
+      var w3 = this._widgetMap[id3];
+      if (w3 instanceof Widget_List && w3._rowOverlay) {
+        this.addChild(w3._rowOverlay);
+        // 초기 행 생성 (dataScript가 있으면 _rebuildFromScript에서 처리)
+        if (!w3._dataScript) w3._rebuildRows();
       }
     }
 
