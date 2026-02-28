@@ -10,21 +10,19 @@ import './UIEditor.css';
 interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; gaugeFile?: string; gaugeBgX?: number; gaugeBgY?: number; gaugeBgW?: number; gaugeBgH?: number; gaugeFillX?: number; gaugeFillY?: number; gaugeFillW?: number; gaugeFillH?: number; gaugeFillDir?: 'horizontal' | 'vertical'; }
 
 const AVAILABLE_SCENES = [
-  // 오리지널 메인 씬
-  { value: 'Scene_Title', label: '타이틀 (Scene_Title)', category: 'original' as const },
-  { value: 'Scene_Map', label: '맵 (Scene_Map)', category: 'original' as const },
-  { value: 'Scene_Battle', label: '배틀 (Scene_Battle)', category: 'original' as const },
-  // 서브씬 (메뉴/배틀에서 파생)
-  { value: 'Scene_Menu', label: '메뉴 (Scene_Menu)', category: 'sub' as const },
-  { value: 'Scene_Options', label: '옵션 (Scene_Options)', category: 'sub' as const },
-  { value: 'Scene_Status', label: '스테이터스 (Scene_Status)', category: 'sub' as const },
-  { value: 'Scene_Item', label: '아이템 (Scene_Item)', category: 'sub' as const },
-  { value: 'Scene_Skill', label: '스킬 (Scene_Skill)', category: 'sub' as const },
-  { value: 'Scene_Equip', label: '장비 (Scene_Equip)', category: 'sub' as const },
-  { value: 'Scene_Save', label: '저장 (Scene_Save)', category: 'sub' as const },
-  { value: 'Scene_Load', label: '불러오기 (Scene_Load)', category: 'sub' as const },
-  { value: 'Scene_GameEnd', label: '게임 종료 (Scene_GameEnd)', category: 'sub' as const },
-  { value: 'Scene_Shop', label: '상점 (Scene_Shop)', category: 'sub' as const },
+  { value: 'Scene_Title', label: '타이틀 (Scene_Title)' },
+  { value: 'Scene_Map', label: '맵 (Scene_Map)' },
+  { value: 'Scene_Battle', label: '배틀 (Scene_Battle)' },
+  { value: 'Scene_Menu', label: '메뉴 (Scene_Menu)' },
+  { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
+  { value: 'Scene_Status', label: '스테이터스 (Scene_Status)' },
+  { value: 'Scene_Item', label: '아이템 (Scene_Item)' },
+  { value: 'Scene_Skill', label: '스킬 (Scene_Skill)' },
+  { value: 'Scene_Equip', label: '장비 (Scene_Equip)' },
+  { value: 'Scene_Save', label: '저장 (Scene_Save)' },
+  { value: 'Scene_Load', label: '불러오기 (Scene_Load)' },
+  { value: 'Scene_GameEnd', label: '게임 종료 (Scene_GameEnd)' },
+  { value: 'Scene_Shop', label: '상점 (Scene_Shop)' },
 ];
 
 function WindowList() {

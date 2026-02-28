@@ -162,6 +162,8 @@ export interface PrepareArgDef {
 export interface CustomSceneDef {
   id: string;
   displayName: string;
+  /** 씬 분류: 없으면 커스텀 복제, 'sub'=서브씬(행 렌더링용), 'plugin'=플러그인 씬 */
+  category?: 'sub' | 'plugin';
   prepareArgs: PrepareArgDef[];
   windows: CustomWindowDef[];
   windowLinks: Record<string, { activateDefault?: boolean }>;

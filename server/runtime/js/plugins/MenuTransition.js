@@ -486,9 +486,18 @@
     // ── 배경 비트맵 그리기 ────────────────────────────────────────────────────
 
     function _drawBgBitmap(bitmap, blurT) {
-        if (!_srcCanvas || !bitmap) return;
+        if (!_srcCanvas || !bitmap) {
+            console.log('[MT] _drawBgBitmap SKIP: srcCanvas=', !!_srcCanvas, 'bitmap=', !!bitmap, 'blurT=', blurT);
+            return;
+        }
         var w = bitmap.width, h = bitmap.height;
-        if (w <= 0 || h <= 0) return;
+        if (w <= 0 || h <= 0) {
+            console.log('[MT] _drawBgBitmap SKIP: size=', w, 'x', h);
+            return;
+        }
+        if (!_drawBgBitmap._cnt) _drawBgBitmap._cnt = 0;
+        if (++_drawBgBitmap._cnt <= 5 || _drawBgBitmap._cnt % 30 === 0)
+            console.log('[MT] _drawBgBitmap #' + _drawBgBitmap._cnt + ': blurT=', blurT.toFixed(3), 'bmp=', w+'x'+h, 'src=', _srcCanvas.width+'x'+_srcCanvas.height);
 
         var ctx  = bitmap._context;
         var type = Cfg.transitionEffect || 'blur';
@@ -541,6 +550,7 @@
         _origSnapForBg.call(this);
 
         var cap = _hasPostProcess() ? PostProcess._captureCanvas : null;
+        console.log('[MT] snapForBackground: cap=', cap ? cap.width+'x'+cap.height : 'null', '_phase=', _phase, '_bgBlurDir=', _bgBlurDir);
         if (cap && cap.width > 0) {
             var copy = document.createElement('canvas');
             copy.width  = cap.width;
@@ -558,6 +568,7 @@
                 _srcCanvas = copy2;
             }
         }
+        console.log('[MT] snapForBackground: _srcCanvas=', _srcCanvas ? _srcCanvas.width+'x'+_srcCanvas.height : 'null', '_backgroundBitmap=', SceneManager._backgroundBitmap ? SceneManager._backgroundBitmap.width+'x'+SceneManager._backgroundBitmap.height : 'null');
 
         _clearEffect();
     };
@@ -569,6 +580,8 @@
         var isMenu = typeof sceneClass === 'function' &&
             (sceneClass === Scene_MenuBase || sceneClass.prototype instanceof Scene_MenuBase ||
              _isCustomUIClass(sceneClass));
+
+        if (isMenu) console.log('[MT] push: isMenu=true, _phase=', _phase, 'sceneClass=', sceneClass && sceneClass.name);
 
         if (isMenu && _phase === 0) {
             _phase               = 2;
@@ -686,8 +699,14 @@
             _SCU_update.call(this);
 
             if (!_bgBitmap && this._backgroundSprite && this._backgroundSprite.bitmap) {
+                console.log('[MT] SCU_update: _bgBitmap 초기화. bmp=', this._backgroundSprite.bitmap.width+'x'+this._backgroundSprite.bitmap.height, '_bgBlurDir=', _bgBlurDir, '_srcCanvas=', !!_srcCanvas);
                 _bgBitmap = this._backgroundSprite.bitmap;
                 _drawBgBitmap(_bgBitmap, _bgBlurT);
+            } else if (!_bgBitmap) {
+                if (!this._bgMissingLog) {
+                    this._bgMissingLog = true;
+                    console.log('[MT] SCU_update: _bgBitmap 없음! _backgroundSprite=', !!this._backgroundSprite, 'bitmap=', this._backgroundSprite && !!this._backgroundSprite.bitmap, '_bgBlurDir=', _bgBlurDir);
+                }
             }
 
             if (_bgBlurDir !== 0 && _bgBitmap) {

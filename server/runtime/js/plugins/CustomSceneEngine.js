@@ -2932,10 +2932,17 @@
         delete this._ctx._pendingUseItemUser;
         // actorWidget 커서 숨기기
         var awDoneId = this._pendingActorWidgetId;
+        console.log('[useItem:done] _pendingActorWidgetId=', awDoneId, 'widgetMap keys=', Object.keys(this._widgetMap || {}));
         if (awDoneId) {
           var awDone = this._widgetMap[awDoneId];
-          if (awDone && awDone.deactivate) awDone.deactivate();
+          console.log('[useItem:done] awDone=', awDone, 'has deactivate=', !!(awDone && awDone.deactivate));
+          if (awDone && awDone.deactivate) {
+            awDone.deactivate();
+            console.log('[useItem:done] deactivate() called. win.active=', awDone._window && awDone._window.active, 'win.index()=', awDone._window && awDone._window.index());
+          }
           this._pendingActorWidgetId = null;
+        } else {
+          console.warn('[useItem:done] _pendingActorWidgetId is null — 커서 숨김 스킵됨');
         }
         // actorPanelsWidget 숨기기 + itemListWidget 복원
         var apwHideId = handler.actorPanelsWidget || this._pendingActorPanelsWidgetId;
@@ -3074,10 +3081,17 @@
       }
       win.deselect();
       // actorWidget 커서 숨기기
+      console.log('[useItem:cancel] _pendingActorWidgetId=', this._pendingActorWidgetId);
       if (this._pendingActorWidgetId) {
         var awCancel = this._widgetMap[this._pendingActorWidgetId];
-        if (awCancel && awCancel.deactivate) awCancel.deactivate();
+        console.log('[useItem:cancel] awCancel=', awCancel, 'has deactivate=', !!(awCancel && awCancel.deactivate));
+        if (awCancel && awCancel.deactivate) {
+          awCancel.deactivate();
+          console.log('[useItem:cancel] deactivate() called. win.active=', awCancel._window && awCancel._window.active, 'win.index()=', awCancel._window && awCancel._window.index());
+        }
         this._pendingActorWidgetId = null;
+      } else {
+        console.warn('[useItem:cancel] _pendingActorWidgetId is null — 커서 숨김 스킵됨');
       }
       // actorPanelsWidget 숨기기 + itemListWidget 복원
       if (this._pendingActorPanelsWidgetId) {
