@@ -728,6 +728,16 @@
     }
   };
 
+  // stop(): SceneManager.push (저널/메뉴 등) 시 호출 — terminate()와 달리 맵 복귀 시 start() 재호출됨
+  var _Scene_Map_stop = Scene_Map.prototype.stop;
+  Scene_Map.prototype.stop = function () {
+    _Scene_Map_stop.call(this);
+    if (window.OverlayManager) {
+      console.log('[QS] Scene_Map.stop → hide questTracker');
+      OverlayManager.hide('questTracker');
+    }
+  };
+
   var _Scene_Map_terminate = Scene_Map.prototype.terminate;
   Scene_Map.prototype.terminate = function () {
     _Scene_Map_terminate.call(this);

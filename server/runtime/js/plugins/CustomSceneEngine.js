@@ -1511,7 +1511,10 @@
       console.log('[CSE] Widget_List autoHeight init, id=' + def.id + ', height set to 0');
     }
     if (!this._focusable) {
-      win.updateCursor = function() { this.setCursorRect(0, 0, 0, 0); }; // 커서 완전 숨김
+      // updateCursor: RPG Maker MV 레벨 커서 rect 0으로 설정
+      win.updateCursor = function() { this.setCursorRect(0, 0, 0, 0); };
+      // _updateCursor: rpg_core.js 저수준 — 매 프레임 _windowCursorSprite.visible = isOpen() 강제 설정하므로 반드시 override
+      win._updateCursor = function() { if (this._windowCursorSprite) this._windowCursorSprite.visible = false; };
       console.log('[CSE] Widget_List focusable=false, updateCursor override, id=' + def.id);
     }
     this._applyWindowStyle(win, def);
