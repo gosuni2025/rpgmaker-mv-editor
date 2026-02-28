@@ -435,7 +435,7 @@
                 'menu_v2', 'cmd_main',
                 { name: menuText, symbol: 'enemyBook', enabled: true },
                 { action: 'gotoScene', target: 'Scene_CS_enemy_book' },
-                { insertBefore: 'gameEnd' }
+                { index: -1 }
             );
         }
     }

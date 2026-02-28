@@ -530,7 +530,7 @@
                 'menu_v2', 'cmd_main',
                 { name: menuText, symbol: 'itemBook', enabled: true },
                 { action: 'gotoScene', target: 'Scene_CS_item_book' },
-                { insertBefore: 'gameEnd' }
+                { index: -1 }
             );
         }
     }
