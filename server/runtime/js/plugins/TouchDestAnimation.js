@@ -624,13 +624,14 @@
 
     //=========================================================================
     // 이벤트 글로우 — Sprite_Character에 child 스프라이트를 직접 붙임
-    // (tilemap 오버레이 방식이 아니므로 캐릭터 이미지 자체가 빛나는 것처럼 보임)
+    // 알파 채널 경계 검출(inner line shader)로 캐릭터 실루엣을 따라 빛남
     //=========================================================================
 
     function removeGlowFromSprite(sp) {
         if (sp && sp._eventGlowChild) {
             sp.removeChild(sp._eventGlowChild);
             sp._eventGlowChild = null;
+            sp._glowFrameKey = null;
         }
     }
 
@@ -640,31 +641,99 @@
 
         var glow = new Sprite();
         glow.bitmap = new Bitmap(pw, ph);
-        // Sprite_Character의 local 좌표계:
+        // Sprite_Character local 좌표계:
         //   anchor (0.5, 1) → bottom-center = (0, 0)
-        //   이미지 영역: x = [-pw/2, pw/2], y = [-ph, 0]
+        //   이미지 영역: x=[-pw/2, pw/2], y=[-ph, 0]
         glow.anchor.x = 0;
         glow.anchor.y = 0;
         glow.x = -pw / 2;
         glow.y = -ph;
         sp.addChild(glow);
         sp._eventGlowChild = glow;
-
-        // 내곽선 + shadowBlur 글로우 1회 그리기
-        var ctx = glow.bitmap._context;
-        var lw = eventHoverLineWidth;
-        var half = lw / 2;
-        ctx.save();
-        ctx.shadowColor = eventHoverLineColor;
-        ctx.shadowBlur = Math.max(4, lw * 3);
-        ctx.strokeStyle = eventHoverLineColor;
-        ctx.lineWidth = lw;
-        ctx.strokeRect(half, half, pw - lw, ph - lw);
-        ctx.strokeRect(half, half, pw - lw, ph - lw);
-        ctx.restore();
-        glow.bitmap._setDirty();
-
+        sp._glowFrameKey = null; // 첫 프레임에서 강제 재드로우
         return glow;
+    }
+
+    // 알파 경계 기반 inner line 비트맵 생성
+    // 애니메이션 프레임이 바뀔 때만 실행 (캐시 키: _frame 좌표)
+    function buildInnerLineBitmap(sp) {
+        if (!sp.bitmap || !sp.bitmap.isReady()) return;
+        if (!sp._eventGlowChild) return;
+
+        var frame = sp._frame;
+        if (!frame || !frame.width || !frame.height) return;
+
+        var frameKey = frame.x + ',' + frame.y + ',' + frame.width + ',' + frame.height;
+        if (sp._glowFrameKey === frameKey) return; // 프레임 미변경 → 스킵
+        sp._glowFrameKey = frameKey;
+
+        var pw = Math.ceil(frame.width);
+        var ph = Math.ceil(frame.height);
+
+        // 캐릭터 시트에서 현재 프레임만 임시 캔버스에 추출
+        var tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width  = pw;
+        tmpCanvas.height = ph;
+        var tmpCtx = tmpCanvas.getContext('2d');
+        try {
+            tmpCtx.drawImage(
+                sp.bitmap._canvas,
+                Math.floor(frame.x), Math.floor(frame.y), pw, ph,
+                0, 0, pw, ph
+            );
+        } catch (e) { return; }
+
+        var srcData;
+        try { srcData = tmpCtx.getImageData(0, 0, pw, ph).data; }
+        catch (e) { return; }
+
+        var ATHRESH = 10;
+        // inner edge mask: 불투명 픽셀 중 4-이웃에 투명이 하나라도 있으면 경계
+        var edgeMask = new Uint8Array(pw * ph);
+        for (var y = 0; y < ph; y++) {
+            for (var x = 0; x < pw; x++) {
+                var i4 = (y * pw + x) * 4;
+                if (srcData[i4 + 3] < ATHRESH) continue;
+                var isEdge = (x === 0)    || srcData[i4 - 4 + 3]       < ATHRESH
+                          || (x === pw-1) || srcData[i4 + 4 + 3]       < ATHRESH
+                          || (y === 0)    || srcData[i4 - pw*4 + 3]    < ATHRESH
+                          || (y === ph-1) || srcData[i4 + pw*4 + 3]    < ATHRESH;
+                if (isEdge) edgeMask[y * pw + x] = 1;
+            }
+        }
+
+        // 글로우 child 비트맵 크기 확인 / 재생성
+        var glowBitmap = sp._eventGlowChild.bitmap;
+        if (glowBitmap.width !== pw || glowBitmap.height !== ph) {
+            sp._eventGlowChild.bitmap = new Bitmap(pw, ph);
+            sp._eventGlowChild.x = -pw / 2;
+            sp._eventGlowChild.y = -ph;
+            glowBitmap = sp._eventGlowChild.bitmap;
+        }
+
+        glowBitmap.clear();
+        var ctx = glowBitmap._context;
+        var lw = eventHoverLineWidth;
+
+        ctx.save();
+        ctx.fillStyle   = eventHoverLineColor;
+        ctx.shadowColor = eventHoverLineColor;
+        ctx.shadowBlur  = Math.max(3, lw * 2);
+
+        // 경계 픽셀을 수평 런으로 묶어 fillRect — shadowBlur가 글로우 퍼짐 담당
+        for (var y = 0; y < ph; y++) {
+            var rx = -1;
+            for (var x = 0; x <= pw; x++) {
+                var onEdge = (x < pw) && edgeMask[y * pw + x];
+                if (onEdge && rx < 0) { rx = x; }
+                else if (!onEdge && rx >= 0) {
+                    ctx.fillRect(rx, y, x - rx, 1);
+                    rx = -1;
+                }
+            }
+        }
+        ctx.restore();
+        glowBitmap._setDirty();
     }
 
     Spriteset_Map.prototype.updateEventHoverLine = function() {
@@ -722,6 +791,9 @@
             _currentGlowSprite = targetSprite;
             _glowFrame = 0;
         }
+
+        // 애니메이션 프레임 변화 감지 → inner line 재계산
+        buildInnerLineBitmap(targetSprite);
 
         // 점멸: 사인파로 min~max alpha 왕복
         _glowFrame++;
