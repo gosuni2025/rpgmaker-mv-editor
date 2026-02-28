@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import apiClient from '../../api/client';
+import { js as jsBeautify } from 'js-beautify';
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -191,6 +192,18 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
     };
   }, [activeTab, fileContent, fileLoading]);
 
+  // ─── 포맷 ───
+  const handleFormat = useCallback(() => {
+    const view = inlineViewRef.current;
+    if (!view) return;
+    const code = view.state.doc.toString();
+    if (!code.trim()) return;
+    try {
+      const formatted = jsBeautify(code, { indent_size: 2, brace_style: 'collapse', end_with_newline: false, preserve_newlines: false });
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: formatted } });
+    } catch { /* 포맷 실패 시 무시 */ }
+  }, []);
+
   // ─── 샘플 삽입 ───
   const handleInsertSample = useCallback((code: string) => {
     const view = inlineViewRef.current;
@@ -246,6 +259,14 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
 
         {/* 툴바 */}
         <div className="script-editor-toolbar">
+          <button
+            className="db-btn"
+            onClick={handleFormat}
+            disabled={activeTab !== 'inline'}
+            title="JS 코드를 보기 좋게 자동 포맷"
+          >
+            포맷
+          </button>
           <button
             className="db-btn"
             onClick={() => setShowSampleDialog(true)}
