@@ -4,7 +4,7 @@ import type {
   CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType, ImageSource,
   WidgetDef_Label, WidgetDef_TextArea, WidgetDef_Image, WidgetDef_Gauge,
   WidgetDef_List, WidgetDef_TextList, WidgetDef_RowSelector, WidgetDef_Options, OptionItemDef,
-  WidgetDef_Button, WidgetDef_Scene, ImageRenderMode,
+  WidgetDef_Button, WidgetDef_Scene, ImageRenderMode, WidgetAnimDef, WidgetAnimType,
 } from '../../store/uiEditorTypes';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
@@ -743,6 +743,88 @@ function SceneWidgetInspector({ widget, update }: {
   );
 }
 
+// ── AnimSection — 등장/퇴장 애니메이션 공통 섹션 ─────────────
+
+const ANIM_TYPE_LABELS: Record<WidgetAnimType, string> = {
+  none:       '없음',
+  fade:       '페이드',
+  slideUp:    '위로 슬라이드',
+  slideDown:  '아래로 슬라이드',
+  slideLeft:  '왼쪽으로 슬라이드',
+  slideRight: '오른쪽으로 슬라이드',
+  openness:   'MV 윈도우 (openness)',
+  zoom:       '줌',
+};
+
+export function AnimSection({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: WidgetAnimDef | undefined;
+  onChange: (def: WidgetAnimDef | undefined) => void;
+}) {
+  const type = value?.type ?? 'none';
+  const setType = (t: WidgetAnimType) => {
+    if (t === 'none') { onChange(undefined); return; }
+    onChange({ type: t, duration: value?.duration ?? 15, delay: value?.delay ?? 0 });
+  };
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <span style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 3 }}>{label} 애니메이션</span>
+      <div style={rowStyle}>
+        <select
+          style={{ ...selectStyle, flex: 1 }}
+          value={type}
+          onChange={(e) => setType(e.target.value as WidgetAnimType)}
+        >
+          {(Object.keys(ANIM_TYPE_LABELS) as WidgetAnimType[]).map((t) => (
+            <option key={t} value={t}>{ANIM_TYPE_LABELS[t]}</option>
+          ))}
+        </select>
+      </div>
+      {type !== 'none' && value && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ fontSize: 10, color: '#888' }}>프레임</span>
+            <input
+              style={{ ...inputStyle, width: 46 }}
+              type="number" min={1} max={120}
+              value={value.duration ?? 15}
+              onChange={(e) => onChange({ ...value, duration: Math.max(1, parseInt(e.target.value) || 15) })}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ fontSize: 10, color: '#888' }}>딜레이</span>
+            <input
+              style={{ ...inputStyle, width: 46 }}
+              type="number" min={0} max={120}
+              value={value.delay ?? 0}
+              onChange={(e) => onChange({ ...value, delay: Math.max(0, parseInt(e.target.value) || 0) })}
+            />
+          </div>
+          {(type === 'slideUp' || type === 'slideDown' || type === 'slideLeft' || type === 'slideRight') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ fontSize: 10, color: '#888' }}>오프셋</span>
+              <input
+                style={{ ...inputStyle, width: 46 }}
+                type="number" min={0} max={800}
+                placeholder="자동"
+                value={value.offset ?? ''}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  onChange({ ...value, offset: isNaN(v) ? undefined : Math.max(0, v) });
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── WidgetInspector (main export) ─────────────────────────
 
 const SCENE_W = 816, SCENE_H = 624;
@@ -1147,6 +1229,23 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
           </div>
         </details>
       )}
+
+      {/* ── 섹션: 애니메이션 ── */}
+      <details>
+        <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>애니메이션</summary>
+        <div style={sectionStyle}>
+          <AnimSection
+            label="등장"
+            value={(widget as any).enterAnimation}
+            onChange={(v) => update({ enterAnimation: v } as any)}
+          />
+          <AnimSection
+            label="퇴장"
+            value={(widget as any).exitAnimation}
+            onChange={(v) => update({ exitAnimation: v } as any)}
+          />
+        </div>
+      </details>
     </div>
   );
 }

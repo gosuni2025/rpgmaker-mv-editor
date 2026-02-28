@@ -931,6 +931,142 @@
   window.Window_ButtonRow = Window_ButtonRow;
 
   //===========================================================================
+  //===========================================================================
+  // WidgetAnimator — 위젯 등장/퇴장 애니메이션 공유 모듈
+  //===========================================================================
+  var WidgetAnimator = (function() {
+    var _tasks = []; // [{obj, props, frame, duration, delay, onComplete}, ...]
+
+    function ease(t) { return 1 - (1 - t) * (1 - t); } // easeOut quad
+
+    function applyTask(task, t) {
+      var e = ease(Math.min(t, 1));
+      var obj = task.obj, p = task.props;
+      if (p.x        !== undefined) obj.x        = p.x.from        + (p.x.to        - p.x.from)        * e;
+      if (p.y        !== undefined) obj.y        = p.y.from        + (p.y.to        - p.y.from)        * e;
+      if (p.opacity  !== undefined) obj.opacity  = Math.round(p.opacity.from  + (p.opacity.to  - p.opacity.from)  * e);
+      if (p.scaleY   !== undefined && obj.scale)  obj.scale.y = p.scaleY.from  + (p.scaleY.to  - p.scaleY.from)  * e;
+      if (p.scaleX   !== undefined && obj.scale)  obj.scale.x = p.scaleX.from  + (p.scaleX.to  - p.scaleX.from)  * e;
+      if (p.openness !== undefined && obj.openness !== undefined) {
+        obj.openness = Math.round(p.openness.from + (p.openness.to - p.openness.from) * e);
+      }
+    }
+
+    /** animDef + displayObject + isEnter → props (없으면 null) */
+    function buildProps(animDef, obj, isEnter) {
+      var type = (animDef && animDef.type) || 'none';
+      if (type === 'none') return null;
+      var origX  = obj.x  || 0;
+      var origY  = obj.y  || 0;
+      var origOp = (obj.opacity !== undefined) ? obj.opacity : 255;
+      var w = obj.width  || 0;
+      var h = obj.height || 0;
+      var offset;
+      switch (type) {
+        case 'fade':
+          return { opacity: isEnter ? {from:0, to:origOp} : {from:origOp, to:0} };
+        case 'slideDown':
+          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(h, 40);
+          return {
+            y:       isEnter ? {from: origY - offset, to: origY} : {from: origY, to: origY + offset},
+            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+          };
+        case 'slideUp':
+          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(h, 40);
+          return {
+            y:       isEnter ? {from: origY + offset, to: origY} : {from: origY, to: origY - offset},
+            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+          };
+        case 'slideLeft':
+          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(w, 40);
+          return {
+            x:       isEnter ? {from: origX + offset, to: origX} : {from: origX, to: origX - offset},
+            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+          };
+        case 'slideRight':
+          offset = (animDef.offset !== undefined) ? animDef.offset : Math.max(w, 40);
+          return {
+            x:       isEnter ? {from: origX - offset, to: origX} : {from: origX, to: origX + offset},
+            opacity: isEnter ? {from: 0, to: origOp} : {from: origOp, to: 0},
+          };
+        case 'openness':
+          // Window_Base → openness 직접 사용; Sprite → scaleY + y 중앙 보정
+          if (typeof obj.openness !== 'undefined') {
+            return { openness: isEnter ? {from:0, to:255} : {from:255, to:0} };
+          }
+          return {
+            scaleY:  isEnter ? {from:0, to:1} : {from:1, to:0},
+            y:       isEnter ? {from: origY + h / 2, to: origY} : {from: origY, to: origY + h / 2},
+          };
+        case 'zoom':
+          return {
+            scaleX:  isEnter ? {from:0.5, to:1} : {from:1, to:0.5},
+            scaleY:  isEnter ? {from:0.5, to:1} : {from:1, to:0.5},
+            opacity: isEnter ? {from:0, to:origOp} : {from:origOp, to:0},
+          };
+        default:
+          return null;
+      }
+    }
+
+    return {
+      /**
+       * obj의 displayObject에 애니메이션을 재생합니다.
+       * @param {Object}   obj        - displayObject (Sprite, Window_Base 등)
+       * @param {Object}   animDef    - { type, duration?, delay?, offset? }
+       * @param {boolean}  isEnter    - true: 등장, false: 퇴장
+       * @param {Function} onComplete - 완료 콜백 (선택)
+       */
+      play: function(obj, animDef, isEnter, onComplete) {
+        if (!obj) { if (onComplete) onComplete(); return; }
+        this.clear(obj);
+        var props = buildProps(animDef, obj, isEnter);
+        if (!props) { if (onComplete) onComplete(); return; }
+        var duration = (animDef && animDef.duration !== undefined) ? animDef.duration : 15;
+        if (duration <= 0) {
+          applyTask({obj:obj, props:props}, 1);
+          if (onComplete) onComplete();
+          return;
+        }
+        // 시작값 즉시 적용
+        applyTask({obj:obj, props:props}, 0);
+        _tasks.push({
+          obj: obj, props: props,
+          frame: 0, duration: duration,
+          delay: (animDef && animDef.delay) ? animDef.delay : 0,
+          onComplete: onComplete || null,
+        });
+      },
+      /** 특정 obj의 진행 중인 애니메이션을 취소합니다. */
+      clear: function(obj) {
+        _tasks = _tasks.filter(function(t) { return t.obj !== obj; });
+      },
+      /** obj가 현재 애니메이션 중인지 반환합니다. */
+      isActive: function(obj) {
+        return _tasks.some(function(t) { return t.obj === obj; });
+      },
+      /** 매 프레임 호출 — 진행 중인 모든 애니메이션을 업데이트합니다. */
+      update: function() {
+        if (!_tasks.length) return;
+        var done = [];
+        for (var i = 0; i < _tasks.length; i++) {
+          var task = _tasks[i];
+          if (task.delay > 0) { task.delay--; continue; }
+          task.frame++;
+          applyTask(task, task.frame / task.duration);
+          if (task.frame >= task.duration) done.push(i);
+        }
+        for (var j = done.length - 1; j >= 0; j--) {
+          var cb = _tasks[done[j]].onComplete;
+          _tasks.splice(done[j], 1);
+          if (cb) cb();
+        }
+      },
+    };
+  })();
+  window.WidgetAnimator = WidgetAnimator;
+
+  //===========================================================================
   // Widget_Base — 위젯 트리 기본 클래스
   //===========================================================================
   function Widget_Base() {}
@@ -1045,6 +1181,38 @@
     sprite.bitmap = bmp;
     this._decoSprite = sprite;
   };
+  /**
+   * 등장 애니메이션을 재생합니다.
+   * @param {Object} [fallbackDef] - 위젯 def에 enterAnimation이 없을 때 사용할 animDef
+   */
+  Widget_Base.prototype.playEnterAnim = function(fallbackDef) {
+    var animDef = (this._def && this._def.enterAnimation !== undefined)
+      ? this._def.enterAnimation : fallbackDef;
+    if (!animDef || animDef.type === 'none') return;
+    var obj = this.displayObject();
+    if (!obj) return;
+    WidgetAnimator.play(obj, animDef, true, null);
+  };
+
+  /**
+   * 퇴장 애니메이션을 재생합니다.
+   * @param {Object}   [fallbackDef] - 위젯 def에 exitAnimation이 없을 때 사용할 animDef
+   * @param {Function} [onComplete]  - 애니메이션 완료 콜백
+   * @returns {boolean} 애니메이션이 시작되었으면 true (false면 즉시 완료)
+   */
+  Widget_Base.prototype.playExitAnim = function(fallbackDef, onComplete) {
+    var animDef = (this._def && this._def.exitAnimation !== undefined)
+      ? this._def.exitAnimation : fallbackDef;
+    if (!animDef || animDef.type === 'none') {
+      if (onComplete) onComplete();
+      return false;
+    }
+    var obj = this.displayObject();
+    if (!obj) { if (onComplete) onComplete(); return false; }
+    WidgetAnimator.play(obj, animDef, false, onComplete);
+    return true;
+  };
+
   Widget_Base.prototype.update = function() {
     for (var i = 0; i < this._children.length; i++) {
       this._children[i].update();
@@ -3050,6 +3218,49 @@
   // backward compat
   Scene_CustomUI.prototype._onActorListOk = Scene_CustomUI.prototype._onRowSelectorOk;
 
+  /**
+   * 퇴장 애니메이션이 있는 위젯들의 애니메이션을 모두 완료한 후 씬을 전환합니다.
+   * enterAnimation 없이 exitAnimation만 있어도 동작합니다.
+   */
+  Scene_CustomUI.prototype.popScene = function() {
+    if (this._exitAnimating) return; // 이미 진행 중
+
+    var self = this;
+    var sceneDef = this._getSceneDef();
+    var sceneExitAnim = sceneDef && sceneDef.exitAnimation;
+    var widgetMap = this._widgetMap || {};
+    var ids = Object.keys(widgetMap);
+
+    // exitAnimation이 있는 위젯 수집 (위젯 개별 설정 우선, 없으면 씬 레벨 fallback)
+    var animTargets = [];
+    for (var i = 0; i < ids.length; i++) {
+      var w = widgetMap[ids[i]];
+      var def = (w._def && w._def.exitAnimation !== undefined) ? w._def.exitAnimation : sceneExitAnim;
+      if (def && def.type !== 'none') {
+        var obj = w.displayObject();
+        if (obj) animTargets.push({ obj: obj, animDef: def });
+      }
+    }
+
+    if (animTargets.length === 0) {
+      Scene_Base.prototype.popScene.call(this);
+      return;
+    }
+
+    this._exitAnimating = true;
+    var remaining = animTargets.length;
+    function onOne() {
+      remaining--;
+      if (remaining <= 0) {
+        self._exitAnimating = false;
+        Scene_Base.prototype.popScene.call(self);
+      }
+    }
+    for (var j = 0; j < animTargets.length; j++) {
+      WidgetAnimator.play(animTargets[j].obj, animTargets[j].animDef, false, onOne);
+    }
+  };
+
   Scene_CustomUI.prototype.terminate = function() {
     Scene_Base.prototype.terminate.call(this);
     var sceneDef = this._getSceneDef();
@@ -3120,6 +3331,13 @@
     var sceneDef = this._getSceneDef();
     if (!sceneDef) return;
 
+    // 등장 애니메이션 — 씬 레벨 fallback으로 widgetMap 전체 위젯에 적용
+    var sceneEnterAnim = sceneDef.enterAnimation || null;
+    var widgetMap = this._widgetMap || {};
+    for (var wid in widgetMap) {
+      widgetMap[wid].playEnterAnim(sceneEnterAnim);
+    }
+
     // 위젯 트리 경로
     if (this._navManager) {
       this._navManager.start();
@@ -3138,6 +3356,7 @@
 
   Scene_CustomUI.prototype.update = function() {
     Scene_Base.prototype.update.call(this);
+    WidgetAnimator.update();
     if (this._navManager) this._navManager.update();
     if (this._rootWidget) this._rootWidget.update();
     // 씬 레벨 keyHandlers: pageup/pagedown/cancel 등 임의 키 처리
