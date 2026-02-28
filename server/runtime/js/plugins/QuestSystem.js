@@ -736,15 +736,35 @@
     }
   };
 
-  // OverlayManager.update 오버라이드 — Scene_Map이 아닐 때 트래커 자동 숨김
-  // stop()/terminate() 타이밍 의존 없이 현재 씬 기반으로 매 프레임 판별
+  // OverlayManager.show/hide 훅 — 다른 오버레이(메뉴 등) 등장 시 트래커 숨김
+  // OverlayManager.update 오버라이드 대신 show/hide 훅 사용
+  // → SceneManager._scene instanceof Scene_Map 체크는 오버레이 기반 메뉴에서 무효
   if (showTracker && window.OverlayManager) {
-    var _OM_update = OverlayManager.update;
-    OverlayManager.update = function () {
-      _OM_update.call(this);
-      var inst = this._instances['questTracker'];
-      if (inst && inst.scene.visible && !(SceneManager._scene instanceof Scene_Map)) {
-        inst.scene.visible = false;
+    var _OM_show_qs = OverlayManager.show;
+    OverlayManager.show = function (sceneId, args) {
+      _OM_show_qs.call(this, sceneId, args);
+      // 다른 오버레이가 열리면 트래커 숨김
+      if (sceneId !== 'questTracker') {
+        var trackerInst = this._instances['questTracker'];
+        if (trackerInst) trackerInst.scene.visible = false;
+      }
+    };
+    var _OM_hide_qs = OverlayManager.hide;
+    OverlayManager.hide = function (sceneId) {
+      _OM_hide_qs.call(this, sceneId);
+      // 다른 오버레이가 닫힐 때: 다른 visible 오버레이 없고 Scene_Map이면 트래커 재표시
+      if (sceneId !== 'questTracker') {
+        var anyOtherVisible = false;
+        for (var id in this._instances) {
+          if (id !== 'questTracker' && this._instances[id].scene.visible) {
+            anyOtherVisible = true;
+            break;
+          }
+        }
+        if (!anyOtherVisible && SceneManager._scene instanceof Scene_Map) {
+          var trackerInst = this._instances['questTracker'];
+          if (trackerInst) trackerInst.scene.visible = true;
+        }
       }
     };
   }
