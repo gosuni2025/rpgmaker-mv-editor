@@ -31,6 +31,7 @@ export default function UIEditorCanvas() {
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
   const loadUiEditorOverrides = useEditorStore((s) => s.loadUiEditorOverrides);
+  const sceneRedirects = useEditorStore((s) => s.sceneRedirects);
   const setSceneRedirects = useEditorStore((s) => s.setSceneRedirects);
   const setUiEditorSelectedElementType = useEditorStore((s) => s.setUiEditorSelectedElementType);
   const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
@@ -155,11 +156,10 @@ export default function UIEditorCanvas() {
     return () => window.removeEventListener('message', handler);
   }, [setUiEditorIframeReady, setUiEditorWindows, setUiEditorSelectedWindowId]);
 
-  // iframe ready 후 씬 로드
+  // iframe ready 후 씬 로드 (sceneRedirects 포함 — API 로드 후 redirect 후킹이 올바르게 복원되도록)
   useEffect(() => {
     if (!uiEditorIframeReady) return;
-    const redirects = useEditorStore.getState().sceneRedirects;
-    const currentRedirect = redirects[uiEditorScene];
+    const currentRedirect = sceneRedirects[uiEditorScene];
     const hasCustomRedirect = currentRedirect?.startsWith('Scene_CS_');
     // 커스텀 씬이거나, 현재 씬이 커스텀 씬으로 리다이렉트된 경우 reloadCustomScenes 먼저 전송
     if (uiEditorScene.startsWith('Scene_CS_') || hasCustomRedirect) {
@@ -169,13 +169,13 @@ export default function UIEditorCanvas() {
     // 현재 씬의 리다이렉트가 커스텀 씬이면 포함 (커스텀 씬으로 교체된 씬은 커스텀 씬을 프리뷰)
     // 원본 씬 편집 중이거나 비커스텀 리다이렉트인 경우 현재 씬 리다이렉트 제외
     const previewRedirects = hasCustomRedirect
-      ? redirects
-      : Object.fromEntries(Object.entries(redirects).filter(([k]) => k !== uiEditorScene));
+      ? sceneRedirects
+      : Object.fromEntries(Object.entries(sceneRedirects).filter(([k]) => k !== uiEditorScene));
     iframeRef.current?.contentWindow?.postMessage({ type: 'updateSceneRedirects', redirects: previewRedirects }, '*');
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'loadScene', sceneName: uiEditorScene }, '*'
     );
-  }, [uiEditorIframeReady, uiEditorScene]);
+  }, [uiEditorIframeReady, uiEditorScene, sceneRedirects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 스킨 데이터 변경(기본 스킨 변경 등) 시 씬 재로드
   const isFirstRender = useRef(true);
