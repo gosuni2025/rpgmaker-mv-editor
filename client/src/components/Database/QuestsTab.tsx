@@ -8,6 +8,7 @@ import { selectStyleFull, selectStyle } from '../../styles/editorStyles';
 import { DataListPicker } from '../EventEditor/dataListPicker';
 import { EnemyPreview } from '../common/EnemyPreview';
 import { ItemPreview } from '../common/ItemPreview';
+import { ItemPickerButton, EnemyPickerButton } from '../common/DbPickerButton';
 import apiClient from '../../api/client';
 import './QuestsTab.css';
 
@@ -132,7 +133,10 @@ function ObjectiveConfigEditor({ type, config, onChange, refData }: ObjectiveCon
   if (type === 'kill') {
     return (
       <div className="qs-cfg-row">
-        {numInput('적 ID', 'enemyId', 1, () => setPickerOpen('enemy'))}
+        <label className="qs-cfg-field">
+          적
+          <EnemyPickerButton id={config.enemyId ?? 1} onClick={() => setPickerOpen('enemy')} />
+        </label>
         {numInput('마리 수', 'count', 1)}
         {pickerOpen === 'enemy' && refData.enemyNames.length > 0 && (
           <DataListPicker
@@ -162,7 +166,10 @@ function ObjectiveConfigEditor({ type, config, onChange, refData }: ObjectiveCon
             <option value="armor">방어구</option>
           </select>
         </label>
-        {numInput('아이템 ID', 'itemId', 1, () => setPickerOpen('item'))}
+        <label className="qs-cfg-field">
+          아이템
+          <ItemPickerButton id={config.itemId ?? 1} type={collectItemType as 'item' | 'weapon' | 'armor'} onClick={() => setPickerOpen('item')} />
+        </label>
         {numInput('개수', 'count', 1)}
         {pickerOpen === 'item' && collectNames.length > 0 && (
           <DataListPicker
@@ -352,21 +359,12 @@ function RewardRow({ reward, onChange, onDelete, refData }: RewardRowProps) {
       )}
       {showItem && (
         <>
-          <div className="qs-input-row">
-            <input
-              type="number"
-              value={reward.itemId ?? 1}
-              min={1}
-              onChange={(e) => set('itemId', Number(e.target.value))}
-              placeholder="ID"
-              style={{ width: 60 }}
-            />
-            <button
-              className="qs-picker-btn"
-              onClick={() => setPickerOpen(true)}
-              title="목록에서 선택"
-            >...</button>
-          </div>
+          <ItemPickerButton
+            id={reward.itemId ?? 1}
+            type={reward.type as 'item' | 'weapon' | 'armor'}
+            onClick={() => setPickerOpen(true)}
+            style={{ flex: 1 }}
+          />
           <input
             type="number"
             value={reward.count ?? 1}

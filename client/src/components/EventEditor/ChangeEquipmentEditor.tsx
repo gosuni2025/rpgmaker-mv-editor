@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { selectStyle } from './messageEditors';
 import { DataListPickerWithZero } from './actionEditorUtils';
 import { useDbNamesWithIcons } from './actionEditorUtils';
-import { useActorData, getLabel } from './actionEditorUtils';
+import { useActorData } from './actionEditorUtils';
 import { ActorDirectPicker, type EditorProps } from './actorEditorsCommon';
 import { ItemPreview } from '../common/ItemPreview';
+import { ItemPickerButton } from '../common/DbPickerButton';
 
 /**
  * 장비 변경 에디터 (코드 319)
@@ -41,10 +42,6 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: EditorProps) {
 
   const filteredIcons = isWeapon ? weaponIcons : armorIcons;
 
-  const itemLabel = itemId === 0
-    ? '없음'
-    : getLabel(itemId, isWeapon ? weapons : armors);
-
   const handleEtypeChange = (newEtype: number) => {
     setEtypeId(newEtype);
     setItemId(0);
@@ -65,8 +62,7 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: EditorProps) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>장비 아이템:</span>
-        <button className="db-btn" onClick={() => setShowItemPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{itemLabel}</button>
+        <ItemPickerButton id={itemId} type={isWeapon ? 'weapon' : 'armor'} onClick={() => setShowItemPicker(true)} />
       </div>
 
       <div className="image-picker-footer">

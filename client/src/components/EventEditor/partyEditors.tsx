@@ -4,6 +4,7 @@ import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker, type CharacterInfo } from './dataListPicker';
 import { useDbNamesWithIcons, useActorData, getLabel } from './actionEditorUtils';
 import { ItemPreview, type ItemPreviewType } from '../common/ItemPreview';
+import { ItemPickerButton } from '../common/DbPickerButton';
 
 export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [operation, setOperation] = useState<number>((p[0] as number) || 0);
@@ -77,17 +78,12 @@ export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }:
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
   const radioName = `change-${label.toLowerCase()}`;
 
-  const itemLabel = itemId > 0 && dbNames[itemId]
-    ? `${String(itemId).padStart(4, '0')} ${dbNames[itemId]}`
-    : `${String(itemId).padStart(4, '0')}`;
-
   return (
     <>
       {/* 아이템 선택 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>{fieldLabel}</span>
-        <button className="db-btn" onClick={() => setShowPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{itemLabel}</button>
+        <ItemPickerButton id={itemId} type={previewType as 'item' | 'weapon' | 'armor'} onClick={() => setShowPicker(true)} />
       </div>
 
       {/* 조작 */}

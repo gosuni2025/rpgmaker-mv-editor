@@ -1,10 +1,11 @@
 import React from 'react';
 import { selectStyle } from './messageEditors';
 import { DataListPicker } from './dataListPicker';
-import { radioStyle, rowStyle, disabledOpacity, getLabel, useDbNamesWithIcons } from './condBranchHelpers';
+import { radioStyle, rowStyle, disabledOpacity, useDbNamesWithIcons } from './condBranchHelpers';
 import { ScriptSampleDialog } from './ScriptSampleDialog';
 import { COND_BRANCH_SAMPLES } from './scriptSamples';
 import { ItemPreview } from '../common/ItemPreview';
+import { ItemPickerButton } from '../common/DbPickerButton';
 
 interface Props {
   condType: number;
@@ -62,11 +63,7 @@ export function CondBranchTab4({
             <input type="radio" name="cb-type4" checked={condType === 8} onChange={() => onCondTypeChange(8)} />
             아이템
           </label>
-          <input type="text" readOnly value={getLabel(itemId, items)}
-            style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(condType === 8) }}
-            onClick={() => condType === 8 && setShowPicker('item')} />
-          <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(condType === 8) }}
-            disabled={condType !== 8} onClick={() => setShowPicker('item')}>...</button>
+          <ItemPickerButton id={itemId} type="item" onClick={() => setShowPicker('item')} disabled={condType !== 8} />
         </div>
 
         {/* 무기 */}
@@ -76,11 +73,7 @@ export function CondBranchTab4({
               <input type="radio" name="cb-type4" checked={condType === 9} onChange={() => onCondTypeChange(9)} />
               무기
             </label>
-            <input type="text" readOnly value={getLabel(weaponId, weapons)}
-              style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(condType === 9) }}
-              onClick={() => condType === 9 && setShowPicker('weapon')} />
-            <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(condType === 9) }}
-              disabled={condType !== 9} onClick={() => setShowPicker('weapon')}>...</button>
+            <ItemPickerButton id={weaponId} type="weapon" onClick={() => setShowPicker('weapon')} disabled={condType !== 9} />
           </div>
           {condType === 9 && (
             <label className="db-checkbox-label" style={{ ...radioStyle, marginLeft: 40 }}>
@@ -97,11 +90,7 @@ export function CondBranchTab4({
               <input type="radio" name="cb-type4" checked={condType === 10} onChange={() => onCondTypeChange(10)} />
               방어구
             </label>
-            <input type="text" readOnly value={getLabel(armorId, armors)}
-              style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(condType === 10) }}
-              onClick={() => condType === 10 && setShowPicker('armor')} />
-            <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(condType === 10) }}
-              disabled={condType !== 10} onClick={() => setShowPicker('armor')}>...</button>
+            <ItemPickerButton id={armorId} type="armor" onClick={() => setShowPicker('armor')} disabled={condType !== 10} />
           </div>
           {condType === 10 && (
             <label className="db-checkbox-label" style={{ ...radioStyle, marginLeft: 40 }}>
