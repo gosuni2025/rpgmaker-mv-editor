@@ -522,6 +522,18 @@
         bitmap._setDirty();
     }
 
+    // ── 커스텀 씬 감지 헬퍼 ──────────────────────────────────────────────────
+
+    function _isCustomUIClass(sceneClass) {
+        return typeof Scene_CustomUI !== 'undefined' &&
+            typeof sceneClass === 'function' &&
+            (sceneClass === Scene_CustomUI || sceneClass.prototype instanceof Scene_CustomUI);
+    }
+
+    function _isCustomUIInstance(scene) {
+        return typeof Scene_CustomUI !== 'undefined' && scene instanceof Scene_CustomUI;
+    }
+
     // ── SceneManager.snapForBackground ────────────────────────────────────────
 
     var _origSnapForBg = SceneManager.snapForBackground;
@@ -535,6 +547,16 @@
             copy.height = cap.height;
             copy.getContext('2d').drawImage(cap, 0, 0);
             _srcCanvas = copy;
+        } else if (!cap) {
+            // PostProcess 없는 경우 폴백: SceneManager._backgroundBitmap 캔버스 사용
+            var bgBmp = SceneManager._backgroundBitmap;
+            if (bgBmp && bgBmp._canvas && bgBmp.width > 0) {
+                var copy2 = document.createElement('canvas');
+                copy2.width  = bgBmp.width;
+                copy2.height = bgBmp.height;
+                copy2.getContext('2d').drawImage(bgBmp._canvas, 0, 0);
+                _srcCanvas = copy2;
+            }
         }
 
         _clearEffect();
@@ -545,9 +567,10 @@
     var _origPush = SceneManager.push;
     SceneManager.push = function (sceneClass) {
         var isMenu = typeof sceneClass === 'function' &&
-            (sceneClass === Scene_MenuBase || sceneClass.prototype instanceof Scene_MenuBase);
+            (sceneClass === Scene_MenuBase || sceneClass.prototype instanceof Scene_MenuBase ||
+             _isCustomUIClass(sceneClass));
 
-        if (_hasPostProcess() && isMenu && _phase === 0) {
+        if (isMenu && _phase === 0) {
             _phase               = 2;
             _bgBlurT             = 0;
             _bgBlurDir           = 1;
@@ -569,7 +592,8 @@
 
     var _SB_startFadeOut = Scene_Base.prototype.startFadeOut;
     Scene_Base.prototype.startFadeOut = function (duration, white) {
-        if (_suppressGameFadeOut && !(this instanceof Scene_MenuBase)) {
+        if (_suppressGameFadeOut &&
+                !(this instanceof Scene_MenuBase) && !_isCustomUIInstance(this)) {
             _suppressGameFadeOut = false;
             return;
         }
@@ -578,7 +602,8 @@
 
     var _SB_startFadeIn = Scene_Base.prototype.startFadeIn;
     Scene_Base.prototype.startFadeIn = function (duration, white) {
-        if (_suppressGameFadeIn && !(this instanceof Scene_MenuBase)) {
+        if (_suppressGameFadeIn &&
+                !(this instanceof Scene_MenuBase) && !_isCustomUIInstance(this)) {
             _suppressGameFadeIn = false;
             return;
         }
@@ -643,12 +668,78 @@
         _SMB_startFadeOut.call(this, duration, white);
     };
 
+    // ── Scene_CustomUI 오버라이드 ─────────────────────────────────────────────
+
+    if (typeof Scene_CustomUI !== 'undefined') {
+        var _SCU_create = Scene_CustomUI.prototype.create;
+        Scene_CustomUI.prototype.create = function () {
+            _SCU_create.call(this);
+            _setMenuBgHook(true);
+            // Scene_MenuBase.createBackground()에 해당: 맨 아래에 배경 스프라이트 추가
+            this._backgroundSprite = new Sprite();
+            this._backgroundSprite.bitmap = SceneManager.backgroundBitmap();
+            this.addChildAt(this._backgroundSprite, 0);
+        };
+
+        var _SCU_update = Scene_CustomUI.prototype.update;
+        Scene_CustomUI.prototype.update = function () {
+            _SCU_update.call(this);
+
+            if (!_bgBitmap && this._backgroundSprite && this._backgroundSprite.bitmap) {
+                _bgBitmap = this._backgroundSprite.bitmap;
+                _drawBgBitmap(_bgBitmap, _bgBlurT);
+            }
+
+            if (_bgBlurDir !== 0 && _bgBitmap) {
+                _bgElapsed++;
+                var raw = Math.min(1, _bgElapsed / Cfg.duration);
+                _bgBlurT = (_bgBlurDir === 1)
+                    ? applyEase(raw)
+                    : _bgBlurStartT * applyEase(1 - raw);
+                _drawBgBitmap(_bgBitmap, _bgBlurT);
+                if (raw >= 1) _bgBlurDir = 0;
+            }
+        };
+
+        var _SCU_terminate = Scene_CustomUI.prototype.terminate;
+        Scene_CustomUI.prototype.terminate = function () {
+            _SCU_terminate.call(this);
+            _setMenuBgHook(false);
+            _bgBitmap  = null;
+            _bgBlurT   = 0;
+            _bgBlurDir = 0;
+            _phase     = 0;
+            _srcCanvas = null;
+        };
+
+        var _SCU_startFadeIn = Scene_CustomUI.prototype.startFadeIn;
+        Scene_CustomUI.prototype.startFadeIn = function (duration, white) {
+            if (_bgBlurDir === 1) {
+                _SCU_startFadeIn.call(this, Cfg.duration, white);
+                return;
+            }
+            _SCU_startFadeIn.call(this, duration, white);
+        };
+
+        var _SCU_startFadeOut = Scene_CustomUI.prototype.startFadeOut;
+        Scene_CustomUI.prototype.startFadeOut = function (duration, white) {
+            if (_suppressMenuFadeOut) {
+                _suppressMenuFadeOut = false;
+                _SCU_startFadeOut.call(this, Cfg.duration, white);
+                return;
+            }
+            _SCU_startFadeOut.call(this, duration, white);
+        };
+    }
+
     // ── SceneManager.pop: 닫기 애니메이션 트리거 ─────────────────────────────
 
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
-            if (SceneManager._scene instanceof Scene_MenuBase && _phase !== 0) {
+            var isMenuScene = SceneManager._scene instanceof Scene_MenuBase ||
+                _isCustomUIInstance(SceneManager._scene);
+            if (isMenuScene && _phase !== 0) {
                 _bgBlurStartT        = _bgBlurT;
                 _suppressMenuFadeOut = true;
                 _suppressGameFadeIn  = true;
