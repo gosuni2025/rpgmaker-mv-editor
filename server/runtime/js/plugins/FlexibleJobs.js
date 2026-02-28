@@ -248,15 +248,10 @@
   Game_Actor.prototype.fjLearnByJp = function (skillId, classId) {
     classId = classId || this._classId;
     var sd = Note.skill(skillId);
-    if (sd.learnJp === null) {
-      console.warn('[FJ] fjLearnByJp 중단: learnJp=null (Note 태그 없음?) skillId=' + skillId);
-      return;
-    }
+    if (sd.learnJp === null) return;
     this.fjUseJp(sd.learnJp, classId);
     if (!this._fjLearnedSk) this._fjLearnedSk = [];
     if (this._fjLearnedSk.indexOf(skillId) < 0) this._fjLearnedSk.push(skillId);
-    console.log('[FJ] fjLearnByJp: skillId=' + skillId + ' classId=' + classId +
-      ' _fjLearnedSk=' + JSON.stringify(this._fjLearnedSk));
     this.refresh();
   };
 
@@ -696,26 +691,12 @@
 
     applySkillLearn: function () {
       var a = FJ.actor();
-      console.log('[FJ] applySkillLearn 호출: actor=' + (a ? a.name() : 'null') + ' curSkillId=' + FJ._curSkillId);
-      if (!a || !FJ._curSkillId) {
-        console.warn('[FJ] applySkillLearn 중단: actor=' + (a ? a.name() : 'null') + ' curSkillId=' + FJ._curSkillId);
-        return false;
-      }
-      var sd = Note.skill(FJ._curSkillId);
-      var jp = a.fjJp();
-      var alreadyLearned = (a._fjLearnedSk || []).indexOf(FJ._curSkillId) >= 0;
-      var sk = $dataSkills[FJ._curSkillId];
-      console.log('[FJ] 스킬 확인: id=' + FJ._curSkillId + ' name=' + (sk ? sk.name : '?') +
-        ' learnJp=' + sd.learnJp + ' 보유JP=' + jp + '(classId=' + a._classId + ')' +
-        ' 이미습득=' + alreadyLearned);
+      if (!a || !FJ._curSkillId) return false;
       if (!a.fjCanLearnByJp(FJ._curSkillId)) {
-        console.warn('[FJ] 구매 불가: jp부족 또는 이미습득');
         SoundManager.playBuzzer();
         return false;
       }
       a.fjLearnByJp(FJ._curSkillId);
-      console.log('[FJ] 구매 성공! _fjLearnedSk=' + JSON.stringify(a._fjLearnedSk) +
-        ' 남은JP=' + a.fjJp() + ' skills().length=' + a.skills().length);
       SoundManager.playEquip();
       return true;
     }
