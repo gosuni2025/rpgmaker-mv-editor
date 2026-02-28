@@ -80,13 +80,19 @@
             this.refresh();
         }
 
-        if (TouchInput.isTriggered()) {
-            console.log('[BattleDebug] isTriggered tx=%d ty=%d hit=%s hover=%d winX=%d winY=%d winW=%d winH=%d',
-                tx, ty, hit, hover, this.x, this.y, this.width, this.height);
-            if (hover >= 0) {
-                var fn = this._handlers[BUTTONS[hover].symbol];
-                console.log('[BattleDebug] calling symbol=%s fn=%s', BUTTONS[hover].symbol, typeof fn);
-                if (fn) fn();
+        // isTriggered가 여러 프레임 지속될 수 있으므로 한 번만 처리
+        if (!TouchInput.isTriggered()) {
+            this._triggerConsumed = false;
+        } else if (!this._triggerConsumed && hover >= 0) {
+            this._triggerConsumed = true;
+            console.log('[BattleDebug] click symbol=%s', BUTTONS[hover].symbol);
+            var fn = this._handlers[BUTTONS[hover].symbol];
+            if (fn) {
+                fn();
+                // 실제 반영 확인
+                $gameParty.members().forEach(function(m) {
+                    console.log('[BattleDebug]  %s hp=%d/%d mp=%d/%d tp=%d', m.name(), m.hp, m.mhp, m.mp, m.mmp, m.tp);
+                });
             }
         }
     };
