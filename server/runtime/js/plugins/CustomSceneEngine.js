@@ -2908,6 +2908,8 @@
           this._pendingActorWidgetId = handler.actorWidget || null;
           var awUI = this._widgetMap[handler.actorWidget];
           if (awUI) {
+            // 윈도우 표시 (이전에 숨겼을 수 있으므로 명시적으로 복원)
+            if (awUI.displayObject()) awUI.displayObject().visible = true;
             awUI.setFormationMode(false);
             if (this._navManager) this._navManager.focusWidget(handler.actorWidget);
           }
@@ -2930,19 +2932,15 @@
         this._applyItemTo(pendingItem, targetActor, pendingUser);
         delete this._ctx._pendingUseItem;
         delete this._ctx._pendingUseItemUser;
-        // actorWidget 커서 숨기기
+        // actorWidget 윈도우 숨기기 (deactivate만으로는 _updateCursor가 매 프레임 커서를 복원함)
         var awDoneId = this._pendingActorWidgetId;
-        console.log('[useItem:done] _pendingActorWidgetId=', awDoneId, 'widgetMap keys=', Object.keys(this._widgetMap || {}));
         if (awDoneId) {
           var awDone = this._widgetMap[awDoneId];
-          console.log('[useItem:done] awDone=', awDone, 'has deactivate=', !!(awDone && awDone.deactivate));
-          if (awDone && awDone.deactivate) {
-            awDone.deactivate();
-            console.log('[useItem:done] deactivate() called. win.active=', awDone._window && awDone._window.active, 'win.index()=', awDone._window && awDone._window.index());
+          if (awDone) {
+            if (awDone.deactivate) awDone.deactivate();
+            if (awDone.displayObject()) awDone.displayObject().visible = false;
           }
           this._pendingActorWidgetId = null;
-        } else {
-          console.warn('[useItem:done] _pendingActorWidgetId is null — 커서 숨김 스킵됨');
         }
         // actorPanelsWidget 숨기기 + itemListWidget 복원
         var apwHideId = handler.actorPanelsWidget || this._pendingActorPanelsWidgetId;
@@ -3080,18 +3078,14 @@
         return;
       }
       win.deselect();
-      // actorWidget 커서 숨기기
-      console.log('[useItem:cancel] _pendingActorWidgetId=', this._pendingActorWidgetId);
+      // actorWidget 윈도우 숨기기
       if (this._pendingActorWidgetId) {
         var awCancel = this._widgetMap[this._pendingActorWidgetId];
-        console.log('[useItem:cancel] awCancel=', awCancel, 'has deactivate=', !!(awCancel && awCancel.deactivate));
-        if (awCancel && awCancel.deactivate) {
-          awCancel.deactivate();
-          console.log('[useItem:cancel] deactivate() called. win.active=', awCancel._window && awCancel._window.active, 'win.index()=', awCancel._window && awCancel._window.index());
+        if (awCancel) {
+          if (awCancel.deactivate) awCancel.deactivate();
+          if (awCancel.displayObject()) awCancel.displayObject().visible = false;
         }
         this._pendingActorWidgetId = null;
-      } else {
-        console.warn('[useItem:cancel] _pendingActorWidgetId is null — 커서 숨김 스킵됨');
       }
       // actorPanelsWidget 숨기기 + itemListWidget 복원
       if (this._pendingActorPanelsWidgetId) {
