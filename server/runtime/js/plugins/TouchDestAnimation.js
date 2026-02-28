@@ -57,6 +57,46 @@
  * @desc 마우스 커서 위치의 타일을 흰선+검은 외곽선으로 하이라이트할지 여부 (2D/3D 모두 지원)
  * @default true
  *
+ * @param Show Event Hover Line
+ * @type boolean
+ * @desc 이미지가 있는 이벤트 위에 마우스를 올리면 점멸 내곽선 효과를 표시할지 여부
+ * @default true
+ *
+ * @param Event Hover Line Color
+ * @type color
+ * @desc 이벤트 호버 내곽선 색상 (CSS 색상값)
+ * @default rgba(255, 255, 160, 1.0)
+ *
+ * @param Event Hover Line Width
+ * @type number
+ * @desc 이벤트 호버 내곽선 두께 (px)
+ * @min 1
+ * @max 8
+ * @default 2
+ *
+ * @param Event Hover Line Speed
+ * @type number
+ * @desc 점멸 주기 (프레임 수, 낮을수록 빠름)
+ * @min 10
+ * @max 240
+ * @default 50
+ *
+ * @param Event Hover Line Min Alpha
+ * @type number
+ * @desc 점멸 최소 불투명도 (0.0 ~ 1.0)
+ * @decimals 2
+ * @min 0
+ * @max 1
+ * @default 0.1
+ *
+ * @param Event Hover Line Max Alpha
+ * @type number
+ * @desc 점멸 최대 불투명도 (0.0 ~ 1.0)
+ * @decimals 2
+ * @min 0
+ * @max 1
+ * @default 1.0
+ *
  * @help
  * 맵을 터치/클릭하면 기본 흰색 사각형 펄스 대신
  * 지정한 RPG Maker 애니메이션을 해당 위치에 재생합니다.
@@ -69,6 +109,11 @@
  * Arrow Outline: 화살표 테두리 표시 여부
  * Arrow Outline Color: 테두리 색상
  * Arrow Outline Width: 테두리 굵기
+ * Show Event Hover Line: 이벤트 이미지에 점멸 내곽선 표시 여부
+ * Event Hover Line Color: 내곽선 색상
+ * Event Hover Line Width: 내곽선 두께
+ * Event Hover Line Speed: 점멸 주기 (프레임)
+ * Event Hover Line Min/Max Alpha: 점멸 투명도 범위
  */
 
 (function() {
@@ -84,6 +129,12 @@
     var arrowOutlineWidth = Number(parameters['Arrow Outline Width'] || 1);
     var showDestIndicator = String(parameters['Show Destination Indicator']) !== 'false';
     var showHoverHighlight = String(parameters['Show Hover Highlight']) !== 'false';
+    var showEventHoverLine = String(parameters['Show Event Hover Line'] || 'true') !== 'false';
+    var eventHoverLineColor = String(parameters['Event Hover Line Color'] || 'rgba(255, 255, 160, 1.0)');
+    var eventHoverLineWidth = Number(parameters['Event Hover Line Width'] || 2);
+    var eventHoverLineSpeed = Number(parameters['Event Hover Line Speed'] || 50);
+    var eventHoverLineMinAlpha = parseFloat(parameters['Event Hover Line Min Alpha'] || 0.1);
+    var eventHoverLineMaxAlpha = parseFloat(parameters['Event Hover Line Max Alpha'] || 1.0);
 
     //=========================================================================
     // ConfigManager 확장 - showHoverHighlight 저장/복원
@@ -117,12 +168,12 @@
     }
 
     //=========================================================================
-    // 마우스 좌표 추적 (TouchInput._onMove 억제와 무관하게 실제 위치 추적)
+    // 마우스 좌표 추적 (showHoverHighlight 또는 showEventHoverLine 활성 시)
     //=========================================================================
     var _hoverMouseX = -1;
     var _hoverMouseY = -1;
 
-    if (showHoverHighlight) {
+    if (showHoverHighlight || showEventHoverLine) {
         document.addEventListener('mousemove', function(e) {
             _hoverMouseX = Graphics.pageToCanvasX(e.pageX);
             _hoverMouseY = Graphics.pageToCanvasY(e.pageY);
@@ -293,6 +344,20 @@
             this.drawHoverHighlight();
         }
 
+        // 이벤트 호버 내곽선 스프라이트 - tilemap 안, 캐릭터 스프라이트와 동일 좌표계
+        if (showEventHoverLine) {
+            this._eventHoverLineSprite = new Sprite();
+            this._eventHoverLineSprite.anchor.x = 0.5;
+            this._eventHoverLineSprite.anchor.y = 1;
+            this._eventHoverLineSprite.z = 9;
+            this._eventHoverLineSprite.visible = false;
+            this._tilemap.addChild(this._eventHoverLineSprite);
+            this._eventHoverLineFrame = 0;
+            this._eventHoverLinePW = 0;
+            this._eventHoverLinePH = 0;
+            this._eventHoverLineEventId = -1;
+        }
+
         _lastDestX = -1;
         _lastDestY = -1;
     };
@@ -303,6 +368,7 @@
         this.updateTouchDestAnimation();
         this.updatePathArrow();
         this.updateHoverHighlight();
+        this.updateEventHoverLine();
     };
 
     //=========================================================================
@@ -543,6 +609,122 @@
         ctx.lineWidth = 2;
         ctx.strokeRect(2, 2, w - 4, h - 4);
 
+        ctx.restore();
+        bitmap._setDirty();
+    };
+
+    //=========================================================================
+    // 이벤트 호버 내곽선 (이미지가 있는 이벤트 위에 점멸 border)
+    //=========================================================================
+
+    // 현재 호버 중인 타일 좌표를 계산하는 공통 함수
+    function getHoverTile() {
+        var mx = _hoverMouseX;
+        var my = _hoverMouseY;
+        if (mx < 0 || my < 0 || mx >= Graphics.width || my >= Graphics.height) return null;
+
+        var tw = $gameMap.tileWidth();
+        var th = $gameMap.tileHeight();
+
+        if (typeof Mode3D !== 'undefined' &&
+                ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera) {
+            var world = Mode3D.screenToWorld(mx, my);
+            if (!world) return null;
+            return {
+                x: $gameMap.roundX(Math.floor(($gameMap._displayX * tw + world.x) / tw)),
+                y: $gameMap.roundY(Math.floor(($gameMap._displayY * th + world.y) / th))
+            };
+        } else {
+            return {
+                x: $gameMap.canvasToMapX(mx),
+                y: $gameMap.canvasToMapY(my)
+            };
+        }
+    }
+
+    Spriteset_Map.prototype.updateEventHoverLine = function() {
+        if (!this._eventHoverLineSprite) return;
+        if ($gameMap.isEventRunning()) {
+            this._eventHoverLineSprite.visible = false;
+            this._eventHoverLineEventId = -1;
+            return;
+        }
+
+        var tile = getHoverTile();
+        if (!tile) {
+            this._eventHoverLineSprite.visible = false;
+            this._eventHoverLineEventId = -1;
+            return;
+        }
+
+        // 해당 타일의 이미지가 있는 이벤트 검색
+        var events = $gameMap.eventsXy(tile.x, tile.y);
+        var targetEvent = null;
+        for (var i = 0; i < events.length; i++) {
+            if (events[i].characterName() !== '' && events[i].opacity() > 0) {
+                targetEvent = events[i];
+                break;
+            }
+        }
+
+        if (!targetEvent) {
+            this._eventHoverLineSprite.visible = false;
+            this._eventHoverLineEventId = -1;
+            return;
+        }
+
+        // 이벤트에 대응하는 Sprite_Character 찾기
+        var charSprites = this._characterSprites || [];
+        var targetSprite = null;
+        for (var j = 0; j < charSprites.length; j++) {
+            if (charSprites[j]._character === targetEvent) {
+                targetSprite = charSprites[j];
+                break;
+            }
+        }
+
+        if (!targetSprite || !targetSprite.bitmap || !targetSprite.bitmap.isReady()) {
+            this._eventHoverLineSprite.visible = false;
+            return;
+        }
+
+        // 패턴 크기 (한 프레임의 실제 픽셀 크기)
+        var pw = targetSprite.patternWidth ? targetSprite.patternWidth() : $gameMap.tileWidth();
+        var ph = targetSprite.patternHeight ? targetSprite.patternHeight() : $gameMap.tileHeight();
+
+        // 이벤트가 바뀌거나 크기가 달라지면 비트맵 재생성 및 내곽선 재드로우
+        if (this._eventHoverLineEventId !== targetEvent.eventId() ||
+                this._eventHoverLinePW !== pw || this._eventHoverLinePH !== ph) {
+            this._eventHoverLineEventId = targetEvent.eventId();
+            this._eventHoverLinePW = pw;
+            this._eventHoverLinePH = ph;
+            this._eventHoverLineSprite.bitmap = new Bitmap(pw, ph);
+            this.drawEventHoverLine(pw, ph);
+        }
+
+        // 위치: 캐릭터 스프라이트와 동일 (anchor 0.5, 1 — bottom-center)
+        this._eventHoverLineSprite.x = targetSprite.x;
+        this._eventHoverLineSprite.y = targetSprite.y;
+
+        // 점멸: 사인파로 min~max alpha 사이를 부드럽게 왕복
+        this._eventHoverLineFrame = (this._eventHoverLineFrame + 1) % (eventHoverLineSpeed * 2);
+        var t = 0.5 - 0.5 * Math.cos((this._eventHoverLineFrame / eventHoverLineSpeed) * Math.PI);
+        var alpha = eventHoverLineMinAlpha + (eventHoverLineMaxAlpha - eventHoverLineMinAlpha) * t;
+        this._eventHoverLineSprite.opacity = Math.round(alpha * 255);
+        this._eventHoverLineSprite.visible = true;
+    };
+
+    Spriteset_Map.prototype.drawEventHoverLine = function(pw, ph) {
+        var bitmap = this._eventHoverLineSprite.bitmap;
+        var ctx = bitmap._context;
+        var lw = eventHoverLineWidth;
+        var half = lw / 2;
+
+        bitmap.clear();
+        ctx.save();
+        ctx.strokeStyle = eventHoverLineColor;
+        ctx.lineWidth = lw;
+        ctx.strokeRect(half, half, pw - lw, ph - lw);
         ctx.restore();
         bitmap._setDirty();
     };
