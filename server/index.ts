@@ -121,6 +121,7 @@ export function createApp(options: AppOptions = {}) {
   });
   app.use('/plugins', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.set('Cache-Control', 'no-store');
     express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
   });
 

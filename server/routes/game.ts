@@ -92,6 +92,7 @@ export function createGameRouter(resolvedRuntimePath: string): express.Router {
   // 정적 파일 서빙
   router.use('/js/plugins', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.set('Cache-Control', 'no-store');
     express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
   });
   router.get('/js/plugins.js', (req, res) => {

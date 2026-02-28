@@ -1506,9 +1506,13 @@
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
     win.deselect(); // Window_Command.initialize가 select(0)을 호출하므로 명시적으로 해제
-    if (this._autoHeight) win.height = 0; // 초기 빈 윈도우 flash 방지
+    if (this._autoHeight) {
+      win.height = 0; // 초기 빈 윈도우 flash 방지
+      console.log('[CSE] Widget_List autoHeight init, id=' + def.id + ', height set to 0');
+    }
     if (!this._focusable) {
       win.updateCursor = function() { this.setCursorRect(0, 0, 0, 0); }; // 커서 완전 숨김
+      console.log('[CSE] Widget_List focusable=false, updateCursor override, id=' + def.id);
     }
     this._applyWindowStyle(win, def);
     if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
