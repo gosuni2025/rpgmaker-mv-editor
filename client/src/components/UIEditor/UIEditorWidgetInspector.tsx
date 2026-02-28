@@ -6,11 +6,72 @@ import type {
   WidgetDef_List, WidgetDef_TextList, WidgetDef_RowSelector, WidgetDef_Options, OptionItemDef,
   WidgetDef_Button, WidgetDef_Scene, ImageRenderMode,
 } from '../../store/uiEditorTypes';
+import type { EventCommand } from '../../types/rpgMakerMV';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
 import { WIDGET_TYPE_COLORS, WIDGET_TYPE_LABELS } from './UIEditorWidgetTree';
 import HelpButton from '../common/HelpButton';
 import { ExpressionPickerButton } from './UIEditorExpressionPicker';
+import { ScriptEditor } from '../EventEditor/ScriptEditor';
+import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
+
+// ── ScriptPreviewField — 3줄 미리보기 + "..." 버튼으로 ScriptEditor 팝업 열기 ──
+
+function ScriptPreviewField({ label, helpText, placeholder, value, onChange }: {
+  label: string; helpText: string; placeholder?: string;
+  value: string; onChange: (v: string) => void;
+}) {
+  const [showEditor, setShowEditor] = useState(false);
+  const lines = value.split('\n');
+  const previewLines = lines.slice(0, 3).join('\n');
+  const hasMore = lines.length > 3 || previewLines.length > 120;
+
+  // ScriptEditor p/followCommands 형식으로 변환
+  const p: unknown[] = [lines[0] ?? ''];
+  const followCommands: EventCommand[] = lines.slice(1).map(line => ({
+    code: 655, indent: 0, parameters: [line],
+  }));
+
+  return (
+    <div>
+      <label style={{ ...labelStyle, marginTop: 6 }}>
+        {label}
+        <HelpButton text={helpText} />
+      </label>
+      <div style={{ position: 'relative' }}>
+        <pre style={{
+          margin: 0, padding: '4px 28px 4px 6px',
+          background: '#1a1a1a', border: '1px solid #444', borderRadius: 3,
+          fontFamily: 'monospace', fontSize: 11, color: '#ccc',
+          minHeight: 20, maxHeight: 56, overflow: 'hidden',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+        }}>
+          {previewLines
+            ? <>{previewLines}{hasMore && <span style={{ color: '#666' }}>…</span>}</>
+            : <span style={{ color: '#555' }}>{placeholder || '비어 있음'}</span>}
+        </pre>
+        <button
+          style={{ ...smallBtnStyle, position: 'absolute', right: 2, top: 2, padding: '1px 5px' }}
+          onClick={() => setShowEditor(true)}
+          title="스크립트 편집"
+        >...</button>
+      </div>
+      {showEditor && (
+        <ScriptEditor
+          p={p}
+          followCommands={followCommands}
+          onOk={(params, extra) => {
+            const firstLine = (params[0] as string) ?? '';
+            const extraLines = (extra ?? []).map(e => e.parameters[0] as string);
+            onChange([firstLine, ...extraLines].join('\n'));
+            setShowEditor(false);
+          }}
+          onCancel={() => setShowEditor(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 // ── ActionHandlerEditor ────────────────────────────────────
 
@@ -485,46 +546,65 @@ function ButtonWidgetInspector({ sceneId: _sceneId, widget, update }: {
 function ListCommonSection({ widget, update }: {
   widget: WidgetDef_List | WidgetDef_TextList; update: (u: Partial<WidgetDef>) => void;
 }) {
+  const [showScenePicker, setShowScenePicker] = useState(false);
+  const customScenes = useEditorStore(s => s.customScenes);
+  const customSceneEntries = Object.values(customScenes.scenes).map(s => ({
+    id: s.id, displayName: s.displayName,
+  }));
+
   return (
     <div>
       {/* dataScript */}
-      <label style={{ ...labelStyle, marginTop: 6 }}>
-        데이터 스크립트 (dataScript)
-        <HelpButton text={'행 배열을 반환하는 JS 식.\n예: $gameParty.items().map(i => ({name:i.name, iconIndex:i.iconIndex}))\n설정하면 items 목록 대신 동적으로 행을 생성합니다.'} />
-      </label>
-      <textarea
-        style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-        placeholder={'$gameParty.items().map(i => ({name:i.name, iconIndex:i.iconIndex}))'}
+      <ScriptPreviewField
+        label="데이터 스크립트 (dataScript)"
+        helpText={'행 배열을 반환하는 JS 식.\n예: $gameParty.items().map(i => ({name:i.name, iconIndex:i.iconIndex}))\n설정하면 items 목록 대신 동적으로 행을 생성합니다.'}
+        placeholder="$gameParty.items().map(i => ({name:i.name, iconIndex:i.iconIndex}))"
         value={widget.dataScript || ''}
-        onChange={(e) => update({ dataScript: e.target.value || undefined } as any)}
+        onChange={(v) => update({ dataScript: v || undefined } as any)}
       />
 
       {/* onCursor */}
-      <label style={{ ...labelStyle, marginTop: 6 }}>
-        커서 이동 시 코드 (onCursor)
-        <HelpButton text={'커서가 이동할 때 실행되는 JS 코드.\n예: $ctx.item = this._window.item();'} />
-      </label>
-      <textarea
-        style={{ ...inputStyle, height: 50, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-        placeholder={'$ctx.item = this._window.item();'}
+      <ScriptPreviewField
+        label="커서 이동 시 코드 (onCursor)"
+        helpText={'커서가 이동할 때 실행되는 JS 코드.\n예: $ctx.item = this._window.item();'}
+        placeholder="$ctx.item = this._window.item();"
         value={widget.onCursor?.code || ''}
-        onChange={(e) => {
-          const v = e.target.value;
-          update({ onCursor: v ? { code: v } : undefined } as any);
-        }}
+        onChange={(v) => update({ onCursor: v ? { code: v } : undefined } as any)}
       />
 
       {/* itemScene (list 전용) */}
       {widget.type === 'list' && (
-        <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', width: 80 }}>
+        <div style={{ ...rowStyle, marginTop: 6 }}>
+          <span style={{ fontSize: 11, color: '#888', width: 80, flexShrink: 0 }}>
             행 씬 ID
             <HelpButton text={'각 행을 렌더링할 UIScene ID.\n설정하면 각 행에 해당 씬을 임베드합니다.'} />
           </span>
-          <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
-            placeholder="item_row"
-            value={(widget as WidgetDef_List).itemScene || ''}
-            onChange={(e) => update({ itemScene: e.target.value || undefined } as any)} />
+          <span style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11,
+            display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '2px 4px',
+            color: (widget as WidgetDef_List).itemScene ? '#4af' : '#555',
+          }}>
+            {(widget as WidgetDef_List).itemScene || '(없음)'}
+          </span>
+          <button style={{ ...smallBtnStyle, marginLeft: 4, flexShrink: 0 }}
+            onClick={() => setShowScenePicker(true)}
+            title="행 씬 선택">선택</button>
+          {(widget as WidgetDef_List).itemScene && (
+            <button style={{ ...deleteBtnStyle, marginLeft: 2, flexShrink: 0 }}
+              onClick={() => update({ itemScene: undefined } as any)}
+              title="씬 제거">×</button>
+          )}
+          {showScenePicker && (
+            <UIEditorScenePickerDialog
+              currentScene={'Scene_CS_' + ((widget as WidgetDef_List).itemScene || '')}
+              availableScenes={[]}
+              customScenes={customSceneEntries}
+              onSelect={(scene) => {
+                const id = scene.replace(/^Scene_CS_/, '');
+                update({ itemScene: id || undefined } as any);
+              }}
+              onClose={() => setShowScenePicker(false)}
+            />
+          )}
         </div>
       )}
 
