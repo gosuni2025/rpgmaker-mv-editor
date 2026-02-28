@@ -235,6 +235,13 @@ export interface WidgetDefBase {
   enterAnimation?: UIWindowEntranceEffect[];
   /** 퇴장 애니메이션 (씬 popScene 시 자동 실행) */
   exitAnimation?: UIWindowEntranceEffect[];
+  /** Unity/Godot 스타일 라이프사이클 스크립트 */
+  scripts?: {
+    onCreate?: string;
+    onUpdate?: string;
+    onRefresh?: string;
+    onDestroy?: string;
+  };
 }
 
 export interface WidgetDef_Panel extends WidgetDefBase {

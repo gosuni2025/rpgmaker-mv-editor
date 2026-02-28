@@ -1148,8 +1148,35 @@
     this._children = [];
     this._parent = parentWidget || null;
     this._displayObject = null;
+    // 라이프사이클 스크립트 파싱
+    var rawScripts = def.scripts;
+    if (rawScripts) {
+      var compiled = {};
+      var keys = ['onCreate', 'onUpdate', 'onRefresh', 'onDestroy'];
+      for (var si = 0; si < keys.length; si++) {
+        var key = keys[si];
+        var code = rawScripts[key];
+        if (code && code.trim()) {
+          try { compiled[key] = new Function('$ctx', code); }
+          catch(e) { console.error('[Widget] script compile error "' + key + '" (' + (def.id||'') + '):', e); }
+        }
+      }
+      this._scripts = Object.keys(compiled).length ? compiled : null;
+    } else {
+      this._scripts = null;
+    }
   };
   Widget_Base.prototype.displayObject = function() { return this._displayObject; };
+  Widget_Base.prototype._runScript = function(name) {
+    if (!this._scripts || !this._scripts[name]) return;
+    try {
+      var scene = SceneManager._scene;
+      var $ctx = scene ? (scene._ctx || {}) : {};
+      this._scripts[name].call(scene, $ctx);
+    } catch(e) {
+      console.error('[Widget] script "' + name + '" error (' + this._id + '):', e);
+    }
+  };
   Widget_Base.prototype.addChildWidget = function(child) {
     this._children.push(child);
     child._parent = this;
@@ -1330,11 +1357,13 @@
 
   Widget_Base.prototype.update = function() {
     this._syncWindowDescendants();
+    if (this._scripts) this._runScript('onUpdate');
     for (var i = 0; i < this._children.length; i++) {
       this._children[i].update();
     }
   };
   Widget_Base.prototype.refresh = function() {
+    if (this._scripts) this._runScript('onRefresh');
     for (var i = 0; i < this._children.length; i++) {
       this._children[i].refresh();
     }
@@ -1353,6 +1382,7 @@
     }
   };
   Widget_Base.prototype.destroy = function() {
+    if (this._scripts) this._runScript('onDestroy');
     for (var i = 0; i < this._children.length; i++) {
       this._children[i].destroy();
     }
@@ -2849,6 +2879,11 @@
       this._navManager.initialize(sceneDef.navigation);
       this._navManager.setScene(this);
       this._navManager.buildFocusList(this._rootWidget);
+    }
+
+    // onCreate 스크립트 실행 (위젯 트리 구축 + 핸들러 설정 완료 후)
+    for (var oid in this._widgetMap) {
+      this._widgetMap[oid]._runScript('onCreate');
     }
   };
 

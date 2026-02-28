@@ -622,6 +622,48 @@ function ListCommonSection({ widget, update }: {
   );
 }
 
+// ── WidgetScriptsSection — 모든 위젯 공통 라이프사이클 스크립트 ──────────────
+
+const LIFECYCLE_EVENTS = [
+  { key: 'onCreate',  label: 'onCreate',  help: '위젯 트리 구축 완료 후 1회 실행. Unity Start() / Godot _ready()에 대응.\n예: this._widgetMap[\'myLabel\']._window.setText(\'초기화 완료\');' },
+  { key: 'onUpdate',  label: 'onUpdate',  help: '매 프레임 실행. Unity Update() / Godot _process()에 대응.\n성능에 주의할 것.' },
+  { key: 'onRefresh', label: 'onRefresh', help: 'refresh() 호출 시 실행.\n콘텐츠 갱신 타이밍에 추가 로직을 삽입할 때 사용.' },
+  { key: 'onDestroy', label: 'onDestroy', help: 'destroy() 호출 시 실행. Unity OnDestroy() / Godot _exit_tree()에 대응.' },
+] as const;
+
+function WidgetScriptsSection({ widget, update }: {
+  widget: WidgetDef; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const scripts = (widget as any).scripts as Record<string, string> | undefined;
+  const hasAny = LIFECYCLE_EVENTS.some(ev => !!(scripts?.[ev.key]?.trim()));
+
+  const setScript = (key: string, value: string) => {
+    const next = { ...(scripts || {}), [key]: value };
+    // 모두 비어있으면 undefined로 정리
+    const anyFilled = Object.values(next).some(v => v.trim());
+    update({ scripts: anyFilled ? next : undefined } as any);
+  };
+
+  return (
+    <details>
+      <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>
+        스크립트 {hasAny && <span style={{ background: '#2675bf', color: '#fff', fontSize: 9, padding: '1px 5px', borderRadius: 8, marginLeft: 4, verticalAlign: 'middle' }}>설정됨</span>}
+      </summary>
+      <div style={sectionStyle}>
+        {LIFECYCLE_EVENTS.map(ev => (
+          <ScriptPreviewField
+            key={ev.key}
+            label={ev.label}
+            helpText={ev.help}
+            value={scripts?.[ev.key] ?? ''}
+            onChange={(v) => setScript(ev.key, v)}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
 // ── ListWidgetInspector ────────────────────────────────────
 
 function ListWidgetInspector({ sceneId: _sceneId, widget, update }: {
@@ -1149,6 +1191,9 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
           </div>
         </details>
       )}
+
+      {/* ── 섹션: 스크립트 ── */}
+      <WidgetScriptsSection widget={widget} update={update} />
 
       {/* ── 섹션: 애니메이션 ── */}
       <details>
