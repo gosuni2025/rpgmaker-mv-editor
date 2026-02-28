@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType, ImageSource,
-  WidgetDef_Label, WidgetDef_Image, WidgetDef_Gauge,
+  WidgetDef_Label, WidgetDef_TextArea, WidgetDef_Image, WidgetDef_Gauge,
   WidgetDef_List, WidgetDef_RowSelector, WidgetDef_Options, OptionItemDef, WidgetDef_Button, ImageRenderMode,
 } from '../../store/uiEditorTypes';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
@@ -610,6 +610,40 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
             </div>
           </div>
         )}
+        {widget.type === 'textArea' && (
+          <div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>텍스트</span>
+            </div>
+            <textarea
+              style={{ ...inputStyle, height: 80, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+              value={(widget as WidgetDef_TextArea).text}
+              placeholder="{$ctx.item&&$ctx.item.description||''} 등 표현식 사용 가능"
+              onChange={(e) => update({ text: e.target.value } as any)}
+            />
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>정렬</span>
+              <select style={{ ...selectStyle, flex: 1 }}
+                value={(widget as WidgetDef_TextArea).align || 'left'}
+                onChange={(e) => update({ align: e.target.value as any } as any)}>
+                <option value="left">왼쪽</option>
+                <option value="center">가운데</option>
+                <option value="right">오른쪽</option>
+              </select>
+            </div>
+            <div style={rowStyle}>
+              <span style={{ fontSize: 11, color: '#888', width: 50 }}>줄 높이</span>
+              <input style={{ ...inputStyle, width: 60 }} type="number"
+                value={(widget as WidgetDef_TextArea).lineHeight ?? ''}
+                placeholder="기본"
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  update({ lineHeight: v === '' ? undefined : (parseInt(v) || undefined) } as any);
+                }} />
+              <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
+            </div>
+          </div>
+        )}
         {widget.type === 'gauge' && (() => {
           const g = widget as WidgetDef_Gauge;
           return (
@@ -662,40 +696,75 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         {widget.type === 'image' && (() => {
           const img = widget as WidgetDef_Image;
           const src: ImageSource = img.imageSource || 'file';
+          const hasBitmapExpr = !!img.bitmapExpr;
           return (
             <div>
+              {/* bitmapExpr 모드 */}
               <div style={rowStyle}>
-                <span style={{ fontSize: 11, color: '#888', width: 70 }}>소스</span>
-                <select style={{ ...selectStyle, flex: 1 }} value={src}
-                  onChange={(e) => update({ imageSource: e.target.value as ImageSource } as any)}>
-                  <option value="file">파일</option>
-                  <option value="actorFace">액터 얼굴</option>
-                  <option value="actorCharacter">액터 캐릭터</option>
-                </select>
+                <span style={{ fontSize: 11, color: '#888', width: 70 }}>비트맵 식</span>
               </div>
-              {src === 'file' && <>
+              <textarea
+                style={{ ...inputStyle, height: 50, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
+                value={img.bitmapExpr || ''}
+                placeholder="Bitmap을 반환하는 JS 식&#10;예: CSHelper.enemyBattler($ctx.enemy)&#10;비워두면 소스 타입 사용"
+                onChange={(e) => update({ bitmapExpr: e.target.value || undefined } as any)}
+              />
+              {hasBitmapExpr && <>
                 <div style={rowStyle}>
-                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
-                  <input style={{ ...inputStyle, flex: 1 }}
-                    value={img.imageName || ''}
-                    onChange={(e) => update({ imageName: e.target.value } as any)} />
+                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>srcRect 식</span>
                 </div>
+                <textarea
+                  style={{ ...inputStyle, height: 40, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
+                  value={img.srcRectExpr || ''}
+                  placeholder="{x,y,w,h}를 반환하는 JS 식&#10;예: CSHelper.actorFaceSrcRect($ctx.actor)"
+                  onChange={(e) => update({ srcRectExpr: e.target.value || undefined } as any)}
+                />
                 <div style={rowStyle}>
-                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
-                  <input style={{ ...inputStyle, flex: 1 }}
-                    value={img.imageFolder || 'img/system/'}
-                    onChange={(e) => update({ imageFolder: e.target.value } as any)} />
+                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>피팅</span>
+                  <select style={{ ...selectStyle, flex: 1 }}
+                    value={img.fitMode || 'stretch'}
+                    onChange={(e) => update({ fitMode: e.target.value as any } as any)}>
+                    <option value="stretch">늘림</option>
+                    <option value="contain">비율 유지 (contain)</option>
+                    <option value="none">원본 크기</option>
+                  </select>
                 </div>
               </>}
-              {(src === 'actorFace' || src === 'actorCharacter') && (
+              {/* 기존 소스 모드 (bitmapExpr 없을 때) */}
+              {!hasBitmapExpr && <>
                 <div style={rowStyle}>
-                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>파티 슬롯</span>
-                  <input style={{ ...inputStyle, width: 60 }} type="number" min={0} max={3}
-                    value={img.actorIndex ?? 0}
-                    onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
-                  <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0~3</span>
+                  <span style={{ fontSize: 11, color: '#888', width: 70 }}>소스</span>
+                  <select style={{ ...selectStyle, flex: 1 }} value={src}
+                    onChange={(e) => update({ imageSource: e.target.value as ImageSource } as any)}>
+                    <option value="file">파일</option>
+                    <option value="actorFace">액터 얼굴</option>
+                    <option value="actorCharacter">액터 캐릭터</option>
+                  </select>
                 </div>
-              )}
+                {src === 'file' && <>
+                  <div style={rowStyle}>
+                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
+                    <input style={{ ...inputStyle, flex: 1 }}
+                      value={img.imageName || ''}
+                      onChange={(e) => update({ imageName: e.target.value } as any)} />
+                  </div>
+                  <div style={rowStyle}>
+                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
+                    <input style={{ ...inputStyle, flex: 1 }}
+                      value={img.imageFolder || 'img/system/'}
+                      onChange={(e) => update({ imageFolder: e.target.value } as any)} />
+                  </div>
+                </>}
+                {(src === 'actorFace' || src === 'actorCharacter') && (
+                  <div style={rowStyle}>
+                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>파티 슬롯</span>
+                    <input style={{ ...inputStyle, width: 60 }} type="number" min={0} max={3}
+                      value={img.actorIndex ?? 0}
+                      onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
+                    <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0~3</span>
+                  </div>
+                )}
+              </>}
             </div>
           );
         })()}

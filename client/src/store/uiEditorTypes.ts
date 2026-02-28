@@ -191,7 +191,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'background' | 'panel' | 'label' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options' | 'minimap';
+export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'rowSelector' | 'options' | 'minimap';
 
 export interface WidgetDefBase {
   id: string;
@@ -241,6 +241,15 @@ export interface WidgetDef_Label extends WidgetDefBase {
   fontSize?: number;
 }
 
+export interface WidgetDef_TextArea extends WidgetDefBase {
+  type: 'textArea';
+  text: string;
+  align?: 'left' | 'center' | 'right';
+  fontSize?: number;
+  /** 줄 간격 (px, 기본: lineHeight()) */
+  lineHeight?: number;
+}
+
 export type ImageSource = 'file' | 'actorFace' | 'actorCharacter';
 
 export interface WidgetDef_Image extends WidgetDefBase {
@@ -252,6 +261,12 @@ export interface WidgetDef_Image extends WidgetDefBase {
   imageFolder?: string;
   // actorFace / actorCharacter 소스
   actorIndex?: number;
+  /** JS 표현식 — Bitmap 객체를 반환. 이 필드가 있으면 imageSource 무시 */
+  bitmapExpr?: string;
+  /** JS 표현식 — {x,y,w,h} 객체를 반환 (소스 rect 잘라내기). bitmapExpr와 함께 사용 */
+  srcRectExpr?: string;
+  /** 이미지 피팅 모드 (기본 'stretch') */
+  fitMode?: 'stretch' | 'contain' | 'none';
 }
 
 export interface WidgetDef_Gauge extends WidgetDefBase {
@@ -320,6 +335,7 @@ export type WidgetDef =
   | WidgetDef_Background
   | WidgetDef_Panel
   | WidgetDef_Label
+  | WidgetDef_TextArea
   | WidgetDef_Image
   | WidgetDef_Gauge
   | WidgetDef_Separator

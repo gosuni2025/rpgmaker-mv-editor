@@ -6,7 +6,7 @@ import { deleteBtnStyle } from './UIEditorSceneStyles';
 
 const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
   background: '#3a5a3a',
-  panel: '#4a6fa5', label: '#5a8a5a', image: '#8a5a8a',
+  panel: '#4a6fa5', label: '#5a8a5a', textArea: '#3a7a5a', image: '#8a5a8a',
   gauge: '#8a4a3a', separator: '#555',
   button: '#2675bf', list: '#2a7a3a', rowSelector: '#7a3a7a', options: '#7a5a2a',
   minimap: '#2a6a7a',
@@ -14,7 +14,7 @@ const WIDGET_TYPE_COLORS: Record<WidgetType, string> = {
 
 const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
   background: 'BG',
-  panel: 'PANEL', label: 'LABEL', image: 'IMG',
+  panel: 'PANEL', label: 'LABEL', textArea: 'TEXT', image: 'IMG',
   gauge: 'GAUGE', separator: 'SEP',
   button: 'BTN', list: 'LIST', rowSelector: 'SELECT', options: 'OPTS',
   minimap: 'MAP',
@@ -192,6 +192,7 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
     switch (type) {
       case 'panel': def = { id, type, x: 0, y: 0, width: 300, height: 200, windowed: true, children: [] }; break;
       case 'label': def = { id, type, x: 0, y: 0, width: 200, height: 36, text: '텍스트' }; break;
+      case 'textArea': def = { id, type, x: 0, y: 0, width: 300, height: 80, text: '텍스트' }; break;
       case 'image': def = { id, type, x: 0, y: 0, width: 100, height: 100, imageSource: 'file', imageName: '' }; break;
       case 'gauge': def = { id, type, x: 0, y: 0, width: 200, height: 36, gaugeType: 'hp', actorIndex: 0 }; break;
       case 'background': def = { id, type, x: 0, y: 0, width: 816, height: 624 }; break;
@@ -216,10 +217,10 @@ export function AddWidgetMenu({ sceneId, parentId, onClose }: { sceneId: string;
     onClose();
   };
 
-  const types: WidgetType[] = ['background', 'panel', 'label', 'image', 'gauge', 'separator', 'button', 'list', 'rowSelector', 'options', 'minimap'];
+  const types: WidgetType[] = ['background', 'panel', 'label', 'textArea', 'image', 'gauge', 'separator', 'button', 'list', 'rowSelector', 'options', 'minimap'];
   const typeLabels: Record<WidgetType, string> = {
     background: '배경 (맵 스크린샷)',
-    panel: '패널', label: '레이블', image: '이미지',
+    panel: '패널', label: '레이블', textArea: '텍스트 영역 (멀티라인)', image: '이미지',
     gauge: '게이지', separator: '구분선',
     button: '버튼', list: '리스트', rowSelector: '행 선택',
     options: '옵션(블랙박스)',
