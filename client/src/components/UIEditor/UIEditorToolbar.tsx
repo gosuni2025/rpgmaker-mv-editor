@@ -34,6 +34,7 @@ function SkinLabelHelp({ onClose }: { onClose: () => void }) {
 
 export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
+  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
@@ -159,6 +160,21 @@ export default function UIEditorToolbar() {
       await s.saveCurrentMap();
       window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`, '_blank');
     }
+  };
+
+  const handleUITest = async () => {
+    if (!projectPath) return;
+    const s = useEditorStore.getState();
+    // UI 설정 먼저 저장
+    await fetch('/api/ui-editor/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrides: s.uiEditorOverrides, sceneRedirects: s.sceneRedirects }),
+    });
+    if (s.customSceneDirty) await s.saveCustomScenes();
+    s.setUiEditorDirty(false);
+    const scene = uiEditSubMode === 'frame' ? 'Scene_Options' : uiEditorScene;
+    window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(scene)}`, '_blank');
   };
 
   return (
@@ -289,6 +305,15 @@ export default function UIEditorToolbar() {
           title="현재 맵에서 테스트 (Ctrl+R)"
         >
           ▶ 현재 맵에서 테스트
+        </button>
+
+        <button
+          className="draw-toolbar-play-btn"
+          onClick={handleUITest}
+          disabled={!projectPath}
+          title={`현재 UI 씬(${uiEditorScene}) 테스트`}
+        >
+          ▶ 현재 UI를 테스트
         </button>
       </div>
 
