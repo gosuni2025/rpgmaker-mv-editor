@@ -3,6 +3,7 @@ import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker, type CharacterInfo } from './dataListPicker';
 import { useDbNamesWithIcons, useActorData, getLabel } from './actionEditorUtils';
+import { ItemPreview, type ItemPreviewType } from '../common/ItemPreview';
 
 export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [operation, setOperation] = useState<number>((p[0] as number) || 0);
@@ -56,10 +57,10 @@ export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
   );
 }
 
-const ITEM_ENDPOINTS: Record<string, { endpoint: string; title: string; fieldLabel: string }> = {
-  'Item': { endpoint: 'items', title: '아이템 선택', fieldLabel: '아이템:' },
-  'Weapon': { endpoint: 'weapons', title: '무기 선택', fieldLabel: '무기:' },
-  'Armor': { endpoint: 'armors', title: '방어구 선택', fieldLabel: '방어구:' },
+const ITEM_ENDPOINTS: Record<string, { endpoint: string; title: string; fieldLabel: string; previewType: ItemPreviewType }> = {
+  'Item':   { endpoint: 'items',   title: '아이템 선택', fieldLabel: '아이템:', previewType: 'item'   },
+  'Weapon': { endpoint: 'weapons', title: '무기 선택',   fieldLabel: '무기:',   previewType: 'weapon' },
+  'Armor':  { endpoint: 'armors',  title: '방어구 선택', fieldLabel: '방어구:', previewType: 'armor'  },
 };
 
 export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string; showIncludeEquip?: boolean }) {
@@ -70,7 +71,7 @@ export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }:
   const [includeEquip, setIncludeEquip] = useState<boolean>((p[4] as boolean) ?? false);
   const [showPicker, setShowPicker] = useState(false);
 
-  const { endpoint, title, fieldLabel } = ITEM_ENDPOINTS[label] || ITEM_ENDPOINTS['Item'];
+  const { endpoint, title, fieldLabel, previewType } = ITEM_ENDPOINTS[label] || ITEM_ENDPOINTS['Item'];
   const { names: dbNames, iconIndices } = useDbNamesWithIcons(endpoint);
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
@@ -144,7 +145,8 @@ export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }:
 
       {showPicker && (
         <DataListPicker items={dbNames} value={itemId} onChange={setItemId}
-          onClose={() => setShowPicker(false)} title={title} iconIndices={iconIndices} />
+          onClose={() => setShowPicker(false)} title={title} iconIndices={iconIndices}
+          renderPreview={(id) => <ItemPreview id={id} type={previewType} />} />
       )}
     </>
   );

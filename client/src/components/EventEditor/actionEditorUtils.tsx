@@ -73,10 +73,11 @@ export function getLabel(id: number, list: string[]) {
 }
 
 /** 인덱스 0부터 시작하는 DataListPicker (전체 파티 등 0번 항목 포함) */
-export function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIndices, characterData }: {
+export function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIndices, characterData, renderPreview }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
   iconIndices?: (number | undefined)[];
   characterData?: (CharacterInfo | undefined)[];
+  renderPreview?: (id: number) => React.ReactNode;
 }) {
   const GROUP_SIZE = 20;
   const totalCount = items.length;
@@ -107,9 +108,11 @@ export function DataListPickerWithZero({ items, value, onChange, onClose, title,
     return result;
   }, [currentGroup, items]);
 
+  const hasPreview = !!renderPreview;
+
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
-      <div className="image-picker-dialog" style={{ width: 500, maxHeight: '70vh' }}>
+      <div className="image-picker-dialog" style={{ width: hasPreview ? 760 : 500, maxHeight: '70vh' }}>
         <div className="image-picker-header">{title || '대상 선택'}</div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 300 }}>
           <div style={{ width: 170, borderRight: '1px solid #444', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
@@ -137,6 +140,13 @@ export function DataListPickerWithZero({ items, value, onChange, onClose, title,
               );
             })}
           </div>
+          {hasPreview && (
+            <div style={{ width: 240, borderLeft: '1px solid #444', overflowY: 'auto', background: '#2b2b2b' }}>
+              {selected > 0 ? renderPreview(selected) : (
+                <div style={{ padding: 12, color: '#888', fontSize: 12, textAlign: 'center', marginTop: 40 }}>항목을 선택하세요</div>
+              )}
+            </div>
+          )}
         </div>
         <div className="image-picker-footer">
           <button className="db-btn" onClick={() => { onChange(selected); onClose(); }}>OK</button>
