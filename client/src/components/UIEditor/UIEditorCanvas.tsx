@@ -550,16 +550,28 @@ export default function UIEditorCanvas() {
                 const ty = tgtPos.absY + (tgtPos.height ?? 40) / 2;
                 const color = NAV_COLORS[key];
                 const markerId = `nav-arrow-${key}`;
+
                 const dx = tx - sx, dy = ty - sy;
                 const len = Math.sqrt(dx * dx + dy * dy);
-                const margin = 8;
-                const mx = len > 0 ? (dx / len) * margin : 0;
-                const my = len > 0 ? (dy / len) * margin : 0;
+                if (len < 1) return;
+
+                // 끝점 여백 (위젯 중심에서 margin만큼 후퇴)
+                const margin = 10;
+                const ux = dx / len, uy = dy / len;
+                const x1 = sx + ux * margin, y1 = sy + uy * margin;
+                const x2 = tx - ux * margin, y2 = ty - uy * margin;
+
+                // 진행 방향 오른쪽 수직 단위벡터 (시계방향 90°)
+                const rpx = uy, rpy = -ux;
+                // 곡률 offset: 거리에 비례하되 최소 20, 최대 45
+                const curve = Math.min(45, Math.max(20, len * 0.22));
+                const cx = (x1 + x2) / 2 + rpx * curve;
+                const cy = (y1 + y2) / 2 + rpy * curve;
+
                 arrows.push(
-                  <line key={`${srcId}-${key}`}
-                    x1={sx + mx} y1={sy + my}
-                    x2={tx - mx} y2={ty - my}
-                    stroke={color} strokeWidth={1.5} opacity={0.85}
+                  <path key={`${srcId}-${key}`}
+                    d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+                    stroke={color} strokeWidth={1.5} opacity={0.85} fill="none"
                     markerEnd={`url(#${markerId})`}
                   />
                 );
@@ -571,7 +583,7 @@ export default function UIEditorCanvas() {
               >
                 <defs>
                   {(Object.keys(NAV_COLORS) as NavKey[]).map((key) => (
-                    <marker key={key} id={`nav-arrow-${key}`} markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+                    <marker key={key} id={`nav-arrow-${key}`} markerWidth="7" markerHeight="7" refX="7" refY="3" orient="auto">
                       <path d="M0,0 L0,6 L7,3 z" fill={NAV_COLORS[key]} />
                     </marker>
                   ))}
