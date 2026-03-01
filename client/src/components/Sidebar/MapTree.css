@@ -109,6 +109,30 @@
 
 /* highlight는 App.css의 mark.search-highlight 전역 스타일 사용 */
 
+/* Folder nodes */
+.map-tree-folder-node > .map-tree-label {
+  font-style: italic;
+  color: #c8a86e;
+}
+
+.map-tree-folder-icon {
+  font-size: 13px;
+  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+.map-tree-folder-edit {
+  background: #1e2226;
+  border: 1px solid #2675bf;
+  color: #ddd;
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  outline: none;
+  width: 120px;
+  max-width: 160px;
+}
+
 /* Drag & Drop */
 .map-tree-node.map-tree-dragging {
   opacity: 0.4;

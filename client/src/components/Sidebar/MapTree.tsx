@@ -19,6 +19,7 @@ interface ContextMenuState {
   x: number;
   y: number;
   mapId: number;
+  isFolder: boolean;
 }
 
 interface DragOverInfo {
@@ -64,17 +65,18 @@ function filterTree(nodes: TreeNodeData[], query: string): TreeNodeData[] {
   for (const node of nodes) {
     const filteredChildren = filterTree(node.children, query);
     const idStr = String(node.id).padStart(3, '0');
-    const selfMatch = fuzzyMatch(node.name || `Map ${node.id}`, query)
-      || fuzzyMatch(idStr, query)
-      || (!!node.displayName && fuzzyMatch(node.displayName, query));
+    const selfMatch = (node.isFolder
+      ? fuzzyMatch(node.name, query)
+      : (fuzzyMatch(node.name || `Map ${node.id}`, query)
+        || fuzzyMatch(idStr, query)
+        || (!!node.displayName && fuzzyMatch(node.displayName, query))));
     if (selfMatch || filteredChildren.length > 0) {
-      result.push({ ...node, children: selfMatch && filteredChildren.length === 0 ? [] : filteredChildren.length > 0 ? filteredChildren : [] });
+      result.push({ ...node, children: filteredChildren });
     }
   }
   return result;
 }
 
-/** DFS 평탄화: 드래그 범위 선택(Shift+click) 기준용 */
 function flattenTree(nodes: TreeNodeData[], collapsed: Record<number, boolean>): number[] {
   const result: number[] = [];
   const visit = (node: TreeNodeData) => {
@@ -149,7 +151,6 @@ function applyDrop(
   return newMaps;
 }
 
-/** 여러 맵을 동시에 이동. DFS 순서 기준으로 처리 */
 function applyMultiDrop(
   maps: (MapInfo | null)[],
   draggingIds: number[],
@@ -157,38 +158,23 @@ function applyMultiDrop(
   position: 'before' | 'after' | 'into',
   flatOrder: number[]
 ): (MapInfo | null)[] {
-  // 드래그 대상 중 targetId나 그 조상을 제외
   const validIds = draggingIds.filter(id => {
     if (id === targetId) return false;
-    if (isDescendant(maps, targetId, id)) return false; // target이 id의 자손이면 제외
+    if (isDescendant(maps, targetId, id)) return false;
     return true;
   });
   if (validIds.length === 0) return maps;
   if (validIds.length === 1) return applyDrop(maps, validIds[0], targetId, position);
 
-  // flatOrder 기준으로 정렬
-  const sorted = [...validIds].sort((a, b) => {
-    const ia = flatOrder.indexOf(a);
-    const ib = flatOrder.indexOf(b);
-    return ia - ib;
-  });
+  const sorted = [...validIds].sort((a, b) => flatOrder.indexOf(a) - flatOrder.indexOf(b));
 
   let current = maps;
   if (position === 'before') {
-    // 순서대로 각각 targetId 앞에 삽입 → [A, B, C, target, ...]
-    for (const id of sorted) {
-      current = applyDrop(current, id, targetId, 'before');
-    }
+    for (const id of sorted) current = applyDrop(current, id, targetId, 'before');
   } else if (position === 'after') {
-    // 역순으로 각각 targetId 뒤에 삽입 → [target, A, B, C, ...]
-    for (const id of [...sorted].reverse()) {
-      current = applyDrop(current, id, targetId, 'after');
-    }
+    for (const id of [...sorted].reverse()) current = applyDrop(current, id, targetId, 'after');
   } else {
-    // 순서대로 target의 자식으로 추가
-    for (const id of sorted) {
-      current = applyDrop(current, id, targetId, 'into');
-    }
+    for (const id of sorted) current = applyDrop(current, id, targetId, 'into');
   }
 
   return current;
@@ -204,9 +190,10 @@ interface TreeNodeProps {
   filterQuery?: string;
   onSelect: (id: number, e: React.MouseEvent) => void;
   onDoubleClick: (id: number) => void;
+  onFolderToggle: (id: number) => void;
   collapsed: Record<number, boolean>;
   onToggle: (id: number) => void;
-  onContextMenu: (e: React.MouseEvent, mapId: number) => void;
+  onContextMenu: (e: React.MouseEvent, mapId: number, isFolder: boolean) => void;
   startPositions: Record<number, string[]>;
   multiSelectedIds: Set<number>;
   draggingIds: Set<number>;
@@ -215,26 +202,31 @@ interface TreeNodeProps {
   onDragOver: (e: React.DragEvent, id: number) => void;
   onDragEnd: () => void;
   onDrop: (e: React.DragEvent, targetId: number, position: 'before' | 'after' | 'into') => void;
+  editingFolderId: number | null;
+  editingFolderName: string;
+  onEditChange: (name: string) => void;
+  onEditCommit: () => void;
+  onEditCancel: () => void;
 }
 
-function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions, multiSelectedIds, draggingIds, dragOverInfo, onDragStart, onDragOver, onDragEnd, onDrop }: TreeNodeProps) {
+function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, onSelect, onDoubleClick, onFolderToggle, collapsed, onToggle, onContextMenu, startPositions, multiSelectedIds, draggingIds, dragOverInfo, onDragStart, onDragOver, onDragEnd, onDrop, editingFolderId, editingFolderName, onEditChange, onEditCommit, onEditCancel }: TreeNodeProps) {
   const isCollapsed = collapsed[node.id];
   const hasChildren = node.children && node.children.length > 0;
-  const badges = startPositions[node.id];
+  const badges = !node.isFolder ? startPositions[node.id] : undefined;
   const idStr = String(node.id).padStart(3, '0');
-  const idPrefix = `[${idStr}]`;
-  const baseName = node.name || `Map ${node.id}`;
-  const isSelected = node.id === selectedId;
+  const isSelected = !node.isFolder && node.id === selectedId;
   const isMultiSelected = multiSelectedIds.has(node.id);
   const isDraggingThis = draggingIds.has(node.id);
   const isOver = dragOverInfo?.id === node.id;
   const overPos = isOver ? dragOverInfo!.position : null;
-  const dn = isSelected ? (selectedDisplayName || node.displayName || '') : (node.displayName || '');
+  const isEditingThis = node.isFolder && editingFolderId === node.id;
 
   const q = filterQuery || '';
-  const labelNode = dn ? (
-    <>{highlightMatch(baseName, q)}<span style={{ color: '#999' }}>({highlightMatch(dn, q)})</span></>
-  ) : highlightMatch(baseName, q);
+
+  const editInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isEditingThis) editInputRef.current?.select();
+  }, [isEditingThis]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -250,16 +242,60 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, o
     }
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (node.isFolder) {
+      if (!e.ctrlKey && !e.metaKey && !e.shiftKey) onFolderToggle(node.id);
+      onSelect(node.id, e);
+    } else {
+      onSelect(node.id, e);
+    }
+  };
+
+  // label for folder
+  const folderLabel = node.isFolder ? (
+    <span className="map-tree-folder-name">
+      {isEditingThis ? (
+        <input
+          ref={editInputRef}
+          className="map-tree-folder-edit"
+          value={editingFolderName}
+          onChange={e => onEditChange(e.target.value)}
+          onBlur={onEditCommit}
+          onKeyDown={e => {
+            e.stopPropagation();
+            if (e.key === 'Enter') onEditCommit();
+            if (e.key === 'Escape') onEditCancel();
+          }}
+          onClick={e => e.stopPropagation()}
+        />
+      ) : (
+        highlightMatch(node.name, q)
+      )}
+    </span>
+  ) : null;
+
+  // label for map
+  const dn = isSelected ? (selectedDisplayName || node.displayName || '') : (node.displayName || '');
+  const mapLabel = !node.isFolder ? (
+    <>
+      <span style={{ color: '#888' }}>{highlightMatch(`[${idStr}]`, q)}</span>{' '}
+      {dn
+        ? <>{highlightMatch(node.name || `Map ${node.id}`, q)}<span style={{ color: '#999' }}>({highlightMatch(dn, q)})</span></>
+        : highlightMatch(node.name || `Map ${node.id}`, q)
+      }
+    </>
+  ) : null;
+
   return (
     <>
       <div
-        className={`map-tree-node${isSelected ? ' selected' : ''}${isMultiSelected && !isSelected ? ' multi-selected' : ''}${isDraggingThis ? ' map-tree-dragging' : ''}`}
+        className={`map-tree-node${isSelected ? ' selected' : ''}${isMultiSelected && !isSelected ? ' multi-selected' : ''}${isDraggingThis ? ' map-tree-dragging' : ''}${node.isFolder ? ' map-tree-folder-node' : ''}`}
         data-drag-over={overPos ?? undefined}
         style={{ paddingLeft: 8 + depth * 16 }}
         draggable
-        onClick={(e) => onSelect(node.id, e)}
-        onDoubleClick={() => onDoubleClick(node.id)}
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node.id); }}
+        onClick={handleClick}
+        onDoubleClick={() => !isEditingThis && onDoubleClick(node.id)}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node.id, node.isFolder ?? false); }}
         onDragStart={(e) => { e.stopPropagation(); onDragStart(node.id); }}
         onDragOver={handleDragOver}
         onDragEnd={onDragEnd}
@@ -267,21 +303,23 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, o
       >
         <span
           className="map-tree-toggle"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (hasChildren) onToggle(node.id);
-          }}
+          onClick={(e) => { e.stopPropagation(); if (hasChildren || node.isFolder) onToggle(node.id); }}
         >
-          {hasChildren ? (isCollapsed ? '▶' : '▼') : ''}
+          {node.isFolder
+            ? (isCollapsed ? '▶' : '▼')
+            : (hasChildren ? (isCollapsed ? '▶' : '▼') : '')}
         </span>
+        {node.isFolder && (
+          <span className="map-tree-folder-icon">{isCollapsed ? '📁' : '📂'}</span>
+        )}
         <span className="map-tree-label">
-          <span style={{ color: '#888' }}>{highlightMatch(idPrefix, q)}</span>{' '}{labelNode}
+          {node.isFolder ? folderLabel : mapLabel}
         </span>
         {badges && badges.map((badge) => (
           <span key={badge} className="map-tree-badge" title={badge}>{badge}</span>
         ))}
       </div>
-      {hasChildren && !isCollapsed &&
+      {!isCollapsed &&
         node.children.map((child) => (
           <TreeNode
             key={child.id}
@@ -292,6 +330,7 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, o
             filterQuery={filterQuery}
             onSelect={onSelect}
             onDoubleClick={onDoubleClick}
+            onFolderToggle={onFolderToggle}
             collapsed={collapsed}
             onToggle={onToggle}
             onContextMenu={onContextMenu}
@@ -303,6 +342,11 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, o
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
             onDrop={onDrop}
+            editingFolderId={editingFolderId}
+            editingFolderName={editingFolderName}
+            onEditChange={onEditChange}
+            onEditCommit={onEditCommit}
+            onEditCancel={onEditCancel}
           />
         ))
       }
@@ -321,6 +365,7 @@ export default function MapTree() {
   const clearCurrentMap = useEditorStore((s) => s.clearCurrentMap);
   const deleteMap = useEditorStore((s) => s.deleteMap);
   const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
+  const renameMap = useEditorStore((s) => s.renameMap);
   const systemData = useEditorStore((s) => s.systemData);
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -330,6 +375,10 @@ export default function MapTree() {
   const [filterQuery, setFilterQuery] = useState('');
   const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
   const loadMaps = useEditorStore((s) => s.loadMaps);
+
+  // Folder inline edit state
+  const [editingFolderId, setEditingFolderId] = useState<number | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
 
   // Multi-select state
   const [multiSelectedIds, setMultiSelectedIds] = useState<Set<number>>(new Set());
@@ -359,32 +408,36 @@ export default function MapTree() {
     return result;
   }, [systemData, t]);
 
-  const handleToggle = (id: number) => {
+  const handleToggle = useCallback((id: number) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  }, []);
 
-  // 맵 선택 (Ctrl+click: 토글, Shift+click: 범위, 일반: 단일)
+  const handleFolderToggle = useCallback((id: number) => {
+    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  // 선택 처리
   const handleSelect = useCallback((id: number, e: React.MouseEvent) => {
+    const mapInfo = maps.find(m => m?.id === id);
+    const isFolder = mapInfo?.isFolder ?? false;
+
     if (e.ctrlKey || e.metaKey) {
-      // 토글
       setMultiSelectedIds(prev => {
         const next = new Set(prev);
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
-        if (next.size > 1) {
-          clearCurrentMap();
-        } else if (next.size === 1) {
-          const [singleId] = next;
-          selectMap(singleId);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        if (!isFolder) {
+          if (next.size === 1) {
+            const [singleId] = next;
+            const single = maps.find(m => m?.id === singleId);
+            if (!single?.isFolder) selectMap(singleId);
+          } else if (next.size > 1) {
+            clearCurrentMap();
+          }
         }
         return next;
       });
       lastClickedIdRef.current = id;
     } else if (e.shiftKey && lastClickedIdRef.current !== null) {
-      // 범위 선택
       const fromIdx = flatOrder.indexOf(lastClickedIdRef.current);
       const toIdx = flatOrder.indexOf(id);
       if (fromIdx !== -1 && toIdx !== -1) {
@@ -392,26 +445,41 @@ export default function MapTree() {
         const end = Math.max(fromIdx, toIdx);
         const rangeIds = new Set(flatOrder.slice(start, end + 1));
         setMultiSelectedIds(rangeIds);
-        if (rangeIds.size > 1) {
-          clearCurrentMap();
-        } else {
-          selectMap(id);
-        }
+        if (rangeIds.size > 1) clearCurrentMap();
+        else if (!isFolder) selectMap(id);
       }
     } else {
-      // 단일 선택
       setMultiSelectedIds(new Set());
       lastClickedIdRef.current = id;
-      selectMap(id);
+      if (!isFolder) selectMap(id);
     }
-  }, [flatOrder, selectMap, clearCurrentMap]);
+  }, [maps, flatOrder, selectMap, clearCurrentMap]);
 
   const handleDoubleClick = useCallback((mapId: number) => {
-    setMapPropertiesId(mapId);
+    const mapInfo = maps.find(m => m?.id === mapId);
+    if (mapInfo?.isFolder) {
+      setEditingFolderId(mapId);
+      setEditingFolderName(mapInfo.name);
+    } else {
+      setMapPropertiesId(mapId);
+    }
+  }, [maps]);
+
+  const handleEditCommit = useCallback(async () => {
+    if (editingFolderId === null) return;
+    const name = editingFolderName.trim();
+    if (name) await renameMap(editingFolderId, name);
+    setEditingFolderId(null);
+    setEditingFolderName('');
+  }, [editingFolderId, editingFolderName, renameMap]);
+
+  const handleEditCancel = useCallback(() => {
+    setEditingFolderId(null);
+    setEditingFolderName('');
   }, []);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, mapId: number) => {
-    setContextMenu({ x: e.clientX, y: e.clientY, mapId });
+  const handleContextMenu = useCallback((e: React.MouseEvent, mapId: number, isFolder: boolean) => {
+    setContextMenu({ x: e.clientX, y: e.clientY, mapId, isFolder });
   }, []);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -419,8 +487,7 @@ export default function MapTree() {
   useEffect(() => {
     if (!contextMenu) return;
     const onMouseDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('.context-menu')) return;
+      if ((e.target as HTMLElement).closest('.context-menu')) return;
       closeContextMenu();
     };
     document.addEventListener('mousedown', onMouseDown);
@@ -432,6 +499,31 @@ export default function MapTree() {
     closeContextMenu();
     setNewMapParentId(parentId);
   }, [contextMenu, closeContextMenu]);
+
+  const handleNewFolder = useCallback(async () => {
+    const parentId = contextMenu?.mapId ?? 0;
+    closeContextMenu();
+    try {
+      const result = await apiClient.post<{ id: number }>('/maps/folder', { name: '새 폴더', parentId });
+      await loadMaps();
+      if (result.id) {
+        setEditingFolderId(result.id);
+        setEditingFolderName('새 폴더');
+        if (parentId > 0) setCollapsed(prev => ({ ...prev, [parentId]: false }));
+      }
+    } catch (err) {
+      console.error('Failed to create folder:', err);
+    }
+  }, [contextMenu, closeContextMenu, loadMaps]);
+
+  const handleRenameFolder = useCallback(() => {
+    if (!contextMenu) return;
+    const mapInfo = maps.find(m => m?.id === contextMenu.mapId);
+    if (!mapInfo?.isFolder) return;
+    closeContextMenu();
+    setEditingFolderId(contextMenu.mapId);
+    setEditingFolderName(mapInfo.name);
+  }, [contextMenu, maps, closeContextMenu]);
 
   const handleMapProperties = useCallback(() => {
     if (!contextMenu) return;
@@ -447,11 +539,22 @@ export default function MapTree() {
 
   const handleDeleteMapById = useCallback(async (mapId: number) => {
     if (mapId === 0) return;
+    const mapInfo = maps.find(m => m?.id === mapId);
+    const isFolder = mapInfo?.isFolder ?? false;
     const hasChildren = maps.some(m => m && m.parentId === mapId);
-    const mapName = maps.find(m => m && m.id === mapId)?.name ?? '';
-    const msg = hasChildren
-      ? t('mapTree.confirmDeleteWithChildren', { name: mapName, id: mapId })
-      : t('mapTree.confirmDelete', { name: mapName, id: mapId });
+    const mapName = mapInfo?.name ?? '';
+
+    let msg: string;
+    if (isFolder && hasChildren) {
+      msg = `폴더 "${mapName}"과 그 안의 모든 맵/폴더를 삭제하시겠습니까?`;
+    } else if (isFolder) {
+      msg = `폴더 "${mapName}"을 삭제하시겠습니까?`;
+    } else if (hasChildren) {
+      msg = t('mapTree.confirmDeleteWithChildren', { name: mapName, id: mapId });
+    } else {
+      msg = t('mapTree.confirmDelete', { name: mapName, id: mapId });
+    }
+
     if (window.confirm(msg)) {
       await deleteMap(mapId);
     }
@@ -466,7 +569,7 @@ export default function MapTree() {
 
   const handleCopyMap = useCallback(() => {
     const targetId = contextMenu?.mapId ?? currentMapId;
-    if (targetId && targetId > 0) {
+    if (targetId && targetId > 0 && !contextMenu?.isFolder) {
       setCopiedMapId(targetId);
     }
     closeContextMenu();
@@ -486,10 +589,9 @@ export default function MapTree() {
     }
   }, [copiedMapId, loadMaps, selectMap, closeContextMenu]);
 
-  // ── Drag handlers ────────────────────────────────────────────────────────────
+  // ── Drag handlers ─────────────────────────────────────────────────────────
 
   const handleDragStart = useCallback((id: number) => {
-    // 드래그하는 노드가 멀티선택에 포함되어 있으면 전체 선택 이동
     const ids = multiSelectedIds.has(id) && multiSelectedIds.size > 1
       ? new Set(multiSelectedIds)
       : new Set([id]);
@@ -502,10 +604,7 @@ export default function MapTree() {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const ratio = (e.clientY - rect.top) / rect.height;
     const position: 'before' | 'after' | 'into' = ratio < 0.28 ? 'before' : ratio > 0.72 ? 'after' : 'into';
-    setDragOverInfo(prev => {
-      if (prev?.id === id && prev?.position === position) return prev;
-      return { id, position };
-    });
+    setDragOverInfo(prev => (prev?.id === id && prev?.position === position) ? prev : { id, position });
   }, []);
 
   const handleDragEnd = useCallback(() => {
@@ -531,9 +630,7 @@ export default function MapTree() {
 
     try {
       await updateMapInfos(newMaps);
-      if (position === 'into') {
-        setCollapsed(prev => ({ ...prev, [targetId]: false }));
-      }
+      if (position === 'into') setCollapsed(prev => ({ ...prev, [targetId]: false }));
       setMultiSelectedIds(new Set());
     } catch (err) {
       console.error('Failed to reorder maps:', err);
@@ -548,19 +645,27 @@ export default function MapTree() {
       <div
         className="map-tree"
         style={{ padding: '8px', color: '#666' }}
-        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 }); }}
+        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0, isFolder: false }); }}
       >
         {t('mapTree.openProject')}
       </div>
     );
   }
 
+  const ctxIsFolder = contextMenu?.isFolder ?? false;
+
   return (
     <div className="map-tree" tabIndex={-1} onKeyDown={(e) => {
       if ((document.activeElement as HTMLElement)?.classList.contains('fuzzy-search-input')) return;
+      if (editingFolderId !== null) return;
 
-      if (e.key === 'Escape') {
-        setMultiSelectedIds(new Set());
+      if (e.key === 'Escape') setMultiSelectedIds(new Set());
+      if (e.key === 'F2' && currentMapId != null) {
+        const info = maps.find(m => m?.id === currentMapId);
+        if (info?.isFolder) {
+          setEditingFolderId(currentMapId);
+          setEditingFolderName(info.name);
+        }
       }
       if (e.key === 'Delete' && currentMapId != null && currentMapId !== 0) {
         e.preventDefault();
@@ -577,12 +682,12 @@ export default function MapTree() {
       }
     }} onContextMenu={(e) => {
       e.preventDefault();
-      setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 });
+      setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0, isFolder: false });
     }}>
       <div
         className="map-tree-node map-tree-root"
         onClick={() => setRootCollapsed(!rootCollapsed)}
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 }); }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0, isFolder: false }); }}
       >
         <span className="map-tree-toggle">{rootCollapsed ? '▶' : '▼'}</span>
         <span className="map-tree-label">{projectName || t('mapTree.project')}</span>
@@ -611,6 +716,7 @@ export default function MapTree() {
               filterQuery={filterQuery}
               onSelect={handleSelect}
               onDoubleClick={handleDoubleClick}
+              onFolderToggle={handleFolderToggle}
               collapsed={filterQuery ? {} : collapsed}
               onToggle={handleToggle}
               onContextMenu={handleContextMenu}
@@ -622,6 +728,11 @@ export default function MapTree() {
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
               onDrop={handleDrop}
+              editingFolderId={editingFolderId}
+              editingFolderName={editingFolderName}
+              onEditChange={setEditingFolderName}
+              onEditCommit={handleEditCommit}
+              onEditCancel={handleEditCancel}
             />
           ))}
         </>
@@ -650,27 +761,51 @@ export default function MapTree() {
 
       {contextMenu && (
         <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
-          <div className="context-menu-item" onClick={handleNewMap}>{t('mapTree.newMap')}</div>
-          <div className="context-menu-item" onClick={handleLoadSampleMap}>{t('mapTree.loadSampleMap')}</div>
+          {/* 새 폴더 / 새 맵은 항상 표시 */}
+          <div className="context-menu-item" onClick={handleNewFolder}>
+            {t('mapTree.newFolder', '새 폴더')}
+          </div>
+          <div className="context-menu-item" onClick={handleNewMap}>
+            {t('mapTree.newMap')}
+          </div>
+          {!ctxIsFolder && contextMenu.mapId > 0 && (
+            <div className="context-menu-item" onClick={handleLoadSampleMap}>
+              {t('mapTree.loadSampleMap')}
+            </div>
+          )}
+
           {contextMenu.mapId > 0 && (
             <>
-              <div className="context-menu-item" onClick={handleMapProperties}>{t('mapTree.mapProperties')}</div>
               <div className="context-menu-separator" />
-              <div className="context-menu-item" onClick={handleCopyMap}>
-                {t('mapTree.copyMap', '맵 복사')}
-                <span className="context-menu-shortcut">Ctrl+C</span>
-              </div>
-              <div
-                className={`context-menu-item${!copiedMapId ? ' disabled' : ''}`}
-                onClick={copiedMapId ? handlePasteMap : undefined}
-              >
-                {t('mapTree.pasteMap', '맵 붙여넣기')}
-                <span className="context-menu-shortcut">Ctrl+V</span>
-              </div>
+              {ctxIsFolder ? (
+                <div className="context-menu-item" onClick={handleRenameFolder}>
+                  {t('mapTree.renameFolder', '폴더 이름 변경')}
+                </div>
+              ) : (
+                <>
+                  <div className="context-menu-item" onClick={handleMapProperties}>
+                    {t('mapTree.mapProperties')}
+                  </div>
+                  <div className="context-menu-item" onClick={handleCopyMap}>
+                    {t('mapTree.copyMap', '맵 복사')}
+                    <span className="context-menu-shortcut">Ctrl+C</span>
+                  </div>
+                  <div
+                    className={`context-menu-item${!copiedMapId ? ' disabled' : ''}`}
+                    onClick={copiedMapId ? handlePasteMap : undefined}
+                  >
+                    {t('mapTree.pasteMap', '맵 붙여넣기')}
+                    <span className="context-menu-shortcut">Ctrl+V</span>
+                  </div>
+                </>
+              )}
               <div className="context-menu-separator" />
-              <div className="context-menu-item" onClick={handleDeleteMap}>{t('mapTree.deleteMap')}</div>
+              <div className="context-menu-item" onClick={handleDeleteMap}>
+                {ctxIsFolder ? t('mapTree.deleteFolder', '폴더 삭제') : t('mapTree.deleteMap')}
+              </div>
             </>
           )}
+
           {contextMenu.mapId === 0 && copiedMapId && (
             <>
               <div className="context-menu-separator" />

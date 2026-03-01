@@ -9,6 +9,7 @@ export interface MapInfo {
   scrollX?: number;
   scrollY?: number;
   displayName?: string;
+  isFolder?: boolean;
 }
 
 export interface NpcDisplayData {

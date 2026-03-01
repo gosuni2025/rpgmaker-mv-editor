@@ -247,6 +247,43 @@ router.put('/:id', (req: Request, res: Response) => {
   }
 });
 
+// Create folder (MapInfos entry only, no map file)
+router.post('/folder', (req: Request, res: Response) => {
+  try {
+    const { name, parentId = 0 } = req.body;
+    const mapInfos = projectManager.readJSON('MapInfos.json') as (null | { id: number; order: number })[];
+
+    let newId = 1;
+    for (let i = 1; i < mapInfos.length; i++) {
+      if (mapInfos[i]) newId = Math.max(newId, mapInfos[i]!.id + 1);
+    }
+
+    let maxOrder = 0;
+    for (const info of mapInfos) {
+      if (info && info.order > maxOrder) maxOrder = info.order;
+    }
+
+    const mapInfo = {
+      id: newId,
+      expanded: true,
+      name: name || '새 폴더',
+      order: maxOrder + 1,
+      parentId,
+      scrollX: 0,
+      scrollY: 0,
+      isFolder: true,
+    };
+
+    while (mapInfos.length <= newId) mapInfos.push(null);
+    mapInfos[newId] = mapInfo;
+    projectManager.writeJSON('MapInfos.json', mapInfos);
+
+    res.json({ id: newId, mapInfo });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // Create new map
 router.post('/', (req: Request, res: Response) => {
   try {
