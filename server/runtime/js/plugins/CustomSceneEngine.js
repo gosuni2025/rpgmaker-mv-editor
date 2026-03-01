@@ -332,6 +332,10 @@
   Window_CustomCommand.prototype.itemHeight = function() {
     return this._winDef.rowHeight || this.lineHeight();
   };
+  // maxPageRows가 0이 되면 maxTopRow()=1이 되어 불필요한 스크롤 화살표가 표시되므로 최소 1 보장
+  Window_CustomCommand.prototype.maxPageRows = function() {
+    return Math.max(1, Window_Selectable.prototype.maxPageRows.call(this));
+  };
 
   Window_CustomCommand.prototype.drawItem = function(index) {
     var cmd = this._winDef.commands && this._winDef.commands[index];
