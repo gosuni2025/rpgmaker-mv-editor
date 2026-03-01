@@ -99,6 +99,38 @@ export function addObjectFromImageOp(get: GetFn, set: SetFn, imageName: string, 
   pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
+export function addObjectFromTileSelectionOp(get: GetFn, set: SetFn, tiles: number[][], width: number, height: number) {
+  const { currentMap, currentMapId } = get();
+  if (!currentMap || !currentMapId) return;
+  const oldObjects = currentMap.objects || [];
+  const objects = [...oldObjects];
+  const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
+
+  const tileIds: number[][][] = tiles.map(row => row.map(t => [t, 0, 0, 0]));
+  const passability: boolean[][] = [];
+  for (let row = 0; row < height; row++) {
+    passability.push(Array(width).fill(row < height - 1));
+  }
+
+  const cx = Math.floor(currentMap.width / 2);
+  const cy = Math.floor(currentMap.height / 2);
+
+  const newObj: MapObject = {
+    id: newId,
+    name: `OBJ${newId}`,
+    x: cx,
+    y: cy + height - 1,
+    tileIds,
+    width,
+    height,
+    zHeight: 0,
+    passability,
+  };
+  objects.push(newObj);
+  set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
+  pushObjectUndoEntry(get, set, oldObjects, objects);
+}
+
 export function addObjectOp(get: GetFn, set: SetFn, x: number, y: number) {
   const { currentMap, currentMapId, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId } = get();
   if (!currentMap || !currentMapId) return;

@@ -15,7 +15,7 @@ import {
   copyEventsOp, pasteEventsOp, deleteEventsOp, moveEventsOp,
 } from './eventOperations';
 import {
-  addObjectOp, addObjectFromTilesOp, addObjectFromImageOp, addObjectFromAnimationOp, expandObjectTilesOp, shrinkObjectTilesOp, updateObjectOp, deleteObjectOp,
+  addObjectOp, addObjectFromTilesOp, addObjectFromTileSelectionOp, addObjectFromImageOp, addObjectFromAnimationOp, expandObjectTilesOp, shrinkObjectTilesOp, updateObjectOp, deleteObjectOp,
   copyObjectsOp, pasteObjectsOp, deleteObjectsOp, moveObjectsOp, commitDragUndoOp,
   addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp, deleteCameraZonesOp, moveCameraZonesOp, commitCameraZoneDragUndoOp,
 } from './objectOperations';
@@ -37,7 +37,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setObjectSubMode' | 'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
   'objectPaintTiles' | 'setObjectPaintTiles' |
-  'addObject' | 'addObjectFromTiles' | 'addObjectFromImage' | 'addObjectFromAnimation' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' | 'commitDragUndo' |
+  'addObject' | 'addObjectFromTiles' | 'addObjectFromTileSelection' | 'addObjectFromImage' | 'addObjectFromAnimation' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' | 'commitDragUndo' |
   'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' | 'commitCameraZoneDragUndo' |
   'setEditMode' | 'setSelectedTool' | 'setDrawShape' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
@@ -136,6 +136,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   setObjectPaintTiles: (tiles: Set<string> | null) => set({ objectPaintTiles: tiles }),
   addObject: (x: number, y: number) => addObjectOp(get, set, x, y),
   addObjectFromTiles: (paintedTiles: Set<string>) => addObjectFromTilesOp(get, set, paintedTiles),
+  addObjectFromTileSelection: (tiles: number[][], width: number, height: number) => addObjectFromTileSelectionOp(get, set, tiles, width, height),
   addObjectFromImage: (imageName: string, imageWidth: number, imageHeight: number) => addObjectFromImageOp(get, set, imageName, imageWidth, imageHeight),
   addObjectFromAnimation: (animationId: number, animationName: string) => addObjectFromAnimationOp(get, set, animationId, animationName),
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => expandObjectTilesOp(get, set, objectId, paintedTiles),

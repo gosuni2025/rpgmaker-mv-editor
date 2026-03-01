@@ -3,6 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
 import ObjectImagePickerDialog from './ObjectImagePickerDialog';
+import ObjectTilePickerDialog from './ObjectTilePickerDialog';
 import { ObjectAnimSection, ObjectImagePreviewSection, ObjectImageScaleSection, ObjectShaderSection, ObjectPassabilitySection } from './ObjectInspectorSections';
 import './InspectorPanel.css';
 
@@ -14,10 +15,12 @@ export default function ObjectInspector() {
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const addObjectFromImage = useEditorStore((s) => s.addObjectFromImage);
   const addObjectFromAnimation = useEditorStore((s) => s.addObjectFromAnimation);
+  const addObjectFromTileSelection = useEditorStore((s) => s.addObjectFromTileSelection);
   const commitDragUndo = useEditorStore((s) => s.commitDragUndo);
   const dragSnapshotRef = useRef<any[] | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [showAnimationPicker, setShowAnimationPicker] = useState(false);
+  const [showTilePicker, setShowTilePicker] = useState(false);
 
   const onDragStart = useCallback(() => {
     dragSnapshotRef.current = useEditorStore.getState().currentMap?.objects || null;
@@ -58,6 +61,9 @@ export default function ObjectInspector() {
           </div>
         </div>
         <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <button className="camera-zone-action-btn" onClick={() => setShowTilePicker(true)}>
+            타일로 오브젝트 생성
+          </button>
           <button className="camera-zone-action-btn" onClick={() => setShowImagePicker(true)}>
             이미지로 오브젝트 생성
           </button>
@@ -65,6 +71,11 @@ export default function ObjectInspector() {
             애니메이션 오브젝트 생성
           </button>
         </div>
+        {showTilePicker && (
+          <ObjectTilePickerDialog
+            onConfirm={(tiles, w, h) => { addObjectFromTileSelection(tiles, w, h); setShowTilePicker(false); }}
+            onClose={() => setShowTilePicker(false)} />
+        )}
         {showImagePicker && (
           <ObjectImagePickerDialog onSelect={handleImageSelect} onClose={() => setShowImagePicker(false)} />
         )}
