@@ -372,9 +372,14 @@ export interface EditorState {
   clearObjectSelection: () => void;
   objectPaintTiles: Set<string> | null;
   setObjectPaintTiles: (tiles: Set<string> | null) => void;
+  objectBrushTiles: number[][] | null;
+  objectBrushWidth: number;
+  objectBrushHeight: number;
+  setObjectBrush: (tiles: number[][], width: number, height: number) => void;
+  clearObjectBrush: () => void;
   addObject: (x: number, y: number) => void;
   addObjectFromTiles: (paintedTiles: Set<string>) => void;
-  addObjectFromTileSelection: (tiles: number[][], width: number, height: number) => void;
+  addObjectFromTileSelection: (tiles: number[][], width: number, height: number, x?: number, y?: number) => void;
   addObjectFromImage: (imageName: string, imageWidth: number, imageHeight: number) => void;
   addObjectFromAnimation: (animationId: number, animationName: string) => void;
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => void;

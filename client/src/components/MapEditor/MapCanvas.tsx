@@ -52,6 +52,8 @@ export default function MapCanvas() {
   const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
   const showTileInfo = useEditorStore((s) => s.showTileInfo);
   const mode3d = useEditorStore((s) => s.mode3d);
+  const objectBrushTiles = useEditorStore((s) => s.objectBrushTiles);
+  const clearObjectBrush = useEditorStore((s) => s.clearObjectBrush);
 
   // Compose hooks
   const { showGrid, showTileId, altPressed, panning } = useKeyboardShortcuts(containerRef);
@@ -122,6 +124,17 @@ export default function MapCanvas() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
+  // 브러시 모드 ESC 취소
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && useEditorStore.getState().objectBrushTiles) {
+        clearObjectBrush();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [clearObjectBrush]);
+
   useMapScrollPersistence(containerRef, currentMapId, zoomLevel);
 
   // Tile cursor preview
@@ -143,10 +156,10 @@ export default function MapCanvas() {
   const [mouseScreenPos, setMouseScreenPos] = useState<{ x: number; y: number } | null>(null);
   const handleMouseMoveWithTooltip = useCallback((e: React.MouseEvent<HTMLElement>) => {
     handleMouseMove(e);
-    if (showTileInfo && editMode === 'map') {
+    if ((showTileInfo && editMode === 'map') || objectBrushTiles) {
       setMouseScreenPos({ x: e.clientX, y: e.clientY });
     }
-  }, [handleMouseMove, showTileInfo, editMode]);
+  }, [handleMouseMove, showTileInfo, editMode, objectBrushTiles]);
   const handleMouseLeaveWithTooltip = useCallback((e: React.MouseEvent<HTMLElement>) => {
     handleMouseLeave(e);
     setMouseScreenPos(null);
@@ -441,6 +454,24 @@ export default function MapCanvas() {
           mouseX={mouseScreenPos.x}
           mouseY={mouseScreenPos.y}
         />
+      )}
+      {objectBrushTiles && mouseScreenPos && (
+        <div style={{
+          position: 'fixed',
+          left: mouseScreenPos.x + 14,
+          top: mouseScreenPos.y + 20,
+          background: 'rgba(0,0,0,0.75)',
+          color: '#ccc',
+          fontSize: 11,
+          padding: '3px 8px',
+          borderRadius: 3,
+          pointerEvents: 'none',
+          zIndex: 9999,
+          whiteSpace: 'nowrap',
+          border: '1px solid #555',
+        }}>
+          클릭으로 배치 · <span style={{ color: '#f88' }}>ESC</span> 취소
+        </div>
       )}
       </div>
     </div>

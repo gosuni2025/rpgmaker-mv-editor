@@ -15,7 +15,7 @@ export default function ObjectInspector() {
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const addObjectFromImage = useEditorStore((s) => s.addObjectFromImage);
   const addObjectFromAnimation = useEditorStore((s) => s.addObjectFromAnimation);
-  const addObjectFromTileSelection = useEditorStore((s) => s.addObjectFromTileSelection);
+  const setObjectBrush = useEditorStore((s) => s.setObjectBrush);
   const commitDragUndo = useEditorStore((s) => s.commitDragUndo);
   const dragSnapshotRef = useRef<any[] | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
@@ -73,7 +73,7 @@ export default function ObjectInspector() {
         </div>
         {showTilePicker && (
           <ObjectTilePickerDialog
-            onConfirm={(tiles, w, h) => { addObjectFromTileSelection(tiles, w, h); setShowTilePicker(false); }}
+            onConfirm={(tiles, w, h) => { setObjectBrush(tiles, w, h); setShowTilePicker(false); }}
             onClose={() => setShowTilePicker(false)} />
         )}
         {showImagePicker && (

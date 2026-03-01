@@ -39,6 +39,9 @@ export function useTileCursorPreview(
   const selectedTiles = useEditorStore((s) => s.selectedTiles);
   const selectedTilesWidth = useEditorStore((s) => s.selectedTilesWidth);
   const selectedTilesHeight = useEditorStore((s) => s.selectedTilesHeight);
+  const objectBrushTiles = useEditorStore((s) => s.objectBrushTiles);
+  const objectBrushWidth = useEditorStore((s) => s.objectBrushWidth);
+  const objectBrushHeight = useEditorStore((s) => s.objectBrushHeight);
 
   const tilePreviewMeshRef = useRef<any>(null);
   const tilePreviewLineRef = useRef<any>(null);
@@ -54,15 +57,29 @@ export function useTileCursorPreview(
     const THREE = (window as any).THREE;
     const tilemap = refs.tilemapRef.current;
     const TilemapClass = (window as any).Tilemap;
-    if (!THREE || !tilemap || !TilemapClass || selectedTileId <= 0) return;
-    if (editMode !== 'map' && editMode !== 'object') return;
-    if (selectedTool !== 'pen') return;
+    if (!THREE || !tilemap || !TilemapClass) return;
+
+    // 브러시 모드
+    const isBrushMode = editMode === 'object' && objectBrushTiles != null;
+    // 일반 펜 모드
+    const isPenMode = (editMode === 'map' || editMode === 'object') && selectedTool === 'pen' && selectedTileId > 0;
+    if (!isBrushMode && !isPenMode) return;
 
     const tw = TILE_SIZE_PX;
     const th = TILE_SIZE_PX;
-    const isMulti = selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1);
-    const tilesW = isMulti ? selectedTilesWidth : 1;
-    const tilesH = isMulti ? selectedTilesHeight : 1;
+    let tilesW: number, tilesH: number;
+    let getTileId: (row: number, col: number) => number;
+
+    if (isBrushMode) {
+      tilesW = objectBrushWidth;
+      tilesH = objectBrushHeight;
+      getTileId = (row, col) => objectBrushTiles![row]?.[col] ?? 0;
+    } else {
+      const isMulti = selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1);
+      tilesW = isMulti ? selectedTilesWidth : 1;
+      tilesH = isMulti ? selectedTilesHeight : 1;
+      getTileId = (row, col) => isMulti ? selectedTiles![row][col] : selectedTileId;
+    }
 
     const cvs = document.createElement('canvas');
     cvs.width = tw * tilesW;
@@ -88,7 +105,7 @@ export function useTileCursorPreview(
 
     for (let row = 0; row < tilesH; row++) {
       for (let col = 0; col < tilesW; col++) {
-        const tileId = isMulti ? selectedTiles![row][col] : selectedTileId;
+        const tileId = getTileId(row, col);
         if (tileId <= 0) continue;
         proxy._drawTile(offBitmap, tileId, col * tw, row * th);
       }
@@ -99,7 +116,7 @@ export function useTileCursorPreview(
     texture.minFilter = THREE.NearestFilter;
     texture.flipY = false;
     tilePreviewTextureRef.current = texture;
-  }, [editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, rendererReady]);
+  }, [editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, objectBrushTiles, objectBrushWidth, objectBrushHeight, rendererReady]);
 
   // 메시 표시/숨김 및 위치 업데이트 (hoverTile이 변경될 때)
   React.useEffect(() => {
@@ -109,9 +126,11 @@ export function useTileCursorPreview(
     if (!THREE) return;
 
     const texture = tilePreviewTextureRef.current;
-    const showPreview = hoverTile && texture &&
-      (editMode === 'map' || editMode === 'object') &&
-      selectedTool === 'pen' && selectedTileId > 0;
+    const isBrushMode = editMode === 'object' && objectBrushTiles != null;
+    const showPreview = hoverTile && texture && (
+      isBrushMode ||
+      ((editMode === 'map' || editMode === 'object') && selectedTool === 'pen' && selectedTileId > 0)
+    );
 
     if (!showPreview) {
       if (tilePreviewMeshRef.current) {
@@ -124,9 +143,15 @@ export function useTileCursorPreview(
 
     const tw = TILE_SIZE_PX;
     const th = TILE_SIZE_PX;
-    const isMulti = selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1);
-    const tilesW = isMulti ? selectedTilesWidth : 1;
-    const tilesH = isMulti ? selectedTilesHeight : 1;
+    let tilesW: number, tilesH: number;
+    if (isBrushMode) {
+      tilesW = objectBrushWidth;
+      tilesH = objectBrushHeight;
+    } else {
+      const isMulti = selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1);
+      tilesW = isMulti ? selectedTilesWidth : 1;
+      tilesH = isMulti ? selectedTilesHeight : 1;
+    }
 
     if (!tilePreviewMeshRef.current || tilePreviewMeshRef.current.material.map !== texture) {
       if (tilePreviewMeshRef.current) {
@@ -188,5 +213,5 @@ export function useTileCursorPreview(
     tilePreviewLineRef.current.visible = true;
 
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-  }, [hoverTile, editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, rendererReady]);
+  }, [hoverTile, editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, objectBrushTiles, objectBrushWidth, objectBrushHeight, rendererReady]);
 }

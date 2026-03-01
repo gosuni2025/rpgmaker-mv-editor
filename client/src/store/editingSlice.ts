@@ -36,7 +36,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'copyEvents' | 'pasteEvents' | 'deleteEvents' | 'moveEvents' |
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setObjectSubMode' | 'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
-  'objectPaintTiles' | 'setObjectPaintTiles' |
+  'objectPaintTiles' | 'setObjectPaintTiles' | 'objectBrushTiles' | 'objectBrushWidth' | 'objectBrushHeight' | 'setObjectBrush' | 'clearObjectBrush' |
   'addObject' | 'addObjectFromTiles' | 'addObjectFromTileSelection' | 'addObjectFromImage' | 'addObjectFromAnimation' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' | 'commitDragUndo' |
   'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' | 'commitCameraZoneDragUndo' |
   'setEditMode' | 'setSelectedTool' | 'setDrawShape' | 'setSelectedTileId' | 'setSelectedTiles' |
@@ -71,6 +71,9 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   isObjectPasting: false,
   objectPastePreviewPos: null,
   objectPaintTiles: null,
+  objectBrushTiles: null,
+  objectBrushWidth: 1,
+  objectBrushHeight: 1,
   selectedCameraZoneId: null,
   selectedCameraZoneIds: [],
   passageTool: 'pen',
@@ -134,9 +137,11 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   clearObjectSelection: () => set({ objectSelectionStart: null, objectSelectionEnd: null, selectedObjectIds: [], selectedObjectId: null, isObjectPasting: false, objectPastePreviewPos: null }),
 
   setObjectPaintTiles: (tiles: Set<string> | null) => set({ objectPaintTiles: tiles }),
+  setObjectBrush: (tiles: number[][], width: number, height: number) => set({ objectBrushTiles: tiles, objectBrushWidth: width, objectBrushHeight: height }),
+  clearObjectBrush: () => set({ objectBrushTiles: null, objectBrushWidth: 1, objectBrushHeight: 1 }),
   addObject: (x: number, y: number) => addObjectOp(get, set, x, y),
   addObjectFromTiles: (paintedTiles: Set<string>) => addObjectFromTilesOp(get, set, paintedTiles),
-  addObjectFromTileSelection: (tiles: number[][], width: number, height: number) => addObjectFromTileSelectionOp(get, set, tiles, width, height),
+  addObjectFromTileSelection: (tiles: number[][], width: number, height: number, x?: number, y?: number) => addObjectFromTileSelectionOp(get, set, tiles, width, height, x, y),
   addObjectFromImage: (imageName: string, imageWidth: number, imageHeight: number) => addObjectFromImageOp(get, set, imageName, imageWidth, imageHeight),
   addObjectFromAnimation: (animationId: number, animationName: string) => addObjectFromAnimationOp(get, set, animationId, animationName),
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => expandObjectTilesOp(get, set, objectId, paintedTiles),

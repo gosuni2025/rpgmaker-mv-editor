@@ -32,6 +32,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
   const shrinkObjectTiles = useEditorStore((s) => s.shrinkObjectTiles);
   const setObjectPaintTiles = useEditorStore((s) => s.setObjectPaintTiles);
   const objectSubMode = useEditorStore((s) => s.objectSubMode);
+  const addObjectFromTileSelection = useEditorStore((s) => s.addObjectFromTileSelection);
 
   // Object paint state
   const isPaintingObject = useRef(false);
@@ -56,6 +57,13 @@ export function useObjectHandlers(): ObjectHandlersResult {
 
   const handleObjectMouseDown = useCallback((tile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>): boolean => {
     const state = useEditorStore.getState();
+
+    // 브러시 모드: 클릭한 위치에 오브젝트 배치 (반복 가능)
+    if (state.objectBrushTiles) {
+      const { objectBrushTiles, objectBrushWidth, objectBrushHeight } = state;
+      addObjectFromTileSelection(objectBrushTiles, objectBrushWidth, objectBrushHeight, tile.x, tile.y - objectBrushHeight + 1);
+      return true;
+    }
 
     // 붙여넣기 모드
     if (state.isObjectPasting) {
@@ -156,7 +164,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
       }
     }
     return true;
-  }, [currentMap, objectSubMode, pasteObjects, setIsObjectPasting, setObjectPastePreviewPos, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
+  }, [currentMap, objectSubMode, pasteObjects, setIsObjectPasting, setObjectPastePreviewPos, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles, addObjectFromTileSelection]);
 
   const handleObjectMouseMove = useCallback((tile: { x: number; y: number } | null): boolean => {
     // Object paint (Bresenham 보간으로 빈틈 없이 칠하기)

@@ -99,7 +99,7 @@ export function addObjectFromImageOp(get: GetFn, set: SetFn, imageName: string, 
   pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
-export function addObjectFromTileSelectionOp(get: GetFn, set: SetFn, tiles: number[][], width: number, height: number) {
+export function addObjectFromTileSelectionOp(get: GetFn, set: SetFn, tiles: number[][], width: number, height: number, x?: number, y?: number) {
   const { currentMap, currentMapId } = get();
   if (!currentMap || !currentMapId) return;
   const oldObjects = currentMap.objects || [];
@@ -112,8 +112,8 @@ export function addObjectFromTileSelectionOp(get: GetFn, set: SetFn, tiles: numb
     passability.push(Array(width).fill(row < height - 1));
   }
 
-  const cx = Math.floor(currentMap.width / 2);
-  const cy = Math.floor(currentMap.height / 2);
+  const cx = x ?? Math.floor(currentMap.width / 2);
+  const cy = y ?? Math.floor(currentMap.height / 2);
 
   const newObj: MapObject = {
     id: newId,
