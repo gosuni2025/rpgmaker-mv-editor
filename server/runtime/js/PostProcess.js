@@ -3517,6 +3517,11 @@ PostProcess._captureLastFrame = function(domElement, w, h) {
 if (typeof SceneManager !== 'undefined') {
     var _SceneManager_snapForBackground = SceneManager.snapForBackground;
     SceneManager.snapForBackground = function() {
+        // 이전 background bitmap 해제 (tex 누수 방지)
+        if (this._backgroundBitmap && this._backgroundBitmap.destroy) {
+            this._backgroundBitmap.destroy();
+            this._backgroundBitmap = null;
+        }
         var cap = PostProcess._captureCanvas;
         if (cap && cap.width > 0 && cap.height > 0) {
             try {

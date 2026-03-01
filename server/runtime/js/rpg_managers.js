@@ -2210,6 +2210,9 @@ SceneManager.snap = function() {
 };
 
 SceneManager.snapForBackground = function() {
+    if (this._backgroundBitmap && this._backgroundBitmap.destroy) {
+        this._backgroundBitmap.destroy();
+    }
     this._backgroundBitmap = this.snap();
     this._backgroundBitmap.blur();
 };

@@ -1475,16 +1475,7 @@
     }
   };
   Widget_Panel.prototype.destroy = function() {
-    var obj = this._displayObject;
-    if (obj instanceof Window_Base) {
-      if (obj.contents && obj.contents.destroy) obj.contents.destroy();
-      var sp = obj._windowBackSprite;
-      if (sp && sp._bitmap && sp._bitmap.destroy) sp._bitmap.destroy();
-      var sf = obj._windowFrameSprite;
-      if (sf && sf._bitmap && sf._bitmap.destroy) sf._bitmap.destroy();
-      var sc = obj._windowCursorSprite;
-      if (sc && sc._bitmap && sc._bitmap.destroy) sc._bitmap.destroy();
-    }
+    // Window.prototype.destroy가 내부 bitmap + geometry 모두 처리하므로 별도 처리 불필요
     Widget_Base.prototype.destroy.call(this);
   };
   window.Widget_Panel = Widget_Panel;

@@ -6767,6 +6767,29 @@ Window.prototype.addChildToBack = function(child) {
  * @method updateTransform
  * @private
  */
+/**
+ * Destroys the window and releases all GPU resources.
+ * Explicitly disposes internal bitmaps (contents, back, frame, cursor)
+ * then calls ThreeContainer.destroy() to dispose geometries/materials.
+ */
+Window.prototype.destroy = function() {
+    // 내부 bitmap들 명시적 해제 — ThreeSprite.destroy()는 bitmap을 처리하지 않으므로 반드시 여기서 처리
+    if (this._windowContentsSprite && this._windowContentsSprite._bitmap) {
+        this._windowContentsSprite._bitmap.destroy();
+    }
+    if (this._windowBackSprite && this._windowBackSprite._bitmap) {
+        this._windowBackSprite._bitmap.destroy();
+    }
+    if (this._windowFrameSprite && this._windowFrameSprite._bitmap) {
+        this._windowFrameSprite._bitmap.destroy();
+    }
+    if (this._windowCursorSprite && this._windowCursorSprite._bitmap) {
+        this._windowCursorSprite._bitmap.destroy();
+    }
+    // ThreeContainer.destroy(): 자식 ThreeSprite 재귀 destroy → geometry/material 해제
+    ThreeContainer.prototype.destroy.call(this);
+};
+
 Window.prototype.updateTransform = function() {
     this._updateCursor();
     this._updateArrows();
