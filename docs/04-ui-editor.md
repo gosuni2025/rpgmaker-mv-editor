@@ -60,7 +60,7 @@ UI 에디터는 두 가지 서브시스템으로 구성됩니다:
 
 ## 커스텀 씬 엔진
 
-`CustomSceneEngine.js` 플러그인이 `data/UIEditorScenes.json`을 로드하여 게임 내 UI 씬을 동적으로 생성합니다.
+`CustomSceneEngine.js` 플러그인이 `data/UIScenes/_index.json` + 씬별 JSON 파일을 읽어 게임 내 UI 씬을 동적으로 생성합니다. (구 방식: `data/UIEditorScenes.json` — 폴백으로만 지원)
 
 ### 씬 선택 및 생성
 
@@ -72,7 +72,7 @@ UI 에디터는 두 가지 서브시스템으로 구성됩니다:
 
 인스펙터의 **씬 교체** 옵션:
 - **인 게임 기본 씬 사용** — 원본 RPG Maker MV 씬 사용
-- **커스텀 씬으로 교체** — UIEditorScenes.json에 정의된 씬으로 대체
+- **커스텀 씬으로 교체** — `data/UIScenes/`에 정의된 씬으로 대체
 
 예: `Scene_Options`를 커스텀 씬으로 교체하면, 게임 내 옵션 화면이 완전히 새로운 레이아웃으로 대체됩니다.
 
