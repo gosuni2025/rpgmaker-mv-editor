@@ -216,15 +216,23 @@ export default function UIEditorScenePickerDialog({
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             씬 선택
             <HelpButton>
-              <strong>RPGMakerMV 원본</strong> — 기본 제공 씬 목록입니다.<br />
-              현재 씬을 다른 씬으로 교체할 때 사용합니다.<br /><br />
-              <strong>커스텀 씬</strong> — UIEditorScenes.json에 정의한 씬입니다.<br />
-              하위 분류:<br />
+              <strong>RPGMakerMV 원본</strong><br />
+              기본 제공 씬 목록입니다. 현재 씬을 다른 씬으로 교체할 때 사용합니다.<br />
+              &nbsp;• 창별 <strong>위치·크기·스킨·색조</strong> 오버라이드 가능<br />
+              &nbsp;• <strong>등장·퇴장 애니메이션</strong> 설정 가능 (fadeIn, slide, zoom 등)<br />
+              &nbsp;• 설정이 간단하고 MV 원본 동작을 그대로 유지<br /><br />
+              <strong>커스텀 씬</strong><br />
+              UIEditorScenes.json에 직접 정의한 씬입니다.<br />
+              &nbsp;• 위젯 트리로 레이아웃을 자유롭게 구성<br />
+              &nbsp;• 커맨드·게이지·이미지·텍스트 등 다양한 위젯 배치<br />
+              &nbsp;• 네비게이션·키 핸들러·스크립트 훅 등 세밀한 제어 가능<br />
+              &nbsp;• 원본보다 복잡하지만 완전한 커스터마이징 지원<br /><br />
+              <strong>커스텀 씬 하위 분류</strong><br />
               &nbsp;• <strong>커스텀 복제</strong>: 오리지널 씬을 커스텀으로 대체<br />
               &nbsp;• <strong>서브씬</strong>: 리스트 행 렌더링용 씬<br />
               &nbsp;• <strong>플러그인</strong>: 플러그인이 제공하는 씬<br />
-              &nbsp;• <strong>Debug</strong>: 디버그/개발용 씬<br />
-              &nbsp;• <strong>Sample</strong>: 샘플/예제 씬
+              &nbsp;• <strong>Debug</strong>: 디버그·개발용 씬<br />
+              &nbsp;• <strong>Sample</strong>: 샘플·예제 씬
             </HelpButton>
           </span>
           <button className="sp-close" onClick={onClose} title="닫기">×</button>
