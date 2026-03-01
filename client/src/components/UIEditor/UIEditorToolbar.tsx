@@ -176,7 +176,12 @@ export default function UIEditorToolbar() {
     if (s.customSceneDirty) await s.saveCustomScenes();
     s.setUiEditorDirty(false);
     const scene = uiEditSubMode === 'frame' ? 'Scene_Options' : uiEditorScene;
-    window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(scene)}`, '_blank');
+    // 커스텀 씬(Scene_CS_*)은 실제 게임 런타임으로 열어 키보드 입력이 정상 동작하도록 함
+    if (scene.startsWith('Scene_CS_')) {
+      window.open(`/game/index_3d.html?uiTestScene=${encodeURIComponent(scene)}`, '_blank');
+    } else {
+      window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(scene)}`, '_blank');
+    }
   };
 
   return (

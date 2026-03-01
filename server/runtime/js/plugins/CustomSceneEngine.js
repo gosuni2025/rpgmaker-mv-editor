@@ -2692,11 +2692,8 @@
     } else {
       self._focusables = all;
     }
-    console.log('[NavMgr] buildFocusList: count=', this._focusables.length,
-      '| ids=', this._focusables.map(function(w){return w._id;}));
   };
   NavigationManager.prototype.start = function() {
-    console.log('[NavMgr] start: focusables=', this._focusables.length, '| defaultFocus=', this._defaultFocusId);
     if (this._focusables.length === 0) return;
     var startIdx = 0;
     if (this._defaultFocusId) {
@@ -2704,7 +2701,6 @@
         if (this._focusables[i]._id === this._defaultFocusId) { startIdx = i; break; }
       }
     }
-    console.log('[NavMgr] start: activating idx=', startIdx);
     this._activateAt(startIdx);
   };
   NavigationManager.prototype._activateAt = function(idx) {
@@ -2755,7 +2751,6 @@
         this._navPrevDir = dirPressed;
         this._navRepeatTimer = 0;
         doMove = true;
-        console.log('[NavMgr] dir first-press:', dirPressed);
       } else {
         this._navRepeatTimer++;
         var wait = Input.keyRepeatWait || 24;
@@ -2777,7 +2772,6 @@
       else if (dirPressed === 'left')  navTarget = def.navLeft  || null;
       else if (dirPressed === 'right') navTarget = def.navRight || null;
       if (navTarget) {
-        console.log('[NavMgr] moving to:', navTarget);
         if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
         this.focusWidget(navTarget);
         return;
@@ -2836,7 +2830,6 @@
   };
 
   Scene_CustomUI.prototype.create = function () {
-    console.log('[CSE] Scene_CustomUI.create called, _sceneId=', this._sceneId);
     Scene_Base.prototype.create.call(this);
     this.createWindowLayer();
     var sceneDef = this._getSceneDef();
@@ -4192,4 +4185,26 @@
      */
     addMenuCommand: addMenuCommand,
   };
+
+  // ── UI 씬 테스트 모드: ?uiTestScene=Scene_CS_xxx 파라미터로 자동 진입 ──
+  // 에디터의 "현재 UI를 테스트" 버튼이 /game/index_3d.html?uiTestScene=... 로 열 때 사용
+  (function() {
+    var params = new URLSearchParams(window.location.search);
+    var testScene = params.get('uiTestScene');
+    if (!testScene) return;
+
+    var _origBootStart = Scene_Boot.prototype.start;
+    Scene_Boot.prototype.start = function() {
+      Scene_Base.prototype.start.call(this);
+      SoundManager.preloadImportantSounds();
+      DataManager.setupNewGame();
+      var SceneCtor = window[testScene];
+      if (SceneCtor) {
+        SceneManager.goto(SceneCtor);
+      } else {
+        _origBootStart.call(this);
+      }
+      this.updateDocumentTitle();
+    };
+  })();
 })();
