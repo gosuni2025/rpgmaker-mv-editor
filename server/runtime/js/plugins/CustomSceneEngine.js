@@ -3217,6 +3217,8 @@
         break;
       }
       case 'focusWidget': {
+        // 현재 위젯을 명시적으로 deactivate — _navManager._activeIndex 불일치 시에도 커서가 남지 않도록
+        if (widget && widget.deactivate) widget.deactivate();
         if (this._navManager && handler.target) {
           this._navManager.focusWidget(handler.target);
         }
