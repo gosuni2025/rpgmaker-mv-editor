@@ -62,6 +62,42 @@
   background: #252525;
 }
 
+/* ── 탭 바 ── */
+.script-sample-tabs {
+  display: flex;
+  flex-shrink: 0;
+  background: #1e1e1e;
+  border-bottom: 1px solid #444;
+}
+
+.script-sample-tab {
+  flex: 1;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-right: 1px solid #333;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+}
+
+.script-sample-tab:last-child {
+  border-right: none;
+}
+
+.script-sample-tab:hover {
+  background: #2a2a2a;
+  color: #ccc;
+}
+
+.script-sample-tab.active {
+  background: #252525;
+  color: #ddd;
+  border-bottom: 2px solid #4a9eff;
+  font-weight: 600;
+}
+
 .script-sample-search {
   padding: 7px 10px;
   background: #323232;

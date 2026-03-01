@@ -3,14 +3,26 @@ import { EditorView } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
 import type { ScriptSample } from './scriptSamples';
-import { SCRIPT_SAMPLES, SAMPLE_GROUPS } from './scriptSamples';
+import { SCRIPT_SAMPLES } from './scriptSamples';
 import useEscClose from '../../hooks/useEscClose';
 import './ScriptSampleDialog.css';
 
+export interface SampleTab {
+  label: string;
+  samples: ScriptSample[];
+}
+
 interface Props {
   /**
-   * 표시할 샘플 목록.
-   * 미지정 시 SCRIPT_SAMPLES (일반 스크립트용) 전체 사용.
+   * 탭 목록. 지정 시 탭 UI 표시.
+   * 미지정 시 단일 목록 (samples 또는 SCRIPT_SAMPLES 전체).
+   */
+  tabs?: SampleTab[];
+  /** 초기 선택 탭 라벨 (tabs 사용 시). 미지정 시 첫 번째 탭. */
+  initialTabLabel?: string;
+  /**
+   * 탭 미사용 시 표시할 샘플 목록.
+   * 미지정 시 SCRIPT_SAMPLES 전체 사용.
    */
   samples?: ScriptSample[];
   /**
@@ -26,10 +38,18 @@ interface Props {
  * - 왼쪽: 검색 + 그룹별 항목 목록 (키보드 위아래 이동)
  * - 오른쪽: CodeMirror 코드 미리보기 (read-only)
  */
-export function ScriptSampleDialog({ samples, onInsert, onClose }: Props) {
+export function ScriptSampleDialog({ tabs, initialTabLabel, samples, onInsert, onClose }: Props) {
   useEscClose(onClose);
 
-  const allSamples = samples ?? SCRIPT_SAMPLES;
+  const hasTabs = !!(tabs && tabs.length > 1);
+  const initialTab = hasTabs
+    ? (tabs!.find(t => t.label === initialTabLabel) ?? tabs![0])
+    : null;
+  const [activeTab, setActiveTab] = useState<SampleTab | null>(initialTab);
+
+  const allSamples = hasTabs
+    ? (activeTab?.samples ?? tabs![0].samples)
+    : (samples ?? SCRIPT_SAMPLES);
 
   const [search, setSearch] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -52,8 +72,9 @@ export function ScriptSampleDialog({ samples, onInsert, onClose }: Props) {
   const safeIdx = Math.max(0, Math.min(selectedIdx, filtered.length - 1));
   const selected = filtered[safeIdx] ?? null;
 
-  // 검색어 바뀌면 인덱스 리셋
+  // 검색어 또는 탭이 바뀌면 인덱스·검색어 리셋
   useEffect(() => { setSelectedIdx(0); }, [search]);
+  useEffect(() => { setSelectedIdx(0); setSearch(''); }, [activeTab]);
 
   // 선택 항목이 보이도록 스크롤
   useEffect(() => {
@@ -204,8 +225,21 @@ export function ScriptSampleDialog({ samples, onInsert, onClose }: Props) {
 
         {/* 본문 */}
         <div className="script-sample-body">
-          {/* 왼쪽: 검색 + 목록 */}
+          {/* 왼쪽: 탭 + 검색 + 목록 */}
           <div className="script-sample-list-panel">
+            {hasTabs && (
+              <div className="script-sample-tabs">
+                {tabs!.map(tab => (
+                  <button
+                    key={tab.label}
+                    className={`script-sample-tab${activeTab?.label === tab.label ? ' active' : ''}`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <input
               ref={searchRef}
               type="text"

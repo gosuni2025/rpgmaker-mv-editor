@@ -19,9 +19,10 @@ import { AnimEffectSection } from './UIEditorAnimEffectSection';
 
 // ── ScriptPreviewField — 헤더(레이블+편집) + 코드 미리보기 블록 ──
 
-function ScriptPreviewField({ label, helpText, value, onChange }: {
+function ScriptPreviewField({ label, helpText, value, onChange, initialSampleTab }: {
   label: string; helpText: string;
   value: string; onChange: (v: string) => void;
+  initialSampleTab?: string;
 }) {
   const [showEditor, setShowEditor] = useState(false);
   const lines = value.split('\n');
@@ -56,6 +57,7 @@ function ScriptPreviewField({ label, helpText, value, onChange }: {
         <ScriptEditor
           p={p}
           followCommands={followCommands}
+          initialSampleTab={initialSampleTab}
           onOk={(params, extra) => {
             const first = (params[0] as string) ?? '';
             const rest = (extra ?? []).map(e => e.parameters[0] as string);
@@ -156,11 +158,12 @@ export function ActionHandlerEditor({ handler, onChange }: {
         </div>
       )}
       {action === 'script' && (
-        <textarea
-          style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-          placeholder="// JS 코드"
+        <ScriptPreviewField
+          label="JS 코드"
+          helpText="버튼 동작 시 실행할 JavaScript 코드.\n$ctx, $scene, $gameVariables 등 사용 가능."
           value={handler.code || ''}
-          onChange={(e) => onChange({ code: e.target.value })}
+          onChange={(v) => onChange({ code: v || undefined })}
+          initialSampleTab="UI"
         />
       )}
     </div>

@@ -8,6 +8,7 @@ import { linter, lintGutter, type Diagnostic } from '@codemirror/lint';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
 import { ScriptSampleDialog } from './ScriptSampleDialog';
+import { SCRIPT_SAMPLES, UI_SCRIPT_SAMPLES } from './scriptSamples';
 import './ScriptEditor.css';
 
 // 파일 참조 마커 패턴
@@ -45,9 +46,16 @@ interface ScriptEditorProps {
   followCommands?: EventCommand[];
   onOk: (params: unknown[], extra?: EventCommand[]) => void;
   onCancel: () => void;
+  /** 샘플 다이얼로그에서 초기 선택할 탭 라벨. 기본: '이벤트' */
+  initialSampleTab?: string;
 }
 
-export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditorProps) {
+const SAMPLE_TABS = [
+  { label: '이벤트', samples: SCRIPT_SAMPLES },
+  { label: 'UI', samples: UI_SCRIPT_SAMPLES },
+];
+
+export function ScriptEditor({ p, followCommands, onOk, onCancel, initialSampleTab }: ScriptEditorProps) {
   useEscClose(onCancel);
 
   // 기존 스크립트 복원
@@ -356,6 +364,8 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
       {/* 샘플 삽입 다이얼로그 */}
       {showSampleDialog && (
         <ScriptSampleDialog
+          tabs={SAMPLE_TABS}
+          initialTabLabel={initialSampleTab ?? '이벤트'}
           onInsert={(code) => {
             handleInsertSample(code);
             setShowSampleDialog(false);
