@@ -854,6 +854,53 @@ Bitmap.prototype._createBaseTexture = function(source){
 // GPU 텍스처 생성/해제 추적 카운터 (누수 디버깅용)
 Bitmap._gpuTexCount = 0;
 
+// ── Bitmap 누수 추적 디버그 도구 ──────────────────────────────────────
+// 콘솔에서 debugBitmaps() 호출 → 살아있는 bitmap을 생성 위치별로 그룹화 출력
+// debugBitmaps(true) → 스택 전체 출력
+Bitmap._alive = [];
+Bitmap._nextId = 0;
+Bitmap._trackEnabled = true;
+
+(function() {
+  var _origInit = Bitmap.prototype.initialize;
+  Bitmap.prototype.initialize = function(w, h) {
+    _origInit.call(this, w, h);
+    if (Bitmap._trackEnabled) {
+      this._dbgId = ++Bitmap._nextId;
+      // 생성 위치 — 상위 3~6 프레임 (initialize/create 자체 제외)
+      var raw = new Error().stack || '';
+      this._dbgStack = raw.split('\n').slice(3, 7).join(' | ');
+      Bitmap._alive.push(this);
+    }
+  };
+
+  var _origDestroy = Bitmap.prototype.destroy;
+  Bitmap.prototype.destroy = function() {
+    _origDestroy.call(this);
+    if (Bitmap._trackEnabled) {
+      var idx = Bitmap._alive.indexOf(this);
+      if (idx >= 0) Bitmap._alive.splice(idx, 1);
+    }
+  };
+})();
+
+window.debugBitmaps = function(verbose) {
+  var groups = {};
+  Bitmap._alive.forEach(function(bm) {
+    var key = (bm._dbgStack || 'unknown').substring(0, 120);
+    if (!groups[key]) groups[key] = { count: 0, sizes: [] };
+    groups[key].count++;
+    if (bm.__canvas) groups[key].sizes.push(bm.__canvas.width + 'x' + bm.__canvas.height);
+  });
+  var sorted = Object.keys(groups).sort(function(a, b) { return groups[b].count - groups[a].count; });
+  console.log('=== 살아있는 Bitmap: ' + Bitmap._alive.length + '개 ===');
+  sorted.forEach(function(k) {
+    var g = groups[k];
+    console.log('[' + g.count + '개]', verbose ? k : k.substring(0, 80),
+                g.sizes.slice(0, 3).join(', '));
+  });
+};
+
 Bitmap.prototype._clearImgInstance = function(){
     this._image.src = "";
     this._image.onload = null;
