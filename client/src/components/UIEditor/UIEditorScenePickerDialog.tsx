@@ -222,7 +222,7 @@ export default function UIEditorScenePickerDialog({
               &nbsp;• <strong>등장·퇴장 애니메이션</strong> 설정 가능 (fadeIn, slide, zoom 등)<br />
               &nbsp;• 설정이 간단하고 MV 원본 동작을 그대로 유지<br /><br />
               <strong>커스텀 씬</strong><br />
-              UIEditorScenes.json에 직접 정의한 씬입니다.<br />
+              <code>data/UIScenes/</code> 폴더의 씬 파일로 정의한 씬입니다.<br />
               &nbsp;• 위젯 트리로 레이아웃을 자유롭게 구성<br />
               &nbsp;• 커맨드·게이지·이미지·텍스트 등 다양한 위젯 배치<br />
               &nbsp;• 네비게이션·키 핸들러·스크립트 훅 등 세밀한 제어 가능<br />
