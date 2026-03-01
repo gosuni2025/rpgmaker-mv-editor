@@ -621,8 +621,15 @@
     // 알파 채널 경계 검출(inner line shader)로 캐릭터 실루엣을 따라 빛남
     //=========================================================================
 
+    function disposeBitmapTexture(bmp) {
+        if (bmp && bmp.__baseTexture && bmp.__baseTexture.dispose) {
+            bmp.__baseTexture.dispose();
+        }
+    }
+
     function removeGlowFromSprite(sp) {
         if (sp && sp._eventGlowChild) {
+            disposeBitmapTexture(sp._eventGlowChild.bitmap);
             sp.removeChild(sp._eventGlowChild);
             sp._eventGlowChild = null;
             sp._glowFrameKey = null;
@@ -699,6 +706,7 @@
         // 글로우 child 비트맵 크기 확인 / 재생성
         var glowBitmap = sp._eventGlowChild.bitmap;
         if (glowBitmap.width !== pw || glowBitmap.height !== ph) {
+            disposeBitmapTexture(glowBitmap);
             sp._eventGlowChild.bitmap = new Bitmap(pw, ph);
             sp._eventGlowChild.x = -pw / 2;
             sp._eventGlowChild.y = -ph;
