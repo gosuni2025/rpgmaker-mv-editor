@@ -628,6 +628,46 @@ function ButtonWidgetInspector({ sceneId: _sceneId, widget, update }: {
           자식 위젯이 있어 레이블 불사용 (커서 행 모드)
         </div>
       )}
+      {/* windowed=false(기본) 텍스트 버튼의 Label 스타일 */}
+      {!hasChildren && widget.windowed !== true && (
+        <div>
+          <label style={labelStyle}>레이블 스타일</label>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 60 }}>크기</span>
+            <input type="number" style={{ ...inputStyle, width: 60 }} min={8} max={72}
+              value={widget.fontSize ?? 28}
+              onChange={(e) => update({ fontSize: +e.target.value || undefined } as any)} />
+            <label style={{ marginLeft: 10, fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <input type="checkbox" checked={!!widget.bold}
+                onChange={(e) => update({ bold: e.target.checked || undefined } as any)} />
+              Bold
+            </label>
+          </div>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 60 }}>색상</span>
+            <input type="color" value={widget.color || '#ffffff'}
+              onChange={(e) => update({ color: e.target.value } as any)}
+              style={{ width: 32, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
+            <input style={{ ...inputStyle, flex: 1, marginLeft: 4 }}
+              value={widget.color || ''}
+              placeholder="#ffffff"
+              onChange={(e) => update({ color: e.target.value || undefined } as any)} />
+            {widget.color && (
+              <button style={smallBtnStyle} onClick={() => update({ color: undefined } as any)}>×</button>
+            )}
+          </div>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 60 }}>정렬</span>
+            <select style={{ ...selectStyle, flex: 1 }}
+              value={widget.align || 'center'}
+              onChange={(e) => update({ align: e.target.value as any || undefined } as any)}>
+              <option value="left">왼쪽</option>
+              <option value="center">가운데</option>
+              <option value="right">오른쪽</option>
+            </select>
+          </div>
+        </div>
+      )}
       <label style={{ ...labelStyle, marginTop: 6 }}>OK 동작</label>
       <ActionHandlerEditor handler={currentAction}
         onChange={(updates) => update({ action: { ...currentAction, ...updates } } as any)} />

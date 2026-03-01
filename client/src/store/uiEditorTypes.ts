@@ -355,6 +355,11 @@ export interface WidgetDef_Button extends WidgetDefBase {
   action: CustomCommandHandler;
   leftAction?: CustomCommandHandler;
   rightAction?: CustomCommandHandler;
+  /** windowed=false(기본) 텍스트 버튼의 Label 스타일. windowed=true면 무시. */
+  fontSize?: number;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+  bold?: boolean;
   transition?: ButtonTransitionType;
   transitionConfig?: ButtonTransitionConfig;
 }

@@ -2256,12 +2256,17 @@
     this._btnState = 'normal';
     this._transitionOverlay = null;
     this._transitionDisabled = false;
+    this._labelSprite = null;
+    this._labelBitmap = null;
     var hasChildren = !!(def.children && def.children.length > 0);
     var win;
+    // windowed=true 텍스트 버튼은 기존 Window_CustomCommand 유지 (패딩 있는 창 스타일)
+    // windowed=false(기본) 텍스트 버튼은 Window_ButtonRow + _labelSprite (Label 방식, 패딩 없음)
+    this._useWindowLabel = def.windowed === true && !hasChildren && this._label !== '';
     if (hasChildren || this._label === '') {
       // 자식 위젯이 텍스트 렌더링 — 커서/하이라이트만 제공
       win = new Window_ButtonRow(this._x, this._y, this._width, this._height || 52);
-    } else {
+    } else if (this._useWindowLabel) {
       var btnDef = {
         id: def.id, width: def.width,
         commands: [{ name: this._label, symbol: 'ok', enabled: true }],
@@ -2269,6 +2274,9 @@
       };
       if (def.height) btnDef.height = def.height;
       win = new Window_CustomCommand(this._x, this._y, btnDef);
+    } else {
+      // windowed=false 텍스트 버튼: Window_ButtonRow (커서) + _labelSprite (텍스트)
+      win = new Window_ButtonRow(this._x, this._y, this._width, this._height || 52);
     }
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
@@ -2279,6 +2287,7 @@
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, this._height || 52);
+    this._createButtonLabel(def);
     this._createTransitionSprite(def);
   };
   Widget_Button.prototype.collectFocusable = function(out) {
@@ -2298,6 +2307,38 @@
   };
   Widget_Button.prototype.setDisabled = function(disabled) {
     this._transitionDisabled = !!disabled;
+  };
+  // windowed=false 텍스트 버튼용 Label 스프라이트 생성 (Widget_Label 방식)
+  Widget_Button.prototype._createButtonLabel = function(def) {
+    if (this._useWindowLabel || !this._label) return;
+    var w = this._width || 120;
+    var h = this._height || 52;
+    var fontSize = def.fontSize || 28;
+    var bold = !!def.bold;
+    var bmp = new Bitmap(Math.max(1, w), Math.max(1, h));
+    bmp.fontSize = fontSize;
+    bmp.fontBold = bold;
+    var sprite = new Sprite(bmp);
+    sprite.x = def.x || 0;
+    sprite.y = def.y || 0;
+    this._labelSprite = sprite;
+    this._labelBitmap = bmp;
+    this._refreshButtonLabel();
+  };
+  Widget_Button.prototype._refreshButtonLabel = function() {
+    var bmp = this._labelBitmap;
+    if (!bmp) return;
+    var def = this._def;
+    var fontSize = def.fontSize || 28;
+    var color = def.color || '#ffffff';
+    var align = def.align || 'center';
+    var w = this._width || 120;
+    var h = this._height || 52;
+    bmp.clear();
+    bmp.textColor = color;
+    var textH = fontSize + 8;
+    var ty = Math.max(0, Math.floor((h - textH) / 2));
+    bmp.drawText(this._label, 0, ty, w, textH, align);
   };
   // Transition 스프라이트 생성 (colorTint: 오버레이, spriteSwap: 이미지 스프라이트)
   Widget_Button.prototype._createTransitionSprite = function(def) {
@@ -2382,6 +2423,10 @@
     Widget_Base.prototype.update.call(this);
     if (this._transition !== 'system') {
       this._updateTransitionState();
+    }
+    // _labelSprite disabled dimming
+    if (this._labelSprite) {
+      this._labelSprite.opacity = this._transitionDisabled ? 128 : 255;
     }
   };
   window.Widget_Button = Widget_Button;
@@ -2535,6 +2580,8 @@
         }
         // height=0일 때 커서 스프라이트가 창 밖으로 삐져나오는 문제 방지
         if (this._window._windowCursorSprite) this._window._windowCursorSprite.visible = false;
+      } else {
+        console.log('[RB] _rebuildFromScript: ' + this._id + ' active=true, items=' + items.length + ', cursor stays');
       }
     } catch(e) {
       console.error('[Widget_List] dataScript error:', e);
@@ -2652,6 +2699,7 @@
     if (this._focusable !== false) out.push(this);
   };
   Widget_TextList.prototype.activate = function() {
+    console.log('[TL] activate: ' + this._id + ' (win.active=' + (this._window ? this._window.active : '?') + ')');
     if (this._dataScript) this._rebuildFromScript();
     if (this._window) {
       this._window.activate();
@@ -2674,6 +2722,7 @@
     }
   };
   Widget_TextList.prototype.deactivate = function() {
+    console.log('[TL] deactivate: ' + this._id + ' (win.active=' + (this._window ? this._window.active : '?') + ', win._index=' + (this._window ? this._window._index : '?') + ')');
     if (this._window) {
       this._lastIndex = this._window.index();
       this._window.deactivate();
@@ -2806,6 +2855,9 @@
   };
   NavigationManager.prototype._activateAt = function(idx) {
     if (idx < 0 || idx >= this._focusables.length) return;
+    var prevId = (this._activeIndex >= 0 && this._focusables[this._activeIndex]) ? this._focusables[this._activeIndex]._id : 'none';
+    var nextId = this._focusables[idx]._id;
+    console.log('[NAV] _activateAt: ' + prevId + '(idx=' + this._activeIndex + ') -> ' + nextId + '(idx=' + idx + ')');
     if (this._activeIndex >= 0 && this._focusables[this._activeIndex]) {
       this._focusables[this._activeIndex].deactivate();
       this._focusables[this._activeIndex]._runScript('onBlur');
@@ -3035,6 +3087,14 @@
       }
     }
 
+    // Widget_Button의 _labelSprite를 windowLayer 위에 addChild (커서 하이라이트 위에 텍스트)
+    for (var idL in this._widgetMap) {
+      var wL = this._widgetMap[idL];
+      if (wL._labelSprite) {
+        this.addChild(wL._labelSprite);
+      }
+    }
+
     // itemScene 모드 Widget_List의 _rowOverlay를 windowLayer 위에 addChild
     for (var id3 in this._widgetMap) {
       var w3 = this._widgetMap[id3];
@@ -3222,6 +3282,8 @@
       }
       case 'focusWidget': {
         // 현재 위젯을 명시적으로 deactivate — _navManager._activeIndex 불일치 시에도 커서가 남지 않도록
+        var fwActiveId = this._navManager ? (this._navManager._activeIndex >= 0 ? (this._navManager._focusables[this._navManager._activeIndex] ? this._navManager._focusables[this._navManager._activeIndex]._id : 'none') : 'none') : 'noNav';
+        console.log('[FW] focusWidget: from=' + (widget ? widget._id : 'null') + ' navActive=' + fwActiveId + ' to=' + handler.target);
         if (widget && widget.deactivate) widget.deactivate();
         if (this._navManager && handler.target) {
           this._navManager.focusWidget(handler.target);
