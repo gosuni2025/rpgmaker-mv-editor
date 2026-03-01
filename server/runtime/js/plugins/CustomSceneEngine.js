@@ -2262,8 +2262,10 @@
     }
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
-    this._applyWindowStyle(win, def);
-    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
+    // button 기본값: windowed=false (창 프레임 없음). JSON에 명시된 경우만 windowed=true 허용
+    var btnDef = def.windowed !== undefined ? def : Object.assign({}, def, { windowed: false });
+    this._applyWindowStyle(win, btnDef);
+    if (btnDef.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, this._height || 52);

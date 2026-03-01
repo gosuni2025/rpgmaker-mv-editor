@@ -299,8 +299,8 @@ function WindowStyleSection({ widget, update }: {
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
-  // panel/button/list/rowSelector/options 모두 기본으로 창 배경 표시 (기존 동작 유지)
-  const defaultWindowed = true;
+  // button은 기본 off, 나머지(panel/list/rowSelector/options)는 기본 on
+  const defaultWindowed = widget.type === 'button' ? false : true;
   const windowed = widget.windowed !== undefined ? widget.windowed : defaultWindowed;
   const windowStyle = widget.windowStyle ?? 'default';
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
