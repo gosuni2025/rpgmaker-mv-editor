@@ -265,4 +265,159 @@
         }
     };
 
+    //=========================================================================
+    // 툴팁 시스템
+    //=========================================================================
+    var _tooltipEl = null;
+
+    function ensureTooltip() {
+        if (_tooltipEl) return;
+        _tooltipEl = document.createElement('div');
+        _tooltipEl.id = 'ehpbar-tooltip';
+        _tooltipEl.style.cssText = [
+            'position:fixed',
+            'display:none',
+            'background:rgba(10,10,10,0.92)',
+            'border:1px solid #555',
+            'border-radius:5px',
+            'padding:7px 11px',
+            'color:#eee',
+            'font-size:13px',
+            'line-height:1.55',
+            'pointer-events:none',
+            'z-index:99999',
+            'max-width:240px',
+            'box-shadow:0 3px 10px rgba(0,0,0,0.7)'
+        ].join(';');
+        document.body.appendChild(_tooltipEl);
+    }
+
+    function showTooltip(mx, my, html) {
+        ensureTooltip();
+        _tooltipEl.innerHTML = html;
+        _tooltipEl.style.display = 'block';
+        var tw = _tooltipEl.offsetWidth;
+        var th = _tooltipEl.offsetHeight;
+        var tx = mx + 16;
+        var ty = my - 10;
+        if (tx + tw > window.innerWidth)  tx = mx - tw - 8;
+        if (ty + th > window.innerHeight) ty = my - th - 8;
+        if (ty < 0) ty = 4;
+        _tooltipEl.style.left = tx + 'px';
+        _tooltipEl.style.top  = ty + 'px';
+    }
+
+    function hideTooltip() {
+        if (_tooltipEl) _tooltipEl.style.display = 'none';
+    }
+
+    //-------------------------------------------------------------------------
+    // 아이콘 인덱스(표시 순서) → 이름/설명/남은 턴 정보 반환
+    //-------------------------------------------------------------------------
+    function getIconInfo(battler, iconIdx) {
+        // stateIcons 순서대로 먼저 확인
+        var stateList = battler.states().filter(function (s) {
+            return s.iconIndex > 0;
+        });
+        if (iconIdx < stateList.length) {
+            var st = stateList[iconIdx];
+            var turns = battler._stateTurns ? battler._stateTurns[st.id] : undefined;
+            return {
+                name:  st.name,
+                desc:  (st.note || '').trim(),
+                turns: (turns > 0) ? turns : null
+            };
+        }
+        // buffIcons 확인 (파라미터 인덱스 순)
+        var buffOrd = iconIdx - stateList.length;
+        var cnt = 0;
+        for (var i = 0; i < (battler._buffs ? battler._buffs.length : 0); i++) {
+            if (battler._buffs[i] !== 0) {
+                if (cnt === buffOrd) {
+                    var t = battler._buffTurns ? battler._buffTurns[i] : null;
+                    return {
+                        name:  TextManager.param(i) + (battler._buffs[i] > 0 ? ' 상승' : ' 하락'),
+                        desc:  '',
+                        turns: (t > 0) ? t : null
+                    };
+                }
+                cnt++;
+            }
+        }
+        return null;
+    }
+
+    //-------------------------------------------------------------------------
+    // 마우스 좌표에서 아이콘 스프라이트 히트 테스트
+    //-------------------------------------------------------------------------
+    function findIconAtMouse(mx, my) {
+        if (!(SceneManager._scene instanceof Scene_Battle)) return null;
+        var spriteset = SceneManager._scene._spriteset;
+        if (!spriteset || !spriteset._enemySprites) return null;
+
+        var canvas = Graphics._canvas || document.querySelector('canvas');
+        if (!canvas) return null;
+        var rect = canvas.getBoundingClientRect();
+        var sx = rect.width  / Graphics.width;
+        var sy = rect.height / Graphics.height;
+
+        var sprites = spriteset._enemySprites;
+        for (var si = 0; si < sprites.length; si++) {
+            var spr = sprites[si];
+            var bar = spr._hpBarSprite;
+            if (!bar || !bar.visible || !bar.bitmap || !bar._battler) continue;
+
+            var icons = bar._battler.allIcons().slice(0, MAX_ICONS);
+            if (icons.length === 0) continue;
+
+            var barW   = bar._barWidth;
+            var totalH = bar.bitmap.height;
+            if (barW <= 0 || totalH <= 0) continue;
+
+            // HPBar의 게임 내 좌상단 좌표 (anchor (0.5, 1.0))
+            var worldLeft = spr.x + bar.x - barW * 0.5;
+            var worldTop  = spr.y + bar.y - totalH;
+
+            var screenLeft = rect.left + worldLeft * sx;
+            var screenTop  = rect.top  + worldTop  * sy;
+            var scaledIcon = ICON_SIZE * sx;
+
+            for (var ii = 0; ii < icons.length; ii++) {
+                var ix = screenLeft + ii * (ICON_SIZE + 1) * sx;
+                if (mx >= ix && mx <= ix + scaledIcon &&
+                    my >= screenTop && my <= screenTop + scaledIcon) {
+                    return { battler: bar._battler, iconIdx: ii };
+                }
+            }
+        }
+        return null;
+    }
+
+    //-------------------------------------------------------------------------
+    // mousemove — 아이콘 호버 감지
+    //-------------------------------------------------------------------------
+    document.addEventListener('mousemove', function (e) {
+        var hit = findIconAtMouse(e.clientX, e.clientY);
+        if (!hit) { hideTooltip(); return; }
+
+        var info = getIconInfo(hit.battler, hit.iconIdx);
+        if (!info) { hideTooltip(); return; }
+
+        var html = '<strong style="color:#fff;font-size:14px">' + info.name + '</strong>';
+        if (info.desc) {
+            html += '<br><span style="color:#bbb;font-size:11px">' + info.desc + '</span>';
+        }
+        if (info.turns !== null) {
+            html += '<br><span style="color:#ffe066">남은 턴: ' + info.turns + '</span>';
+        }
+        showTooltip(e.clientX, e.clientY, html);
+    });
+
+    // 씬 전환 시 툴팁 숨기기
+    var _SceneManager_goto = SceneManager.goto;
+    SceneManager.goto = function (sceneClass) {
+        hideTooltip();
+        _SceneManager_goto.call(this, sceneClass);
+    };
+
 })();
