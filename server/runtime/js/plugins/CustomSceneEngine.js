@@ -2246,6 +2246,12 @@
     this._handlerDef = def.action || null;
     this._leftHandlerDef = def.leftAction || null;
     this._rightHandlerDef = def.rightAction || null;
+    // Transition
+    this._transition = def.transition || 'system';
+    this._transitionConfig = def.transitionConfig || {};
+    this._btnState = 'normal';
+    this._transitionOverlay = null;
+    this._transitionDisabled = false;
     var hasChildren = !!(def.children && def.children.length > 0);
     var win;
     if (hasChildren || this._label === '') {
@@ -2269,6 +2275,7 @@
     this._window = win;
     this._displayObject = win;
     this._createDecoSprite(def, this._width, this._height || 52);
+    this._createTransitionSprite(def);
   };
   Widget_Button.prototype.collectFocusable = function(out) {
     out.push(this);
@@ -2284,6 +2291,94 @@
   };
   Widget_Button.prototype.setCancelHandler = function(fn) {
     if (this._window) this._window.setHandler('cancel', fn);
+  };
+  Widget_Button.prototype.setDisabled = function(disabled) {
+    this._transitionDisabled = !!disabled;
+  };
+  // Transition 스프라이트 생성 (colorTint: 오버레이, spriteSwap: 이미지 스프라이트)
+  Widget_Button.prototype._createTransitionSprite = function(def) {
+    if (this._transition === 'system') return;
+    var w = this._width || 120;
+    var h = this._height || 52;
+    // _decoSprite가 없으면 컨테이너 역할의 투명 스프라이트 생성 (scene에 자동 등록됨)
+    if (!this._decoSprite) {
+      var base = new Sprite(new Bitmap(1, 1));
+      base.x = def.x || 0;
+      base.y = def.y || 0;
+      this._decoSprite = base;
+    }
+    if (this._transition === 'colorTint') {
+      var overlay = new Sprite(new Bitmap(w, h));
+      this._decoSprite.addChild(overlay);
+      this._transitionOverlay = overlay;
+    } else if (this._transition === 'spriteSwap') {
+      var imgSpr = new Sprite();
+      this._decoSprite.addChild(imgSpr);
+      this._transitionOverlay = imgSpr;
+    }
+    this._applyTransition('normal');
+  };
+  // 상태에 맞는 효과 적용
+  Widget_Button.prototype._applyTransition = function(state) {
+    if (!this._transitionOverlay) return;
+    var cfg = this._transitionConfig;
+    if (this._transition === 'colorTint') {
+      var color = cfg[state + 'Color'] || cfg['normalColor'] || [255, 255, 255, 0];
+      var bmp = this._transitionOverlay.bitmap;
+      if (!bmp) return;
+      var ctx = bmp._context;
+      if (!ctx) return;
+      ctx.clearRect(0, 0, bmp.width, bmp.height);
+      if (color[3] > 0) {
+        ctx.fillStyle = 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + (color[3] / 255).toFixed(3) + ')';
+        ctx.fillRect(0, 0, bmp.width, bmp.height);
+      }
+      bmp._setDirty();
+    } else if (this._transition === 'spriteSwap') {
+      var imgPath = cfg[state + 'Image'] || cfg['normalImage'];
+      if (!imgPath) { this._transitionOverlay.bitmap = null; return; }
+      var self = this;
+      var w = this._width || 120;
+      var h = this._height || 52;
+      var bmp = ImageManager.loadSystem(imgPath);
+      this._transitionOverlay.bitmap = bmp;
+      bmp.addLoadListener(function() {
+        if (self._transitionOverlay && self._transitionOverlay.bitmap === bmp) {
+          self._transitionOverlay.scale.x = w / bmp.width;
+          self._transitionOverlay.scale.y = h / bmp.height;
+        }
+      });
+    }
+  };
+  // 매 프레임 hover/pressed 상태 감지 및 효과 갱신
+  Widget_Button.prototype._updateTransitionState = function() {
+    var win = this._window;
+    if (!win) return;
+    var newState;
+    if (this._transitionDisabled) {
+      newState = 'disabled';
+    } else {
+      var tx = TouchInput.x, ty = TouchInput.y;
+      var wx = win.x, wy = win.y, ww = win.width, wh = win.height;
+      var hovered = (tx >= wx && tx < wx + ww && ty >= wy && ty < wy + wh);
+      if (hovered && TouchInput.isPressed()) {
+        newState = 'pressed';
+      } else if (hovered || win.active) {
+        newState = 'highlighted';
+      } else {
+        newState = 'normal';
+      }
+    }
+    if (newState !== this._btnState) {
+      this._btnState = newState;
+      this._applyTransition(newState);
+    }
+  };
+  Widget_Button.prototype.update = function() {
+    Widget_Base.prototype.update.call(this);
+    if (this._transition !== 'system') {
+      this._updateTransitionState();
+    }
   };
   window.Widget_Button = Widget_Button;
 

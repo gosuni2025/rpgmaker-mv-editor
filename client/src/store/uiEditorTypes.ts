@@ -328,12 +328,35 @@ export interface WidgetDef_Separator extends WidgetDefBase {
   type: 'separator';
 }
 
+export type ButtonTransitionType = 'system' | 'colorTint' | 'spriteSwap';
+
+/** RGBA [0-255, 0-255, 0-255, 0-255] */
+export type TransitionColor = [number, number, number, number];
+
+export interface ButtonTransitionConfig_ColorTint {
+  normalColor?:      TransitionColor;
+  highlightedColor?: TransitionColor;
+  pressedColor?:     TransitionColor;
+  disabledColor?:    TransitionColor;
+}
+
+export interface ButtonTransitionConfig_SpriteSwap {
+  normalImage?:      string;
+  highlightedImage?: string;
+  pressedImage?:     string;
+  disabledImage?:    string;
+}
+
+export type ButtonTransitionConfig = ButtonTransitionConfig_ColorTint & ButtonTransitionConfig_SpriteSwap;
+
 export interface WidgetDef_Button extends WidgetDefBase {
   type: 'button';
   label: string;
   action: CustomCommandHandler;
   leftAction?: CustomCommandHandler;
   rightAction?: CustomCommandHandler;
+  transition?: ButtonTransitionType;
+  transitionConfig?: ButtonTransitionConfig;
 }
 
 export interface WidgetDef_List extends WidgetDefBase {
