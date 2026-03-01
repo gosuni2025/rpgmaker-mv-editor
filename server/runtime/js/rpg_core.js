@@ -1706,6 +1706,13 @@ Bitmap.prototype.checkDirty = function() {
     }
 };
 
+Bitmap.prototype.destroy = function() {
+    if (this.__baseTexture) {
+        this.__baseTexture.dispose();
+        this.__baseTexture = null;
+    }
+};
+
 Bitmap.request = function(url){
     var bitmap = Object.create(Bitmap.prototype);
     bitmap._defer = true;
@@ -6834,6 +6841,8 @@ Window.prototype._refreshBack = function() {
     var m = this._margin;
     var w = this._width - m * 2;
     var h = this._height - m * 2;
+    var old = this._windowBackSprite._bitmap;
+    if (old) old.destroy();
     var bitmap = new Bitmap(w, h);
 
     this._windowBackSprite.bitmap = bitmap;
@@ -6861,6 +6870,8 @@ Window.prototype._refreshFrame = function() {
     var w = this._width;
     var h = this._height;
     var m = 24;
+    var old = this._windowFrameSprite._bitmap;
+    if (old) old.destroy();
     var bitmap = new Bitmap(w, h);
 
     this._windowFrameSprite.bitmap = bitmap;
@@ -6898,6 +6909,8 @@ Window.prototype._refreshCursor = function() {
     var oy = y - y2;
     var w2 = Math.min(w, this._width - pad - x2);
     var h2 = Math.min(h, this._height - pad - y2);
+    var old = this._windowCursorSprite._bitmap;
+    if (old) old.destroy();
     var bitmap = new Bitmap(w2, h2);
 
     this._windowCursorSprite.bitmap = bitmap;

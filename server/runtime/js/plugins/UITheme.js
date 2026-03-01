@@ -202,6 +202,7 @@
       if (w <= 0 || h <= 0) return;
       // imageFile이 없으면 "No Image" 안내 표시
       if (!ov.imageFile) {
+        var old = this._windowBackSprite._bitmap; if (old) old.destroy();
         var noBitmap = new Bitmap(w, h);
         this._windowBackSprite.bitmap = noBitmap;
         this._windowBackSprite.setFrame(0, 0, w, h);
@@ -223,6 +224,7 @@
         if (src) src.addLoadListener(this._refreshAllParts.bind(this));
         return;
       }
+      var old2 = this._windowBackSprite._bitmap; if (old2) old2.destroy();
       var bitmap = new Bitmap(w, h);
       this._windowBackSprite.bitmap = bitmap;
       this._windowBackSprite.setFrame(0, 0, w, h);
@@ -256,6 +258,7 @@
     var w = this._width - m * 2;
     var h = this._height - m * 2;
     if (w <= 0 || h <= 0) return;
+    var old3 = this._windowBackSprite._bitmap; if (old3) old3.destroy();
     var bitmap = new Bitmap(w, h);
     this._windowBackSprite.bitmap = bitmap;
     this._windowBackSprite.setFrame(0, 0, w, h);
@@ -276,6 +279,7 @@
     if (ov && ov.windowStyle === 'image') {
       var w = this._width, h = this._height;
       if (w > 0 && h > 0) {
+        var oldF1 = this._windowFrameSprite._bitmap; if (oldF1) oldF1.destroy();
         this._windowFrameSprite.bitmap = new Bitmap(w, h);
         this._windowFrameSprite.setFrame(0, 0, w, h);
       }
@@ -304,6 +308,7 @@
     var w = this._width;
     var h = this._height;
     if (w <= 0 || h <= 0) return;
+    var oldF2 = this._windowFrameSprite._bitmap; if (oldF2) oldF2.destroy();
     var bitmap = new Bitmap(w, h);
     this._windowFrameSprite.bitmap = bitmap;
     this._windowFrameSprite.setFrame(0, 0, w, h);
@@ -351,6 +356,7 @@
     if (!bitmap || !bitmap.isReady() || nw <= 0 || nh <= 0) return;
     if (!this._windowCursorSprite) return;
 
+    var oldC = this._windowCursorSprite._bitmap; if (oldC) oldC.destroy();
     this._windowCursorSprite.bitmap = new Bitmap(w, h);
     var dest = this._windowCursorSprite.bitmap;
 
