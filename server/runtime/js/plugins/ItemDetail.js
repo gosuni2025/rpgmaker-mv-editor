@@ -4,7 +4,7 @@
 //=============================================================================
 
 /*:
- * @plugindesc v1.0 아이템 선택 시 우측 패널에 이미지와 상세 텍스트를 표시합니다.
+ * @plugindesc v1.1 아이템 선택 시 우측 패널에 이미지와 상세 텍스트를 표시합니다.
  * @author Claude
  *
  * @param itemWindowWidthRate
@@ -173,6 +173,7 @@
         Window_Base.prototype.initialize.call(this, x, y, width, height);
         this._item   = null;
         this._detail = null;
+        this.hide(); // 초기에는 숨김
     };
 
     Window_ItemDetail.prototype.setItem = function (item) {
@@ -180,6 +181,11 @@
         this._item   = item;
         this._detail = item ? parseDetail(item) : null;
         this.refresh();
+        if (this._detail) {
+            this.show();
+        } else {
+            this.hide();
+        }
     };
 
     Window_ItemDetail.prototype.refresh = function () {
@@ -267,6 +273,74 @@
     };
 
     //=========================================================================
+    // ItemDetailFullscreen — 전체화면 이미지 뷰어
+    //=========================================================================
+    function ItemDetailFullscreen() {
+        this.initialize.apply(this, arguments);
+    }
+
+    ItemDetailFullscreen.prototype = Object.create(Sprite.prototype);
+    ItemDetailFullscreen.prototype.constructor = ItemDetailFullscreen;
+
+    ItemDetailFullscreen.prototype.initialize = function () {
+        Sprite.prototype.initialize.call(this);
+        this._isOpen = false;
+
+        // 검은 반투명 배경
+        var bgBmp = new Bitmap(Graphics.boxWidth, Graphics.boxHeight);
+        bgBmp.fillAll('#000000');
+        this._bgSprite = new Sprite(bgBmp);
+        this._bgSprite.opacity = 218; // ~85%
+        this.addChild(this._bgSprite);
+
+        // 이미지 스프라이트
+        this._imgSprite = new Sprite();
+        this.addChild(this._imgSprite);
+
+        this.visible = false;
+    };
+
+    ItemDetailFullscreen.prototype.isOpen = function () {
+        return this._isOpen;
+    };
+
+    ItemDetailFullscreen.prototype.open = function (item, detail) {
+        detail = detail || parseDetail(item);
+        if (!detail || !detail.image) return;
+        this._isOpen = true;
+        this.visible = true;
+
+        var self = this;
+        var bmp = ImageManager.loadPicture(detail.image);
+
+        function applyBmp() {
+            if (!self._isOpen) return;
+            self._imgSprite.bitmap = bmp;
+            var sw = Graphics.boxWidth;
+            var sh = Graphics.boxHeight;
+            var scale = Math.min(sw / bmp.width, sh / bmp.height, 1);
+            var dw = Math.floor(bmp.width  * scale);
+            var dh = Math.floor(bmp.height * scale);
+            self._imgSprite.x = Math.floor((sw - dw) / 2);
+            self._imgSprite.y = Math.floor((sh - dh) / 2);
+            self._imgSprite.scale.x = scale;
+            self._imgSprite.scale.y = scale;
+        }
+
+        if (bmp.isReady()) {
+            applyBmp();
+        } else {
+            bmp.addLoadListener(applyBmp);
+        }
+    };
+
+    ItemDetailFullscreen.prototype.close = function () {
+        this._isOpen = false;
+        this.visible = false;
+        this._imgSprite.bitmap = null;
+    };
+
+    //=========================================================================
     // Window_ItemList — 상세창 연동 (Scene_Item 기본 씬용)
     //=========================================================================
     Window_ItemList.prototype.setDetailWindow = function (win) {
@@ -306,6 +380,43 @@
         this._detailWindow = new Window_ItemDetail(wx, wy, ww, wh);
         this._itemWindow.setDetailWindow(this._detailWindow);
         this.addWindow(this._detailWindow);
+        // 전체화면 뷰어 (맨 위에 추가)
+        this._itemDetailFullscreen = new ItemDetailFullscreen();
+        this.addChild(this._itemDetailFullscreen);
+    };
+
+    // 카테고리로 돌아갈 때 상세창 숨기기
+    var _Scene_Item_onItemCancel = Scene_Item.prototype.onItemCancel;
+    Scene_Item.prototype.onItemCancel = function () {
+        _Scene_Item_onItemCancel.call(this);
+        if (this._detailWindow) this._detailWindow.hide();
+    };
+
+    // ok 시 사용 불가 아이템 + 이미지 있으면 전체화면 표시
+    var _Scene_Item_onItemOk = Scene_Item.prototype.onItemOk;
+    Scene_Item.prototype.onItemOk = function () {
+        var item   = this._itemWindow.item();
+        var detail = item ? parseDetail(item) : null;
+        if (detail && detail.image && !$gameParty.canUse(item) && this._itemDetailFullscreen) {
+            this._itemDetailFullscreen.open(item, detail);
+            this._itemWindow.deactivate();
+            return;
+        }
+        _Scene_Item_onItemOk.call(this);
+    };
+
+    // 전체화면 열림 시 입력 차단 + 닫기 처리
+    var _Scene_Item_update = Scene_Item.prototype.update;
+    Scene_Item.prototype.update = function () {
+        if (this._itemDetailFullscreen && this._itemDetailFullscreen.isOpen()) {
+            if (Input.isTriggered('ok') || Input.isTriggered('cancel') || TouchInput.isTriggered()) {
+                this._itemDetailFullscreen.close();
+                this._itemWindow.activate();
+            }
+            Input.clear();
+            TouchInput.clear();
+        }
+        _Scene_Item_update.call(this);
     };
 
     var _Scene_Item_create = Scene_Item.prototype.create;
@@ -322,23 +433,72 @@
         Scene_CustomUI.prototype.create = function () {
             _CustomUI_create.call(this);
             if (this._sceneId === 'item') {
-                // item 씬: item_list가 왼쪽 408px이므로 오른쪽에 상세창 배치
                 var wy = 144; // category(72) + help(72) = 144
                 var wx = Math.floor(Graphics.boxWidth * ITEM_WIDTH_RATE);
                 var ww = Graphics.boxWidth - wx;
                 var wh = Graphics.boxHeight - wy;
                 this._itemDetailWindow = new Window_ItemDetail(wx, wy, ww, wh);
                 this.addWindow(this._itemDetailWindow);
+                // 전체화면 뷰어 (맨 위에 추가)
+                this._itemDetailFullscreen = new ItemDetailFullscreen();
+                this.addChild(this._itemDetailFullscreen);
             }
         };
 
         var _CustomUI_update = Scene_CustomUI.prototype.update;
         Scene_CustomUI.prototype.update = function () {
+            // 전체화면 열림 시 입력 차단 + 닫기 처리
+            if (this._sceneId === 'item' && this._itemDetailFullscreen && this._itemDetailFullscreen.isOpen()) {
+                if (Input.isTriggered('ok') || Input.isTriggered('cancel') || TouchInput.isTriggered()) {
+                    this._itemDetailFullscreen.close();
+                }
+                Input.clear();
+                TouchInput.clear();
+                _CustomUI_update.call(this);
+                return;
+            }
+
             _CustomUI_update.call(this);
-            if (this._itemDetailWindow && this._ctx) {
-                this._itemDetailWindow.setItem(this._ctx.selectedItem || null);
+
+            // 상세창 표시/숨김 — 포커스 상태 기반
+            if (this._sceneId === 'item' && this._itemDetailWindow && this._ctx) {
+                var nav = this._navManager;
+                var activeWidget = nav && nav._activeIndex >= 0 ? nav._focusables[nav._activeIndex] : null;
+                var isItemListFocused = activeWidget && activeWidget._id === 'item_list';
+
+                if (!isItemListFocused) {
+                    // 카테고리나 다른 위젯 포커스 시 숨김
+                    this._itemDetailWindow.hide();
+                    this._itemDetailWindow._item = null; // 재포커스 시 재평가 강제
+                } else {
+                    this._itemDetailWindow.setItem(this._ctx.selectedItem || null);
+                }
             }
         };
+
+        // useItem 인터셉트 — 사용 불가 아이템 + 이미지 있으면 전체화면 표시
+        if (Scene_CustomUI.prototype._executeWidgetHandler) {
+            var _exec = Scene_CustomUI.prototype._executeWidgetHandler;
+            Scene_CustomUI.prototype._executeWidgetHandler = function (handler, widget) {
+                if (this._sceneId === 'item' && this._itemDetailFullscreen) {
+                    // 전체화면이 열려있으면 핸들러 차단
+                    if (this._itemDetailFullscreen.isOpen()) return;
+
+                    // useItem 인터셉트
+                    if (handler && handler.action === 'useItem') {
+                        var item = this._ctx && this._ctx.selectedItem;
+                        if (item && !$gameParty.canUse(item)) {
+                            var detail = parseDetail(item);
+                            if (detail && detail.image) {
+                                this._itemDetailFullscreen.open(item, detail);
+                                return;
+                            }
+                        }
+                    }
+                }
+                _exec.call(this, handler, widget);
+            };
+        }
     }
 
 })();
