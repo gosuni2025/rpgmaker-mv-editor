@@ -261,6 +261,7 @@
 
     //=========================================================================
     // ItemDetailFullscreen — 전체화면 이미지 뷰어
+    // DOM 오버레이 방식: RPG MV input 시스템과 무관하게 동작
     //=========================================================================
     function ItemDetailFullscreen() {
         this.initialize.apply(this, arguments);
@@ -272,17 +273,8 @@
     ItemDetailFullscreen.prototype.initialize = function () {
         Sprite.prototype.initialize.call(this);
         this._isOpen = false;
-
-        var bgBmp = new Bitmap(Graphics.boxWidth, Graphics.boxHeight);
-        bgBmp.fillAll('#000000');
-        this._bgSprite = new Sprite(bgBmp);
-        this._bgSprite.opacity = 218;
-        this.addChild(this._bgSprite);
-
-        this._imgSprite = new Sprite();
-        this.addChild(this._imgSprite);
-
-        this.visible = false;
+        this._closeRequested = false;
+        this._domEl = null;
     };
 
     ItemDetailFullscreen.prototype.isOpen = function () {
@@ -292,33 +284,60 @@
     ItemDetailFullscreen.prototype.open = function (item, detail) {
         detail = detail || parseDetail(item);
         if (!detail || !detail.image) return;
+        if (this._domEl) return;  // 이미 열려있음
+
         this._isOpen = true;
-        this.visible = true;
+        this._closeRequested = false;
 
-        var self = this;
+        // DOM 오버레이 생성
+        var el = document.createElement('div');
+        el.style.cssText = [
+            'position:fixed', 'inset:0', 'background:#000',
+            'display:flex', 'align-items:center', 'justify-content:center',
+            'z-index:9999', 'cursor:pointer'
+        ].join(';');
+
+        var img = document.createElement('img');
+        // ImageManager가 알고 있는 실제 URL에서 파일명 추출
         var bmp = ImageManager.loadPicture(detail.image);
+        img.src = bmp._url || bmp.url || ('img/pictures/' + encodeURIComponent(detail.image) + '.png');
+        img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;pointer-events:none;';
+        el.appendChild(img);
+        document.body.appendChild(el);
+        this._domEl = el;
 
-        function applyBmp() {
+        // 200ms 후 닫기 허용 (여는 입력이 즉시 닫히는 것 방지)
+        var self = this;
+        clearTimeout(this._openTimer);
+        this._openTimer = setTimeout(function () {
             if (!self._isOpen) return;
-            self._imgSprite.bitmap = bmp;
-            var sw = Graphics.boxWidth, sh = Graphics.boxHeight;
-            var scale = Math.min(sw / bmp.width, sh / bmp.height, 1);
-            var dw = Math.floor(bmp.width  * scale);
-            var dh = Math.floor(bmp.height * scale);
-            self._imgSprite.x = Math.floor((sw - dw) / 2);
-            self._imgSprite.y = Math.floor((sh - dh) / 2);
-            self._imgSprite.scale.x = scale;
-            self._imgSprite.scale.y = scale;
-        }
-
-        if (bmp.isReady()) { applyBmp(); }
-        else { bmp.addLoadListener(applyBmp); }
+            function onAny() {
+                self._closeRequested = true;
+                document.removeEventListener('keydown',    onAny, true);
+                document.removeEventListener('mousedown',  onAny, true);
+                document.removeEventListener('touchstart', onAny, true);
+            }
+            document.addEventListener('keydown',    onAny, true);
+            document.addEventListener('mousedown',  onAny, true);
+            document.addEventListener('touchstart', onAny, true);
+            self._cancelListener = onAny;
+        }, 200);
     };
 
     ItemDetailFullscreen.prototype.close = function () {
         this._isOpen = false;
-        this.visible = false;
-        this._imgSprite.bitmap = null;
+        this._closeRequested = false;
+        clearTimeout(this._openTimer);
+        if (this._cancelListener) {
+            document.removeEventListener('keydown',    this._cancelListener, true);
+            document.removeEventListener('mousedown',  this._cancelListener, true);
+            document.removeEventListener('touchstart', this._cancelListener, true);
+            this._cancelListener = null;
+        }
+        if (this._domEl) {
+            document.body.removeChild(this._domEl);
+            this._domEl = null;
+        }
     };
 
     //=========================================================================
@@ -421,11 +440,9 @@
         var dw = this._detailWindow;
         var aw = this._itemActionWindow;
 
-        // 전체화면
+        // 전체화면 (DOM 오버레이 닫기 요청 체크)
         if (fs && fs.isOpen()) {
-            if ((Input._latestButton && Input._pressedTime === 0) || TouchInput.isTriggered()) {
-                fs.close();
-            }
+            if (fs._closeRequested) { fs.close(); }
             Input.clear(); TouchInput.clear();
             _Scene_Item_update.call(this);
             return;
@@ -526,11 +543,9 @@
             var dw = this._itemDetailWindow;
             var aw = this._itemActionWindow;
 
-            // 전체화면 상태
+            // 전체화면 상태 (DOM 오버레이 닫기 요청 체크)
             if (fs && fs.isOpen()) {
-                if ((Input._latestButton && Input._pressedTime === 0) || TouchInput.isTriggered()) {
-                    fs.close();
-                }
+                if (fs._closeRequested) { fs.close(); }
                 Input.clear(); TouchInput.clear();
                 _CustomUI_update.call(this);
                 return;
