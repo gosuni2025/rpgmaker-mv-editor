@@ -1447,8 +1447,9 @@
       if (childObj instanceof Window_Base) {
         childObj.x += this._x;
         childObj.y += this._y;
-        if (child._decoSprite) { child._decoSprite.x += this._x; child._decoSprite.y += this._y; }
-        if (child._rowOverlay) { child._rowOverlay.x += this._x; child._rowOverlay.y += this._y; }
+        if (child._decoSprite)  { child._decoSprite.x  += this._x; child._decoSprite.y  += this._y; }
+        if (child._labelSprite) { child._labelSprite.x += this._x; child._labelSprite.y += this._y; }
+        if (child._rowOverlay)  { child._rowOverlay.x  += this._x; child._rowOverlay.y  += this._y; }
       } else if (this._displayObject) {
         if (child._decoSprite) this._displayObject.addChild(child._decoSprite);
         this._displayObject.addChild(childObj);
