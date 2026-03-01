@@ -25,7 +25,7 @@ function getScopeBase() {
   try {
     const p = new URL(self.registration.scope).pathname;
     return p.endsWith('/') ? p : p + '/';
-  } catch {
+  } catch (e) {
     return '/';
   }
 }
@@ -93,7 +93,7 @@ async function installBundles() {
     try {
       const r = await fetch(base + 'bundles/' + file, { method: 'HEAD', cache: 'no-store' });
       if (r.ok) dlProgress[file].total = parseInt(r.headers.get('Content-Length') || '0', 10);
-    } catch {}
+    } catch (e) {}
   }));
 
   await broadcast({
@@ -204,7 +204,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const base = getScopeBase();
   let pathname;
-  try { pathname = new URL(event.request.url).pathname; } catch { return; }
+  try { pathname = new URL(event.request.url).pathname; } catch (e) { return; }
 
   const rel = pathname.startsWith(base)
     ? pathname.slice(base.length)
@@ -234,7 +234,7 @@ async function cacheFirst(request) {
       u.pathname = p.slice(0, -4) + '.webp';
       altRequest = new Request(u.toString());
     }
-  } catch {}
+  } catch (e) {}
 
   for (const cacheName of allCacheNames) {
     const cache = await caches.open(cacheName);
