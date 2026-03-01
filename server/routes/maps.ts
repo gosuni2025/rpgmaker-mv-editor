@@ -189,9 +189,14 @@ router.put('/:id', (req: Request, res: Response) => {
       const hasRef = !!ev.__ref;
       const { __ref: _ref, ...eventData } = ev as Record<string, unknown>;
       if (hasRef) {
-        // pages가 없거나 비어있으면 기존 외부 파일에서 복원 (자동저장 등으로 pages가 빠진 경우 대비)
+        // pages가 없거나 비어있거나 stripped(list=[{code:0}]뿐)이면 기존 외부 파일에서 복원
+        // stripped = 맵 자동저장 시 list를 제거한 상태. 외부 파일의 실제 커맨드를 보존하기 위해 복원.
+        const isStripped = (pages: any[]) =>
+          pages.length > 0 && pages.every((p: any) =>
+            p.list && p.list.length === 1 && p.list[0].code === 0 &&
+            p.list[0].indent === 0 && (p.list[0].parameters?.length ?? 0) === 0);
         let pagesForFile = eventData.pages as any[] | undefined;
-        if (!pagesForFile || pagesForFile.length === 0) {
+        if (!pagesForFile || pagesForFile.length === 0 || isStripped(pagesForFile)) {
           try {
             const existing = projectManager.readEventFile(mapId, ev.id) as Record<string, unknown>;
             if (existing.pages) pagesForFile = existing.pages as any[];
