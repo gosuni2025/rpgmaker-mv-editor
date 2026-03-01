@@ -3033,8 +3033,9 @@
 
     // GPU 누수 디버그 — 씬 열릴 때 스냅샷
     var _r = typeof Graphics !== 'undefined' ? Graphics._renderer : null;
-    this._dbgOpenTex = _r ? _r.info.memory.textures : -1;
-    this._dbgOpenGeo = _r ? _r.info.memory.geometries : -1;
+    var _mem = (_r && _r.info && _r.info.memory) ? _r.info.memory : null;
+    this._dbgOpenTex = _mem ? _mem.textures : -1;
+    this._dbgOpenGeo = _mem ? _mem.geometries : -1;
     this._dbgOpenBitmapCount = typeof Bitmap !== 'undefined' ? Bitmap._gpuTexCount : -1;
     console.log('[CSE:' + this._sceneId + '] OPEN  GPU tex=' + this._dbgOpenTex
       + ' geo=' + this._dbgOpenGeo + ' bitmapCount=' + this._dbgOpenBitmapCount);
@@ -3701,8 +3702,9 @@
 
   Scene_CustomUI.prototype.terminate = function() {
     var _r = typeof Graphics !== 'undefined' ? Graphics._renderer : null;
-    var _texBefore = _r ? _r.info.memory.textures : -1;
-    var _geoBefore = _r ? _r.info.memory.geometries : -1;
+    var _mem0 = (_r && _r.info && _r.info.memory) ? _r.info.memory : null;
+    var _texBefore = _mem0 ? _mem0.textures : -1;
+    var _geoBefore = _mem0 ? _mem0.geometries : -1;
     var _bmBefore  = typeof Bitmap !== 'undefined' ? Bitmap._gpuTexCount : -1;
 
     Scene_Base.prototype.terminate.call(this);
@@ -3732,8 +3734,9 @@
     }
 
     // GPU 누수 디버그 — 씬 닫힐 때 비교
-    var _texAfter = _r ? _r.info.memory.textures : -1;
-    var _geoAfter = _r ? _r.info.memory.geometries : -1;
+    var _mem1 = (_r && _r.info && _r.info.memory) ? _r.info.memory : null;
+    var _texAfter = _mem1 ? _mem1.textures : -1;
+    var _geoAfter = _mem1 ? _mem1.geometries : -1;
     var _bmAfter  = typeof Bitmap !== 'undefined' ? Bitmap._gpuTexCount : -1;
     console.log('[CSE:' + this._sceneId + '] CLOSE GPU tex=' + _texAfter
       + ' geo=' + _geoAfter + ' bitmapCount=' + _bmAfter
