@@ -15,6 +15,7 @@
 
     var BUTTONS = [
         { label: '몬스터 전체 피해 100', symbol: 'enemyDamage' },
+        { label: '몬스터 전체 독침',     symbol: 'enemyPoison' },
         { label: '아군 전체 피해 100',   symbol: 'allyDamage'  },
         { label: '아군 MP 전체 회복',    symbol: 'allyMpFull'  },
         { label: '아군 TP 전체 충전',    symbol: 'allyTpFull'  },
@@ -114,6 +115,10 @@
         this._battleDebugWindow = new Window_BattleDebug();
         this._battleDebugWindow.setHandler('enemyDamage', function() {
             applyHpDamage($gameTroop.aliveMembers());
+        });
+        this._battleDebugWindow.setHandler('enemyPoison', function() {
+            $gameTroop.aliveMembers().forEach(function(m) { m.addState(4); });
+            BattleManager.refreshStatus();
         });
         this._battleDebugWindow.setHandler('allyDamage', function() {
             applyHpDamage($gameParty.aliveMembers());
