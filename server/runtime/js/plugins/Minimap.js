@@ -462,6 +462,7 @@
     // ----------------------------------------------------------
     initialize() {
       const bw = CFG.size + N_PAD * 2;
+      if (this._bitmap) this._bitmap.destroy();
       this._bitmap = new Bitmap(bw, bw);
     },
 
@@ -864,6 +865,7 @@
     // ----------------------------------------------------------
     destroySprite() {
       this._scene = null;
+      if (this._bitmap) { this._bitmap.destroy(); this._bitmap = null; }
     },
 
     // ----------------------------------------------------------

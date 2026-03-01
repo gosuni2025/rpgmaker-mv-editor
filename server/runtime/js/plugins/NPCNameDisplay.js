@@ -255,8 +255,15 @@
   Sprite_Character.prototype._destroyNpcName = function () {
     if (this._npcNameSprite) {
       this.removeChild(this._npcNameSprite);
+      if (this._npcNameSprite.bitmap) this._npcNameSprite.bitmap.destroy();
       this._npcNameSprite  = null;
       this._npcNameCurrent = null;
     }
+  };
+
+  var _Sprite_Character_destroy = Sprite_Character.prototype.destroy;
+  Sprite_Character.prototype.destroy = function(options) {
+    this._destroyNpcName();
+    _Sprite_Character_destroy.call(this, options);
   };
 })();
