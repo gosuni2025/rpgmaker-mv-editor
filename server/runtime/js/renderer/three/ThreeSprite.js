@@ -640,4 +640,9 @@ ThreeSprite.prototype.destroy = function(options) {
     this._threeObj = null;
     this._texture = null;
     this._threeTexture = null;
+    // 직접 생성된(캐시 안 된) bitmap만 해제 — ImageManager 캐시 bitmap은 건드리지 않음
+    if (this._bitmap && !this._bitmap.cacheEntry && !this._bitmap._url) {
+        this._bitmap.destroy();
+    }
+    this._bitmap = null;
 };
