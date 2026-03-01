@@ -2259,25 +2259,9 @@
     this._labelSprite = null;
     this._labelBitmap = null;
     var hasChildren = !!(def.children && def.children.length > 0);
-    var win;
-    // windowed=true 텍스트 버튼은 기존 Window_CustomCommand 유지 (패딩 있는 창 스타일)
-    // windowed=false(기본) 텍스트 버튼은 Window_ButtonRow + _labelSprite (Label 방식, 패딩 없음)
-    this._useWindowLabel = def.windowed === true && !hasChildren && this._label !== '';
-    if (hasChildren || this._label === '') {
-      // 자식 위젯이 텍스트 렌더링 — 커서/하이라이트만 제공
-      win = new Window_ButtonRow(this._x, this._y, this._width, this._height || 52);
-    } else if (this._useWindowLabel) {
-      var btnDef = {
-        id: def.id, width: def.width,
-        commands: [{ name: this._label, symbol: 'ok', enabled: true }],
-        maxCols: 1
-      };
-      if (def.height) btnDef.height = def.height;
-      win = new Window_CustomCommand(this._x, this._y, btnDef);
-    } else {
-      // windowed=false 텍스트 버튼: Window_ButtonRow (커서) + _labelSprite (텍스트)
-      win = new Window_ButtonRow(this._x, this._y, this._width, this._height || 52);
-    }
+    // 항상 Window_ButtonRow (커서/하이라이트) + _labelSprite (텍스트)
+    // windowed 플래그는 창 프레임 표시 여부만 결정하며, 텍스트 렌더링 방식은 무관
+    var win = new Window_ButtonRow(this._x, this._y, this._width, this._height || 52);
     win._customClassName = 'Widget_CS_' + this._id;
     win.deactivate();
     // button 기본값: windowed=false (창 프레임 없음). JSON에 명시된 경우만 windowed=true 허용
@@ -2310,7 +2294,7 @@
   };
   // windowed=false 텍스트 버튼용 Label 스프라이트 생성 (Widget_Label 방식)
   Widget_Button.prototype._createButtonLabel = function(def) {
-    if (this._useWindowLabel || !this._label) return;
+    if (!this._label) return;
     var w = this._width || 120;
     var h = this._height || 52;
     var fontSize = def.fontSize || 28;
