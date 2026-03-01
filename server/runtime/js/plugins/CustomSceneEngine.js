@@ -1398,6 +1398,23 @@
       this._children[i].destroy();
     }
     this._children = [];
+    // _decoSprite: 위젯이 소유한 배경/테두리 스프라이트 (GPU tex+geo 해제)
+    if (this._decoSprite) {
+      if (this._decoSprite._bitmap) this._decoSprite._bitmap.destroy();
+      this._decoSprite.destroy();
+      this._decoSprite = null;
+    }
+    // _labelSprite: RowSelector 등이 소유한 텍스트 라벨 스프라이트
+    if (this._labelSprite) {
+      if (this._labelSprite._bitmap) this._labelSprite._bitmap.destroy();
+      this._labelSprite.destroy();
+      this._labelSprite = null;
+    }
+    // _displayObject: 스프라이트 또는 Window_Base의 geometry/material 해제
+    if (this._displayObject && this._displayObject.destroy) {
+      this._displayObject.destroy();
+      this._displayObject = null;
+    }
   };
   window.Widget_Base   = Widget_Base;
   window.Widget_Panel  = Widget_Panel;
@@ -2772,6 +2789,11 @@
       }
       this._rowWidgets = [];
     }
+    // _rowOverlay: itemScene 모드의 행 컨테이너 스프라이트 (scene에 직접 addChild됨)
+    if (this._rowOverlay && this._rowOverlay.destroy) {
+      this._rowOverlay.destroy();
+      this._rowOverlay = null;
+    }
     Widget_Base.prototype.destroy.call(this);
   };
   window.Widget_TextList = Widget_TextList;
@@ -3676,6 +3698,23 @@
   Scene_CustomUI.prototype.terminate = function() {
     Scene_Base.prototype.terminate.call(this);
     if (this._navManager && this._navManager.dispose) this._navManager.dispose();
+    // 위젯 트리 전체 destroy → GPU tex/geo 해제
+    if (this._rootWidget) {
+      this._rootWidget.destroy();
+      this._rootWidget = null;
+    }
+    this._widgetMap = {};
+    // 레거시 Window 모드 정리
+    if (this._customWindows) {
+      for (var wid in this._customWindows) {
+        var cw = this._customWindows[wid];
+        if (cw) {
+          if (cw.contents && cw.contents.destroy) cw.contents.destroy();
+          if (cw.destroy) cw.destroy();
+        }
+      }
+      this._customWindows = {};
+    }
     var sceneDef = this._getSceneDef();
     if (sceneDef && sceneDef.saveConfigOnExit) {
       if (typeof ConfigManager !== 'undefined' && typeof ConfigManager.save === 'function') {

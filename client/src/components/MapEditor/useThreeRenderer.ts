@@ -129,6 +129,7 @@ export function useThreeRenderer(
       spritesetRef.current = spriteset;
       stageRef.current = stage;
       tilemapRef.current = spriteset._tilemap;
+      (window as any).__spriteset = spriteset;
       lastMapDataRef.current = effectiveMap.data;
       gridMeshRef.current = gridLines;
 
