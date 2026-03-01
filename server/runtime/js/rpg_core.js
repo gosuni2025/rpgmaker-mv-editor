@@ -834,6 +834,9 @@ Bitmap.prototype._createCanvas = function(width, height){
 };
 
 Bitmap.prototype._createBaseTexture = function(source){
+    if (this.__baseTexture) {
+        this.__baseTexture.dispose();
+    }
     this.__baseTexture = RendererFactory.createBaseTexture(source);
     this.__baseTexture.mipmap = false;
     this.__baseTexture.width = source.width;
@@ -6512,6 +6515,8 @@ Object.defineProperty(Window.prototype, 'contents', {
         return this._windowContentsSprite.bitmap;
     },
     set: function(value) {
+        var old = this._windowContentsSprite._bitmap;
+        if (old && old !== value) old.destroy();
         this._windowContentsSprite.bitmap = value;
     },
     configurable: true

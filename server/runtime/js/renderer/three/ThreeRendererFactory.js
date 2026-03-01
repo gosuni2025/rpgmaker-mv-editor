@@ -75,6 +75,14 @@
      */
     ThreeRendererFactory.createBaseTexture = function(source) {
         var texture;
+        // DEBUG: 텍스처 생성 카운터 (window._texLog 로 확인)
+        {
+            var _k2 = source instanceof HTMLImageElement
+                ? 'img:' + source.src.split('/').slice(-1)[0].split('?')[0]
+                : 'canvas:' + source.width + 'x' + source.height + '|' + new Error().stack.split('\n')[4];
+            window._texLog = window._texLog || {};
+            window._texLog[_k2] = (window._texLog[_k2] || 0) + 1;
+        }
 
         if (source instanceof HTMLCanvasElement) {
             texture = new THREE.CanvasTexture(source);
