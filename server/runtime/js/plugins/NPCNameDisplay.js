@@ -211,6 +211,7 @@
     measBm.fontSize = fontSize;
     var textW = Math.min(measBm.measureTextWidth(name) + outlineWidth * 2 + 8, BITMAP_W);
     textW     = Math.max(textW, 20);
+    measBm.destroy(); // 측정용 임시 비트맵 즉시 해제
 
     var totalW = markerBlockW + textW;
     var bitmap = new Bitmap(totalW, BITMAP_H);
