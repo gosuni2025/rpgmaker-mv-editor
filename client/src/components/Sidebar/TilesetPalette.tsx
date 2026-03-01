@@ -181,10 +181,14 @@ export default function TilesetPalette() {
 
   const handleTabClick = (tab: PaletteTab) => {
     setActiveTab(tab);
-    if (tab === 'R') { setCurrentLayer(5); }
-    else if (currentMap) {
+    if (tab === 'R') {
+      setCurrentLayer(5);
+    } else if (tab === 'A') {
       const layer = useEditorStore.getState().currentLayer;
-      if (layer === 5) setCurrentLayer(tab === 'A' ? 0 : 1);
+      if (layer === 5 || layer > 0) setCurrentLayer(0);
+    } else {
+      // B/C/D/E 탭 → 항상 upper layer(1)로 전환
+      setCurrentLayer(1);
     }
   };
 
