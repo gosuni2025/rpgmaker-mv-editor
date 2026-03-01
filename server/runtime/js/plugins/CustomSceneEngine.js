@@ -3044,15 +3044,15 @@
     this._rootWidget = this._buildWidget(sceneDef.root, null);
     if (!this._rootWidget) return;
 
-    // 위젯 맵 구축 (id → 위젯, fullPath → 위젯)
-    // fullPath 형식: "sceneId/widgetId/.../widgetId" (예: "navTest/root/main_panel/btn_close")
+    // 위젯 맵 구축 (id → 위젯)
+    // _fullPath는 위젯 객체에 저장 (예: "navTest/root/main_panel/btn_close")
+    // _widgetMap에는 단순 id만 등록 — fullPath 키를 넣으면 루프에서 중복 처리됨
     var self = this;
     var scenePrefix = (sceneDef.id || '') + '/';
     function buildMap(widget, parentPath) {
       if (widget._id) {
         self._widgetMap[widget._id] = widget;
         widget._fullPath = parentPath + widget._id;
-        self._widgetMap[widget._fullPath] = widget;
         var childPath = widget._fullPath + '/';
         for (var i = 0; i < widget._children.length; i++) {
           buildMap(widget._children[i], childPath);
