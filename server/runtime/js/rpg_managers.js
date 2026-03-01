@@ -2099,6 +2099,18 @@ SceneManager.changeScene = function() {
             this._scene.detachReservation();
             this._previousClass = this._scene.constructor;
             if (this._scene.destroy) {
+                // OverlayManager overlay들을 먼저 분리 — destroy cascade로 파괴되지 않도록
+                // OverlayManager.update()가 다음 씬에 자동 재부착함
+                if (window.OverlayManager && window.OverlayManager._instances) {
+                    var _ovInst = window.OverlayManager._instances;
+                    var _ovScene = this._scene;
+                    for (var _ovId in _ovInst) {
+                        var _ov = _ovInst[_ovId];
+                        if (_ov && _ov.scene && _ov.scene.parent === _ovScene) {
+                            _ovScene.removeChild(_ov.scene);
+                        }
+                    }
+                }
                 this._scene.destroy();
             }
         }
