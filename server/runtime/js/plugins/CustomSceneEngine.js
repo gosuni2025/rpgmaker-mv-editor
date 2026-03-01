@@ -2564,8 +2564,6 @@
         }
         // height=0일 때 커서 스프라이트가 창 밖으로 삐져나오는 문제 방지
         if (this._window._windowCursorSprite) this._window._windowCursorSprite.visible = false;
-      } else {
-        console.log('[RB] _rebuildFromScript: ' + this._id + ' active=true, items=' + items.length + ', cursor stays');
       }
     } catch(e) {
       console.error('[Widget_List] dataScript error:', e);
@@ -2683,7 +2681,6 @@
     if (this._focusable !== false) out.push(this);
   };
   Widget_TextList.prototype.activate = function() {
-    console.log('[TL] activate: ' + this._id + ' (win.active=' + (this._window ? this._window.active : '?') + ')');
     if (this._dataScript) this._rebuildFromScript();
     if (this._window) {
       this._window.activate();
@@ -2706,7 +2703,6 @@
     }
   };
   Widget_TextList.prototype.deactivate = function() {
-    console.log('[TL] deactivate: ' + this._id + ' (win.active=' + (this._window ? this._window.active : '?') + ', win._index=' + (this._window ? this._window._index : '?') + ')');
     if (this._window) {
       this._lastIndex = this._window.index();
       this._window.deactivate();
@@ -2839,9 +2835,6 @@
   };
   NavigationManager.prototype._activateAt = function(idx) {
     if (idx < 0 || idx >= this._focusables.length) return;
-    var prevId = (this._activeIndex >= 0 && this._focusables[this._activeIndex]) ? this._focusables[this._activeIndex]._id : 'none';
-    var nextId = this._focusables[idx]._id;
-    console.log('[NAV] _activateAt: ' + prevId + '(idx=' + this._activeIndex + ') -> ' + nextId + '(idx=' + idx + ')');
     if (this._activeIndex >= 0 && this._focusables[this._activeIndex]) {
       this._focusables[this._activeIndex].deactivate();
       this._focusables[this._activeIndex]._runScript('onBlur');
@@ -3266,8 +3259,6 @@
       }
       case 'focusWidget': {
         // 현재 위젯을 명시적으로 deactivate — _navManager._activeIndex 불일치 시에도 커서가 남지 않도록
-        var fwActiveId = this._navManager ? (this._navManager._activeIndex >= 0 ? (this._navManager._focusables[this._navManager._activeIndex] ? this._navManager._focusables[this._navManager._activeIndex]._id : 'none') : 'none') : 'noNav';
-        console.log('[FW] focusWidget: from=' + (widget ? widget._id : 'null') + ' navActive=' + fwActiveId + ' to=' + handler.target);
         if (widget && widget.deactivate) widget.deactivate();
         if (this._navManager && handler.target) {
           this._navManager.focusWidget(handler.target);

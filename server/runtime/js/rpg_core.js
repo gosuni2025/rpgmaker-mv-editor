@@ -6982,7 +6982,8 @@ Window.prototype._updateCursor = function() {
         }
     }
     this._windowCursorSprite.alpha = cursorOpacity / 255;
-    this._windowCursorSprite.visible = this.isOpen();
+    // PIXI 호환: cursorRect.width가 0이면 커서 숨김 (deselect 후 커서 잔류 방지)
+    this._windowCursorSprite.visible = this.isOpen() && this._cursorRect.width > 0;
 };
 
 /**
