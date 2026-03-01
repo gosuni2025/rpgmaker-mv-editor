@@ -17,6 +17,17 @@ import { ScriptEditor } from '../EventEditor/ScriptEditor';
 import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
 import { AnimEffectSection } from './UIEditorAnimEffectSection';
 
+// ── 위젯 경로 계산 헬퍼 ──
+function findWidgetPath(root: WidgetDef | undefined, targetId: string): string[] | null {
+  if (!root) return null;
+  if (root.id === targetId) return [root.id];
+  for (const child of root.children ?? []) {
+    const sub = findWidgetPath(child, targetId);
+    if (sub) return [root.id, ...sub];
+  }
+  return null;
+}
+
 // ── ScriptPreviewField — 헤더(레이블+편집) + 코드 미리보기 블록 ──
 
 function ScriptPreviewField({ label, helpText, value, onChange, initialSampleTab }: {
@@ -956,9 +967,10 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const moveWidgetWithChildren = useEditorStore((s) => s.moveWidgetWithChildren);
   const renameWidget = useEditorStore((s) => s.renameWidget);
-  const duplicateWidget = useEditorStore((s) => s.duplicateWidget);
   const projectPath = useEditorStore((s) => s.projectPath);
   const pushCustomSceneUndo = useEditorStore((s) => s.pushCustomSceneUndo);
+  const customScenes = useEditorStore((s) => s.customScenes);
+  const showToast = useEditorStore((s) => s.showToast);
   const update = (updates: Partial<WidgetDef>) => updateWidget(sceneId, widget.id, updates);
 
   // 이름(ID) 변경 로컬 상태
@@ -1005,9 +1017,18 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         <span style={{ fontSize: 11, color: '#888', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{widget.id}</span>
         <button
           style={{ ...smallBtnStyle, fontSize: 10, padding: '1px 7px', flexShrink: 0 }}
-          title="이 위젯을 복사 (바로 아래에 삽입, ID에 접미사 추가)"
-          onClick={() => { pushCustomSceneUndo(); duplicateWidget(sceneId, widget.id); }}
-        >복사</button>
+          title="위젯 경로(씬/부모/.../자신)를 클립보드에 복사"
+          onClick={() => {
+            const scene = customScenes?.scenes?.[sceneId] as any;
+            const segments = findWidgetPath(scene?.root, widget.id);
+            const path = segments
+              ? `${sceneId}/${segments.join('/')}`
+              : `${sceneId}/${widget.id}`;
+            navigator.clipboard.writeText(path).then(() => {
+              showToast(`경로 복사됨: ${path}`);
+            });
+          }}
+        >경로 복사</button>
       </div>
 
       {/* ── 섹션: 기본 속성 ── */}
