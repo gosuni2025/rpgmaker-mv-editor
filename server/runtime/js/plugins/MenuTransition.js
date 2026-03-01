@@ -678,6 +678,8 @@
         var _SCU_create = Scene_CustomUI.prototype.create;
         Scene_CustomUI.prototype.create = function () {
             _SCU_create.call(this);
+            // Scene_OverlayUI는 맵 위에 떠있는 오버레이 — 전체화면 배경 스프라이트 불필요
+            if (typeof Scene_OverlayUI !== 'undefined' && this instanceof Scene_OverlayUI) return;
             _setMenuBgHook(true);
             // Scene_MenuBase.createBackground()에 해당: 맨 아래에 배경 스프라이트 추가
             this._backgroundSprite = new Sprite();
