@@ -4,7 +4,7 @@
 //=============================================================================
 
 /*:
- * @plugindesc v1.2 아이템 결정 키 시 중앙 팝업으로 상세 이미지와 텍스트를 표시합니다.
+ * @plugindesc v1.3 아이템 결정 키/터치 시 중앙 팝업으로 상세 이미지와 텍스트를 표시합니다.
  * @author Claude
  *
  * @param defaultImgHAlign
@@ -174,22 +174,38 @@
 
         var cw = this.contentsWidth();
         var ch = this.contentsHeight();
+        var hintH = this.lineHeight();
+        var drawCh = ch - hintH - 4;  // 하단 도움말 영역 확보
 
         if (detail.image) {
             var bmp = ImageManager.loadPicture(detail.image);
             if (bmp.isReady()) {
-                this._drawImage(bmp, detail, cw, ch);
-                this._drawText(detail, cw, ch);
+                this._drawImage(bmp, detail, cw, drawCh);
+                this._drawText(detail, cw, drawCh);
+                this._drawHint(detail, cw, ch, hintH);
             } else {
                 bmp.addLoadListener(function () {
                     this.contents.clear();
-                    this._drawImage(bmp, detail, cw, ch);
-                    this._drawText(detail, cw, ch);
+                    this._drawImage(bmp, detail, cw, drawCh);
+                    this._drawText(detail, cw, drawCh);
+                    this._drawHint(detail, cw, ch, hintH);
                 }.bind(this));
             }
         } else {
-            this._drawText(detail, cw, ch);
+            this._drawText(detail, cw, drawCh);
+            this._drawHint(detail, cw, ch, hintH);
         }
+    };
+
+    // 하단 키 조작 도움말
+    Window_ItemDetail.prototype._drawHint = function (detail, cw, ch, hintH) {
+        var prevFs = this.contents.fontSize;
+        this.contents.fontSize = 16;
+        this.changeTextColor(this.textColor(8));
+        var hint = detail.image ? '결정: 이미지 보기   취소: 닫기' : '취소: 닫기';
+        this.drawText(hint, 0, ch - hintH, cw, 'center');
+        this.resetTextColor();
+        this.contents.fontSize = prevFs;
     };
 
     Window_ItemDetail.prototype._drawImage = function (bmp, detail, cw, ch) {
@@ -331,6 +347,23 @@
         this.addCommand('살펴보기', 'inspect');
     };
 
+    //-------------------------------------------------------------------------
+    // 액션 창 터치 히트 테스트 헬퍼
+    //-------------------------------------------------------------------------
+    function actionWindowTouchRow(aw) {
+        if (!TouchInput.isTriggered()) return -1;
+        var tx = TouchInput.x, ty = TouchInput.y;
+        var pad = aw.standardPadding ? aw.standardPadding() : 18;
+        var lh  = aw.lineHeight();
+        var innerX = aw.x + pad;
+        var innerY = aw.y + pad;
+        if (tx >= innerX && tx < aw.x + aw.width - pad &&
+            ty >= innerY && ty < innerY + lh * aw.maxItems()) {
+            return Math.floor((ty - innerY) / lh);
+        }
+        return -1;
+    }
+
     //=========================================================================
     // Scene_Item — 기본 MV 씬
     //=========================================================================
@@ -400,7 +433,7 @@
 
         // 상세 팝업
         if (dw && dw.visible) {
-            if (Input.isTriggered('ok')) {
+            if (Input.isTriggered('ok') || TouchInput.isTriggered()) {
                 var detail = dw._detail;
                 if (detail && detail.image) {
                     fs.open(dw._item, detail);
@@ -422,7 +455,13 @@
             if (Input.isRepeated('down')) { SoundManager.playCursor(); aw.cursorDown(Input.isTriggered('down')); }
             else if (Input.isRepeated('up')) { SoundManager.playCursor(); aw.cursorUp(Input.isTriggered('up')); }
 
-            if (Input.isTriggered('ok')) {
+            var awOk = Input.isTriggered('ok');
+            if (!awOk) {
+                var tRow = actionWindowTouchRow(aw);
+                if (tRow >= 0) { aw.select(tRow); awOk = true; }
+            }
+
+            if (awOk) {
                 SoundManager.playOk();
                 var symbol = aw.currentSymbol();
                 aw.hide(); aw.deactivate();
@@ -499,7 +538,7 @@
 
             // 상세 팝업 상태
             if (dw && dw.visible) {
-                if (Input.isTriggered('ok')) {
+                if (Input.isTriggered('ok') || TouchInput.isTriggered()) {
                     var detail = dw._detail;
                     if (detail && detail.image) {
                         fs.open(dw._item, detail);
@@ -509,6 +548,9 @@
                 } else if (Input.isTriggered('cancel')) {
                     SoundManager.playCancel();
                     dw.hide();
+                    var ilId2 = (this._pendingHandler && this._pendingHandler.itemListWidget) || 'item_list';
+                    var ilW2  = this._widgetMap && this._widgetMap[ilId2];
+                    if (ilW2 && ilW2.activate) ilW2.activate();
                 }
                 Input.clear(); TouchInput.clear();
                 _CustomUI_update.call(this);
@@ -520,21 +562,32 @@
                 if (Input.isRepeated('down')) { SoundManager.playCursor(); aw.cursorDown(Input.isTriggered('down')); }
                 else if (Input.isRepeated('up')) { SoundManager.playCursor(); aw.cursorUp(Input.isTriggered('up')); }
 
-                if (Input.isTriggered('ok')) {
+                var awOk = Input.isTriggered('ok');
+                if (!awOk) {
+                    var tRow = actionWindowTouchRow(aw);
+                    if (tRow >= 0) { aw.select(tRow); awOk = true; }
+                }
+
+                var ilId = (this._pendingHandler && this._pendingHandler.itemListWidget) || 'item_list';
+                var ilW  = this._widgetMap && this._widgetMap[ilId];
+
+                if (awOk) {
                     SoundManager.playOk();
                     var symbol = aw.currentSymbol();
                     aw.hide(); aw.deactivate();
                     if (symbol === 'use') {
-                        // 원래 useItem 핸들러 실행
+                        if (ilW && ilW.activate) ilW.activate();
                         if (_exec) _exec.call(this, this._pendingHandler, this._pendingWidget);
                     } else {
-                        // 살펴보기: 상세 팝업 표시
-                        var item = this._ctx && this._ctx.selectedItem;
+                        // 살펴보기: 위젯 창에서 직접 item 가져오기
+                        var item = (ilW && ilW._window) ? ilW._window.item() : null;
+                        if (!item) item = this._ctx && this._ctx.selectedItem;
                         dw.open(item);
                     }
                 } else if (Input.isTriggered('cancel')) {
                     SoundManager.playCancel();
                     aw.hide(); aw.deactivate();
+                    if (ilW && ilW.activate) ilW.activate();
                 }
                 Input.clear(); TouchInput.clear();
                 _CustomUI_update.call(this);
@@ -556,7 +609,11 @@
                     }
 
                     if (handler && handler.action === 'useItem') {
-                        var item   = this._ctx && this._ctx.selectedItem;
+                        // _ctx.selectedItem 대신 위젯 창에서 직접 item 가져오기 (터치 시 selectedItem이 null일 수 있음)
+                        var ilId = handler.itemListWidget || 'item_list';
+                        var ilW  = this._widgetMap && this._widgetMap[ilId];
+                        var item = (ilW && ilW._window) ? ilW._window.item() : null;
+                        if (!item) item = this._ctx && this._ctx.selectedItem;
                         var detail = item ? parseDetail(item) : null;
 
                         if (detail) {
