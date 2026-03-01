@@ -4146,7 +4146,11 @@ Sprite._initVoidFilter = function() {
 };
 
 Sprite.prototype.initialize = function(bitmap) {
-    var texture = RendererFactory.createTexture(RendererFactory.createBaseTexture(document.createElement('canvas')));
+    // 공유 placeholder texture — 매 Sprite 생성마다 새 GPU texture를 만들지 않음
+    if (!Sprite._sharedPlaceholderBaseTexture) {
+        Sprite._sharedPlaceholderBaseTexture = RendererFactory.createBaseTexture(document.createElement('canvas'));
+    }
+    var texture = RendererFactory.createTexture(Sprite._sharedPlaceholderBaseTexture);
 
     ThreeSprite.call(this, texture);
 
@@ -6105,7 +6109,10 @@ TilingSprite.prototype = Object.create(ThreeSprite.prototype);
 TilingSprite.prototype.constructor = TilingSprite;
 
 TilingSprite.prototype.initialize = function(bitmap) {
-    var texture = RendererFactory.createTexture(RendererFactory.createBaseTexture(document.createElement('canvas')));
+    if (!Sprite._sharedPlaceholderBaseTexture) {
+        Sprite._sharedPlaceholderBaseTexture = RendererFactory.createBaseTexture(document.createElement('canvas'));
+    }
+    var texture = RendererFactory.createTexture(Sprite._sharedPlaceholderBaseTexture);
 
     ThreeSprite.call(this, texture);
     this._tilePosition = { x: 0, y: 0 };
