@@ -1490,6 +1490,7 @@
       // Window_Base 기반: drawTextEx로 \c[N] 색상 코드 지원
       var win = new Window_Base(this._x, this._y, this._width, this._height);
       win._padding = 0;
+      win.standardPadding = function() { return 0; };
       win.opacity = 0;
       win.backOpacity = 0;
       win.createContents();
