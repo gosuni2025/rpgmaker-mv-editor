@@ -278,6 +278,26 @@ router.post('/folder', (req: Request, res: Response) => {
     mapInfos[newId] = mapInfo;
     projectManager.writeJSON('MapInfos.json', mapInfos);
 
+    // 스팀판 MV 호환: 빈 맵 파일 생성 (폴더지만 MV는 일반 맵으로 인식)
+    const idStr = String(newId).padStart(3, '0');
+    const emptyMapData = {
+      autoplayBgm: false, autoplayBgs: false,
+      battleback1Name: '', battleback2Name: '',
+      bgm: { name: '', pan: 0, pitch: 100, volume: 90 },
+      bgs: { name: '', pan: 0, pitch: 100, volume: 90 },
+      disableDashing: false, displayName: '',
+      encounterList: [], encounterStep: 30,
+      height: 13, note: '',
+      parallaxLoopX: false, parallaxLoopY: false,
+      parallaxName: '', parallaxShow: true,
+      parallaxSx: 0, parallaxSy: 0,
+      scrollType: 0, specifyBattleback: false,
+      tilesetId: 1, width: 17,
+      data: new Array(17 * 13 * 6).fill(0),
+      events: [null],
+    };
+    projectManager.writeJSON(`Map${idStr}.json`, emptyMapData);
+
     res.json({ id: newId, mapInfo });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
