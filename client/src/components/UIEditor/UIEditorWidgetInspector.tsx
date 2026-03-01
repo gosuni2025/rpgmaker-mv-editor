@@ -680,6 +680,8 @@ const LIFECYCLE_EVENTS = [
   { key: 'onUpdate',  label: 'onUpdate',  help: '매 프레임 실행. Unity Update() / Godot _process()에 대응.\n성능에 주의할 것.' },
   { key: 'onRefresh', label: 'onRefresh', help: 'refresh() 호출 시 실행.\n콘텐츠 갱신 타이밍에 추가 로직을 삽입할 때 사용.' },
   { key: 'onDestroy', label: 'onDestroy', help: 'destroy() 호출 시 실행. Unity OnDestroy() / Godot _exit_tree()에 대응.' },
+  { key: 'onFocus',   label: 'onFocus',   help: 'NavigationManager에 의해 이 위젯이 포커스를 얻을 때 실행.\nbutton / list / rowSelector 등 focusable 위젯에서 사용.' },
+  { key: 'onBlur',    label: 'onBlur',    help: 'NavigationManager에 의해 이 위젯이 포커스를 잃을 때 실행.' },
 ] as const;
 
 function WidgetScriptsSection({ widget, update }: {

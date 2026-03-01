@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import useEscClose from '../../hooks/useEscClose';
 
-type SceneTab = 'original' | 'custom' | 'sub' | 'plugin';
+type SceneTab = 'original' | 'custom' | 'sub' | 'plugin' | 'debug' | 'sample';
 
 interface SceneEntry {
   value: string;
@@ -26,6 +26,8 @@ const TAB_DEFS: { id: SceneTab; label: string }[] = [
   { id: 'custom',   label: '커스텀 복제' },
   { id: 'sub',      label: '서브씬' },
   { id: 'plugin',   label: '플러그인' },
+  { id: 'debug',    label: 'Debug' },
+  { id: 'sample',   label: 'Sample' },
 ];
 
 export default function UIEditorScenePickerDialog({
@@ -73,6 +75,8 @@ export default function UIEditorScenePickerDialog({
       const csKey = `Scene_CS_${s.id}`;
       const tab: SceneTab = s.category === 'sub' ? 'sub'
         : s.category === 'plugin' ? 'plugin'
+        : s.category === 'debug' ? 'debug'
+        : s.category === 'sample' ? 'sample'
         : 'custom';
       return {
         value: csKey,

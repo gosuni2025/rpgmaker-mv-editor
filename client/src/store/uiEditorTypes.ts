@@ -163,8 +163,8 @@ export interface PrepareArgDef {
 export interface CustomSceneDef {
   id: string;
   displayName: string;
-  /** 씬 분류: 없으면 커스텀 복제, 'sub'=서브씬(행 렌더링용), 'plugin'=플러그인 씬 */
-  category?: 'sub' | 'plugin';
+  /** 씬 분류: 없으면 커스텀 복제, 'sub'=서브씬(행 렌더링용), 'plugin'=플러그인 씬, 'debug'=디버그, 'sample'=샘플 */
+  category?: 'sub' | 'plugin' | 'debug' | 'sample';
   prepareArgs: PrepareArgDef[];
   windows: CustomWindowDef[];
   windowLinks: Record<string, { activateDefault?: boolean }>;
@@ -251,6 +251,10 @@ export interface WidgetDefBase {
     onUpdate?: string;
     onRefresh?: string;
     onDestroy?: string;
+    /** 포커스를 얻을 때 (NavigationManager._activateAt) */
+    onFocus?: string;
+    /** 포커스를 잃을 때 (NavigationManager._activateAt) */
+    onBlur?: string;
   };
 }
 
