@@ -670,6 +670,27 @@ Scene_Map.prototype.terminate = function() {
     this.removeChild(this._spriteset);
 };
 
+Scene_Map.prototype.destroy = function(options) {
+    // terminate()에서 removeChild로 분리된 orphan 멤버들을 명시적으로 해제
+    if (this._mapNameWindow && this._mapNameWindow.destroy) {
+        this._mapNameWindow.destroy(options);
+        this._mapNameWindow = null;
+    }
+    if (this._windowLayer && this._windowLayer.destroy) {
+        this._windowLayer.destroy(options);
+        this._windowLayer = null;
+    }
+    if (this._spriteset && this._spriteset.destroy) {
+        this._spriteset.destroy(options);
+        this._spriteset = null;
+    }
+    if (this._fadeSprite && this._fadeSprite.destroy) {
+        this._fadeSprite.destroy(options);
+        this._fadeSprite = null;
+    }
+    ThreeContainer.prototype.destroy.call(this, options);
+};
+
 Scene_Map.prototype.needsFadeIn = function() {
     return (SceneManager.isPreviousScene(Scene_Battle) ||
             SceneManager.isPreviousScene(Scene_Load));

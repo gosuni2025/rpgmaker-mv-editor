@@ -2098,6 +2098,9 @@ SceneManager.changeScene = function() {
             this._scene.terminate();
             this._scene.detachReservation();
             this._previousClass = this._scene.constructor;
+            if (this._scene.destroy) {
+                this._scene.destroy();
+            }
         }
         this._scene = this._nextScene;
         if (this._scene) {
