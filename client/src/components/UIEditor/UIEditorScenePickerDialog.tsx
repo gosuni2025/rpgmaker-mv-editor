@@ -2,7 +2,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import useEscClose from '../../hooks/useEscClose';
 
-type SceneTab = 'original' | 'custom' | 'sub' | 'plugin' | 'debug' | 'sample';
+type TopTab = 'original' | 'custom';
+type SubTab  = 'clone' | 'sub' | 'plugin' | 'debug' | 'sample';
+type SceneTab = 'original' | SubTab;
 
 interface SceneEntry {
   value: string;
@@ -21,13 +23,12 @@ interface Props {
   onClose: () => void;
 }
 
-const TAB_DEFS: { id: SceneTab; label: string }[] = [
-  { id: 'original', label: '오리지널' },
-  { id: 'custom',   label: '커스텀 복제' },
-  { id: 'sub',      label: '서브씬' },
-  { id: 'plugin',   label: '플러그인' },
-  { id: 'debug',    label: 'Debug' },
-  { id: 'sample',   label: 'Sample' },
+const SUB_TAB_DEFS: { id: SubTab; label: string }[] = [
+  { id: 'clone',  label: '커스텀 복제' },
+  { id: 'sub',    label: '서브씬' },
+  { id: 'plugin', label: '플러그인' },
+  { id: 'debug',  label: 'Debug' },
+  { id: 'sample', label: 'Sample' },
 ];
 
 export default function UIEditorScenePickerDialog({
@@ -54,12 +55,28 @@ export default function UIEditorScenePickerDialog({
   const dragStartWidthRef = useRef(0);
   const currentWidthRef = useRef(leftWidth);
 
+  // 초기 상위/하위 탭: currentScene에서 직접 계산 (allScenes 의존 없이)
+  const [topTab, setTopTab] = useState<TopTab>(() =>
+    currentScene.startsWith('Scene_CS_') ? 'custom' : 'original'
+  );
+  const [subTab, setSubTab] = useState<SubTab>(() => {
+    if (!currentScene.startsWith('Scene_CS_')) return 'clone';
+    const csId = currentScene.replace('Scene_CS_', '');
+    const scene = customScenes.find((s) => s.id === csId);
+    const cat = scene?.category;
+    return (cat === 'sub' || cat === 'plugin' || cat === 'debug' || cat === 'sample')
+      ? cat : 'clone';
+  });
+
+  // 실제 필터링에 쓸 탭
+  const activeTab: SceneTab = topTab === 'original' ? 'original' : subTab;
+
   const GAME_W = 816;
   const GAME_H = 624;
 
   useEscClose(onClose);
 
-  // redirectsFrom 역인덱스: 커스텀씬값 → 오리지널씬명
+  // redirectsFrom 역인덱스
   const redirectFromMap = useMemo<Record<string, string>>(() => {
     if (!sceneRedirects) return {};
     return Object.fromEntries(
@@ -68,39 +85,21 @@ export default function UIEditorScenePickerDialog({
   }, [sceneRedirects]);
 
   const allScenes = useMemo<SceneEntry[]>(() => [
-    // 오리지널 씬 (AVAILABLE_SCENES 전체)
     ...availableScenes.map((s) => ({
       value: s.value,
       label: s.label,
       tab: 'original' as SceneTab,
     })),
-    // 커스텀 씬 — category로 탭 분류
     ...customScenes.map((s) => {
       const csKey = `Scene_CS_${s.id}`;
-      const tab: SceneTab = s.category === 'sub' ? 'sub'
+      const tab: SceneTab = s.category === 'sub'    ? 'sub'
         : s.category === 'plugin' ? 'plugin'
-        : s.category === 'debug' ? 'debug'
+        : s.category === 'debug'  ? 'debug'
         : s.category === 'sample' ? 'sample'
-        : 'custom';
-      return {
-        value: csKey,
-        label: `${s.displayName} (${csKey})`,
-        tab,
-        redirectsFrom: redirectFromMap[csKey],
-      };
+        : 'clone';
+      return { value: csKey, label: `${s.displayName} (${csKey})`, tab, redirectsFrom: redirectFromMap[csKey] };
     }),
   ], [availableScenes, customScenes, redirectFromMap]);
-
-  // 초기 탭: currentScene의 탭
-  const initialTab = useMemo<SceneTab>(() => {
-    if (currentScene.startsWith('Scene_CS_')) {
-      const entry = allScenes.find((s) => s.value === currentScene);
-      return (entry?.tab as SceneTab) ?? 'custom';
-    }
-    return 'original';
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const [activeTab, setActiveTab] = useState<SceneTab>(initialTab);
 
   // 탭 내 검색 필터
   const tabScenes = useMemo<SceneEntry[]>(() => {
@@ -116,7 +115,7 @@ export default function UIEditorScenePickerDialog({
     if (!tabScenes.find((s) => s.value === focused)) {
       setFocused(tabScenes[0].value);
     }
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [topTab, subTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 검색 결과 변경 시 focused 보정
   useEffect(() => {
@@ -145,7 +144,7 @@ export default function UIEditorScenePickerDialog({
       setPreviewLayout({
         scale: s,
         left: Math.max(0, (wrap.clientWidth - GAME_W * s) / 2),
-        top: Math.max(0, (wrap.clientHeight - GAME_H * s) / 2),
+        top:  Math.max(0, (wrap.clientHeight - GAME_H * s) / 2),
       });
     };
     update();
@@ -180,8 +179,7 @@ export default function UIEditorScenePickerDialog({
 
     const onMove = (me: MouseEvent) => {
       if (!draggingRef.current) return;
-      const delta = me.clientX - dragStartXRef.current;
-      const w = Math.max(150, Math.min(500, dragStartWidthRef.current + delta));
+      const w = Math.max(150, Math.min(500, dragStartWidthRef.current + me.clientX - dragStartXRef.current));
       currentWidthRef.current = w;
       setLeftWidth(w);
     };
@@ -208,6 +206,8 @@ export default function UIEditorScenePickerDialog({
     }
   };
 
+  const customCount = allScenes.filter((s) => s.tab !== 'original').length;
+
   return (
     <div className="sp-overlay" onKeyDown={handleKeyDown}>
       <div className="sp-dialog">
@@ -219,21 +219,45 @@ export default function UIEditorScenePickerDialog({
         <div className="sp-body">
           {/* ── 왼쪽: 탭 + 검색 + 목록 ── */}
           <div className="sp-left" style={{ width: leftWidth }}>
-            <div className="sp-tabs">
-              {TAB_DEFS.map((t) => {
-                const count = allScenes.filter((s) => s.tab === t.id).length;
-                return (
-                  <button
-                    key={t.id}
-                    className={`sp-tab${activeTab === t.id ? ' active' : ''}`}
-                    onClick={() => { setActiveTab(t.id); setSearch(''); }}
-                  >
-                    {t.label}
-                    <span className="sp-tab-count">{count}</span>
-                  </button>
-                );
-              })}
+
+            {/* 상위 탭 */}
+            <div className="sp-tabs sp-tabs-top">
+              <button
+                className={`sp-tab${topTab === 'original' ? ' active' : ''}`}
+                onClick={() => { setTopTab('original'); setSearch(''); }}
+              >
+                RPGMakerMV 원본
+                <span className="sp-tab-count">
+                  {allScenes.filter((s) => s.tab === 'original').length}
+                </span>
+              </button>
+              <button
+                className={`sp-tab${topTab === 'custom' ? ' active' : ''}`}
+                onClick={() => { setTopTab('custom'); setSearch(''); }}
+              >
+                커스텀 씬
+                <span className="sp-tab-count">{customCount}</span>
+              </button>
             </div>
+
+            {/* 하위 탭 (커스텀일 때만) */}
+            {topTab === 'custom' && (
+              <div className="sp-tabs sp-tabs-sub">
+                {SUB_TAB_DEFS.map((t) => {
+                  const count = allScenes.filter((s) => s.tab === t.id).length;
+                  return (
+                    <button
+                      key={t.id}
+                      className={`sp-tab${subTab === t.id ? ' active' : ''}`}
+                      onClick={() => { setSubTab(t.id); setSearch(''); }}
+                    >
+                      {t.label}
+                      <span className="sp-tab-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="sp-search-wrap">
               <input
@@ -289,7 +313,7 @@ export default function UIEditorScenePickerDialog({
                 style={{
                   transform: `scale(${previewLayout.scale})`,
                   left: previewLayout.left,
-                  top: previewLayout.top,
+                  top:  previewLayout.top,
                 }}
               />
               {!iframeReady && (

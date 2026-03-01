@@ -154,6 +154,20 @@
   overflow-x: auto;
 }
 
+/* 상위 탭: 조금 크고 굵게 */
+.sp-tabs-top .sp-tab {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+}
+
+/* 하위 탭: 들여쓰기 느낌의 어두운 배경 */
+.sp-tabs-sub {
+  background: #1e1e1e;
+  border-bottom-color: #3a3a3a;
+  padding-left: 8px;
+}
+
 .sp-tab {
   padding: 5px 8px;
   font-size: 11px;
