@@ -71,8 +71,9 @@ export function createGameRouter(resolvedRuntimePath: string): express.Router {
     res.json({ exists: fs.existsSync(path.join(projectManager.currentPath!, 'save', req.params.filename)) });
   });
 
-  // index.html 동적 생성 (Three.js 런타임)
+  // index.html / index_3d.html 동적 생성 (Three.js 런타임)
   router.get('/index.html', (req, res) => buildGameHtml(req, res, resolvedRuntimePath));
+  router.get('/index_3d.html', (req, res) => buildGameHtml(req, res, resolvedRuntimePath));
 
   // index_pixi.html 동적 생성 (PIXI 런타임)
   router.get('/index_pixi.html', (req, res) => buildPixiGameHtml(req, res));
