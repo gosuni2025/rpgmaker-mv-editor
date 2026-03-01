@@ -45,10 +45,14 @@ export default function UIEditorScenePickerDialog({
   const listRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [previewLayout, setPreviewLayout] = useState({ scale: 1, left: 0, top: 0 });
-  const [leftWidth, setLeftWidth] = useState(240);
+  const [leftWidth, setLeftWidth] = useState(() => {
+    const saved = localStorage.getItem('sp-left-width');
+    return saved ? Math.max(150, Math.min(500, Number(saved))) : 240;
+  });
   const draggingRef = useRef(false);
   const dragStartXRef = useRef(0);
   const dragStartWidthRef = useRef(0);
+  const currentWidthRef = useRef(leftWidth);
 
   const GAME_W = 816;
   const GAME_H = 624;
@@ -177,12 +181,15 @@ export default function UIEditorScenePickerDialog({
     const onMove = (me: MouseEvent) => {
       if (!draggingRef.current) return;
       const delta = me.clientX - dragStartXRef.current;
-      setLeftWidth(Math.max(150, Math.min(500, dragStartWidthRef.current + delta)));
+      const w = Math.max(150, Math.min(500, dragStartWidthRef.current + delta));
+      currentWidthRef.current = w;
+      setLeftWidth(w);
     };
     const onUp = () => {
       draggingRef.current = false;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      localStorage.setItem('sp-left-width', String(currentWidthRef.current));
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
