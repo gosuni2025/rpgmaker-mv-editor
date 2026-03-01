@@ -3075,6 +3075,7 @@
     this._rootWidget = null;
     this._widgetMap = {};
     this._navManager = null;
+    this._hasNavigation = !!sceneDef.navigation;
 
     if (!sceneDef.root) return;
 
@@ -3809,7 +3810,7 @@
   Scene_CustomUI.prototype.update = function() {
     Scene_Base.prototype.update.call(this);
     WidgetAnimator.update();
-    if (!this._navManager && !this._navManagerWarnOnce) {
+    if (!this._navManager && this._hasNavigation && !this._navManagerWarnOnce) {
       this._navManagerWarnOnce = true;
       console.warn('[Scene_CustomUI] _navManager is null on update!');
     }
