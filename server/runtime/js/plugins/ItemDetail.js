@@ -423,7 +423,7 @@
 
         // 전체화면
         if (fs && fs.isOpen()) {
-            if ((Input._latestButton && Input._pressedTime === 1) || TouchInput.isTriggered()) {
+            if ((Input._latestButton && Input._pressedTime === 0) || TouchInput.isTriggered()) {
                 fs.close();
             }
             Input.clear(); TouchInput.clear();
@@ -528,7 +528,7 @@
 
             // 전체화면 상태
             if (fs && fs.isOpen()) {
-                if ((Input._latestButton && Input._pressedTime === 1) || TouchInput.isTriggered()) {
+                if ((Input._latestButton && Input._pressedTime === 0) || TouchInput.isTriggered()) {
                     fs.close();
                 }
                 Input.clear(); TouchInput.clear();
