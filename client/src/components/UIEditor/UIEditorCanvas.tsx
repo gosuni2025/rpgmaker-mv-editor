@@ -542,8 +542,10 @@ export default function UIEditorCanvas() {
               const sx = srcPos.absX + srcPos.width / 2;
               const sy = srcPos.absY + (srcPos.height ?? 40) / 2;
               (Object.keys(NAV_COLORS) as NavKey[]).forEach((key) => {
-                const tgtId = (w as any)[key] as string | undefined;
-                if (!tgtId) return;
+                const tgtRaw = (w as any)[key] as string | undefined;
+                if (!tgtRaw) return;
+                // 풀 경로("navTest/root/main_panel/btn_close") → 마지막 세그먼트("btn_close")
+                const tgtId = tgtRaw.includes('/') ? tgtRaw.split('/').pop()! : tgtRaw;
                 const tgtPos = widgetPositions.get(tgtId);
                 if (!tgtPos) return;
                 const tx = tgtPos.absX + tgtPos.width / 2;
