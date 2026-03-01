@@ -409,7 +409,7 @@
     var _Scene_Item_update = Scene_Item.prototype.update;
     Scene_Item.prototype.update = function () {
         if (this._itemDetailFullscreen && this._itemDetailFullscreen.isOpen()) {
-            if (Input.isTriggered('ok') || Input.isTriggered('cancel') || TouchInput.isTriggered()) {
+            if ((Input._latestButton && Input._pressedTime === 1) || TouchInput.isTriggered()) {
                 this._itemDetailFullscreen.close();
                 this._itemWindow.activate();
             }
@@ -449,7 +449,7 @@
         Scene_CustomUI.prototype.update = function () {
             // 전체화면 열림 시 입력 차단 + 닫기 처리
             if (this._sceneId === 'item' && this._itemDetailFullscreen && this._itemDetailFullscreen.isOpen()) {
-                if (Input.isTriggered('ok') || Input.isTriggered('cancel') || TouchInput.isTriggered()) {
+                if ((Input._latestButton && Input._pressedTime === 1) || TouchInput.isTriggered()) {
                     this._itemDetailFullscreen.close();
                 }
                 Input.clear();
