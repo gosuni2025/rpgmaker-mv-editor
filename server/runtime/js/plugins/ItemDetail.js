@@ -267,7 +267,7 @@
     };
 
     //=========================================================================
-    // Window_ItemList — 상세창 연동
+    // Window_ItemList — 상세창 연동 (Scene_Item 기본 씬용)
     //=========================================================================
     Window_ItemList.prototype.setDetailWindow = function (win) {
         this._detailWindow = win;
@@ -283,10 +283,9 @@
     };
 
     //=========================================================================
-    // Scene_Item — 레이아웃 재구성
+    // Scene_Item — 레이아웃 재구성 (기본 MV 씬용)
     //=========================================================================
 
-    // 아이템 목록창을 왼쪽 ITEM_WIDTH_RATE 비율로 생성
     Scene_Item.prototype.createItemWindow = function () {
         var wy = this._categoryWindow.y + this._categoryWindow.height;
         var wh = Graphics.boxHeight - wy;
@@ -314,5 +313,32 @@
         _Scene_Item_create.call(this);
         this.createDetailWindow();
     };
+
+    //=========================================================================
+    // Scene_CustomUI (CustomSceneEngine) — item 씬 연동
+    //=========================================================================
+    if (window.Scene_CustomUI) {
+        var _CustomUI_create = Scene_CustomUI.prototype.create;
+        Scene_CustomUI.prototype.create = function () {
+            _CustomUI_create.call(this);
+            if (this._sceneId === 'item') {
+                // item 씬: item_list가 왼쪽 408px이므로 오른쪽에 상세창 배치
+                var wy = 144; // category(72) + help(72) = 144
+                var wx = Math.floor(Graphics.boxWidth * ITEM_WIDTH_RATE);
+                var ww = Graphics.boxWidth - wx;
+                var wh = Graphics.boxHeight - wy;
+                this._itemDetailWindow = new Window_ItemDetail(wx, wy, ww, wh);
+                this.addWindow(this._itemDetailWindow);
+            }
+        };
+
+        var _CustomUI_update = Scene_CustomUI.prototype.update;
+        Scene_CustomUI.prototype.update = function () {
+            _CustomUI_update.call(this);
+            if (this._itemDetailWindow && this._ctx) {
+                this._itemDetailWindow.setItem(this._ctx.selectedItem || null);
+            }
+        };
+    }
 
 })();
