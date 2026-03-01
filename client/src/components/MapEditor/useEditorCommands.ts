@@ -436,4 +436,18 @@ export function useEditorCommands() {
     window.addEventListener('editor-escape', handleEscape);
     return () => window.removeEventListener('editor-escape', handleEscape);
   }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection, clearObjectBrush]);
+
+  // 브러시 모드 ESC 취소: editor-escape 이벤트 경로에 무관하게 직접 keydown 처리
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const state = useEditorStore.getState();
+      if (state.objectBrushTiles) {
+        state.clearObjectBrush();
+        e.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true); // capture phase로 최우선 처리
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
 }
