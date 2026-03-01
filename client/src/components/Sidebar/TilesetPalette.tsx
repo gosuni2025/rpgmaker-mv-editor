@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import {
-  TILE_SIZE_PX, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E,
+  TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E,
   isGroundDecorationTile,
 } from '../../utils/tileHelper';
 import { loadTilesetImages } from '../../utils/tilesetImageLoader';
@@ -94,8 +94,9 @@ export default function TilesetPalette() {
       const cx = (e.clientX - rect.left) * scaleX;
       const cy = (e.clientY - rect.top) * scaleY;
       const cols = activeTab === 'A' ? 8 : 16;
-      const col = Math.max(0, Math.min(cols - 1, Math.floor(cx / TILE_SIZE_PX)));
-      const row = Math.max(0, Math.floor(cy / TILE_SIZE_PX));
+      const tilePixelSize = canvas.width / cols; // 스케일된 타일 픽셀 크기 (정사각형)
+      const col = Math.max(0, Math.min(cols - 1, Math.floor(cx / tilePixelSize)));
+      const row = Math.max(0, Math.floor(cy / tilePixelSize));
       return { col, row };
     }, [activeTab]
   );
