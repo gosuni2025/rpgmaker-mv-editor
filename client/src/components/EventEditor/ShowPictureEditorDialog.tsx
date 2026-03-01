@@ -14,19 +14,49 @@ import './ShowChoicesEditor.css';
 // ShowPicture(231) parameters:
 // [번호, 이미지명, 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법, 셰이더데이터?, 프리셋데이터?, 트랜지션?]
 
-export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
+export interface ItemDetailPicData {
+  image: string;
+  origin: number;
+  scaleWidth: number;
+  scaleHeight: number;
+  opacity: number;
+  blendMode: number;
+  shaderData: ShaderEntry[] | null;
+  transitionData: ShaderTransition | null;
+  imgHAlign: 'left' | 'center' | 'right';
+  imgVAlign: 'top' | 'middle' | 'bottom';
+}
+
+const HALIGN_OPTIONS = [
+  { value: 'left'   as const, label: '왼쪽' },
+  { value: 'center' as const, label: '가운데' },
+  { value: 'right'  as const, label: '오른쪽' },
+];
+const VALIGN_OPTIONS = [
+  { value: 'top'    as const, label: '위' },
+  { value: 'middle' as const, label: '가운데' },
+  { value: 'bottom' as const, label: '아래' },
+];
+
+export function ShowPictureEditorDialog({ p, onOk, onCancel, mode, initItemDetail, onOkItemDetail }: {
   p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void;
+  mode?: 'full' | 'itemDetail';
+  initItemDetail?: ItemDetailPicData;
+  onOkItemDetail?: (data: ItemDetailPicData) => void;
 }) {
+  const isItemDetail = mode === 'itemDetail';
   const [pictureNumber, setPictureNumber] = useState<number>((p[0] as number) || 1);
-  const [imageName, setImageName] = useState<string>((p[1] as string) || '');
-  const [origin, setOrigin] = useState<number>((p[2] as number) || 0);
+  const [imageName, setImageName] = useState<string>(isItemDetail ? (initItemDetail?.image ?? '') : ((p[1] as string) || ''));
+  const [origin, setOrigin] = useState<number>(isItemDetail ? (initItemDetail?.origin ?? 0) : ((p[2] as number) || 0));
   const [positionType, setPositionType] = useState<number>((p[3] as number) || 0);
   const [posX, setPosX] = useState<number>((p[4] as number) || 0);
   const [posY, setPosY] = useState<number>((p[5] as number) || 0);
-  const [scaleWidth, setScaleWidth] = useState<number>((p[6] as number) ?? 100);
-  const [scaleHeight, setScaleHeight] = useState<number>((p[7] as number) ?? 100);
-  const [opacity, setOpacity] = useState<number>((p[8] as number) ?? 255);
-  const [blendMode, setBlendMode] = useState<number>((p[9] as number) || 0);
+  const [scaleWidth, setScaleWidth] = useState<number>(isItemDetail ? (initItemDetail?.scaleWidth ?? 100) : ((p[6] as number) ?? 100));
+  const [scaleHeight, setScaleHeight] = useState<number>(isItemDetail ? (initItemDetail?.scaleHeight ?? 100) : ((p[7] as number) ?? 100));
+  const [opacity, setOpacity] = useState<number>(isItemDetail ? (initItemDetail?.opacity ?? 255) : ((p[8] as number) ?? 255));
+  const [blendMode, setBlendMode] = useState<number>(isItemDetail ? (initItemDetail?.blendMode ?? 0) : ((p[9] as number) || 0));
+  const [imgHAlign, setImgHAlign] = useState<'left' | 'center' | 'right'>(initItemDetail?.imgHAlign ?? 'center');
+  const [imgVAlign, setImgVAlign] = useState<'top' | 'middle' | 'bottom'>(initItemDetail?.imgVAlign ?? 'middle');
 
   const existingPreset = p[11] as { presetX: number; presetY: number; offsetX: number; offsetY: number } | null;
   const [presetX, setPresetX] = useState<number>(existingPreset?.presetX ?? 3);
@@ -35,7 +65,7 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
   const [presetOffsetY, setPresetOffsetY] = useState<number>(existingPreset?.offsetY ?? 0);
 
   const initShaderList = (): ShaderEntry[] => {
-    const raw = p[10];
+    const raw = isItemDetail ? (initItemDetail?.shaderData ?? null) : p[10];
     if (!raw) return [];
     if (Array.isArray(raw)) return (raw as ShaderEntry[]).map(s => ({ ...s, params: { ...s.params } }));
     const single = raw as ShaderEntry;
@@ -45,7 +75,7 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
   const [shaderList, setShaderList] = useState<ShaderEntry[]>(initShaderList);
   const [showShaderDialog, setShowShaderDialog] = useState(false);
 
-  const existingTransition = p[12] as ShaderTransition | null;
+  const existingTransition = (isItemDetail ? initItemDetail?.transitionData : p[12]) as ShaderTransition | null;
   const initTransitionShaderList = (): ShaderEntry[] => {
     if (!existingTransition?.shaderList) return [];
     return existingTransition.shaderList.map(s => ({ ...s, params: { ...s.params } }));
@@ -135,23 +165,27 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
 
   const handleOk = () => {
     const shaderData = shaderList.length > 0 ? shaderList.map(s => ({ type: s.type, enabled: true, params: { ...s.params } })) : null;
-    const presetData = positionType === 2 ? { presetX, presetY, offsetX: presetOffsetX, offsetY: presetOffsetY } : null;
     const transitionData: ShaderTransition | null = transitionEnabled && transitionShaderList.length > 0
       ? { shaderList: transitionShaderList.map(s => ({ ...s, params: { ...s.params } })), applyMode: transitionApplyMode, duration: transitionApplyMode === 'interpolate' ? transitionDuration : 0 }
       : null;
-    onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData, presetData, transitionData]);
+    if (isItemDetail && onOkItemDetail) {
+      onOkItemDetail({ image: imageName, origin, scaleWidth, scaleHeight, opacity, blendMode, shaderData, transitionData, imgHAlign, imgVAlign });
+    } else {
+      const presetData = positionType === 2 ? { presetX, presetY, offsetX: presetOffsetX, offsetY: presetOffsetY } : null;
+      onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData, presetData, transitionData]);
+    }
   };
 
   return (
     <div className="modal-overlay">
       <div className="show-text-fullscreen-dialog">
-        <div className="image-picker-header">그림 표시</div>
+        <div className="image-picker-header">{isItemDetail ? '아이템 상세 이미지' : '그림 표시'}</div>
         <div className="show-text-body">
           {/* 왼쪽: 설정 패널 */}
           <div className="show-text-settings">
             <Fieldset legend="그림">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <PictureNumberField value={pictureNumber} onChange={setPictureNumber} />
+                {!isItemDetail && <PictureNumberField value={pictureNumber} onChange={setPictureNumber} />}
                 <div style={{ ...labelStyle, flex: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span>이미지:</span>
                   <ImagePicker type="pictures" value={imageName} onChange={setImageName} />
@@ -160,40 +194,49 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
             </Fieldset>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              <Fieldset legend="위치" style={{ flex: 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={labelStyle}>원점:</span>
-                    <label style={radioStyle}>
-                      <input type="radio" name="show-pic-origin" checked={origin === 0} onChange={() => setOrigin(0)} />
-                      왼쪽 위
-                    </label>
-                    <label style={radioStyle}>
-                      <input type="radio" name="show-pic-origin" checked={origin === 1} onChange={() => setOrigin(1)} />
-                      중앙
-                    </label>
+              {isItemDetail ? (
+                <Fieldset legend="정렬" style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={labelStyle}>원점:</span>
+                      <label style={radioStyle}><input type="radio" name="detail-pic-origin" checked={origin === 0} onChange={() => setOrigin(0)} />왼쪽 위</label>
+                      <label style={radioStyle}><input type="radio" name="detail-pic-origin" checked={origin === 1} onChange={() => setOrigin(1)} />중앙</label>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={labelStyle}>가로:</span>
+                      <select value={imgHAlign} onChange={e => setImgHAlign(e.target.value as typeof imgHAlign)} style={selectStyle}>
+                        {HALIGN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={labelStyle}>세로:</span>
+                      <select value={imgVAlign} onChange={e => setImgVAlign(e.target.value as typeof imgVAlign)} style={selectStyle}>
+                        {VALIGN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
                   </div>
-                  <label style={radioStyle}>
-                    <input type="radio" name="picture-pos-type" checked={positionType === 0} onChange={() => setPositionType(0)} />
-                    직접 지정
-                  </label>
-                  {positionType === 0 && <DirectPositionInputs posX={posX} posY={posY} onPosXChange={setPosX} onPosYChange={setPosY} />}
-                  <label style={radioStyle}>
-                    <input type="radio" name="picture-pos-type" checked={positionType === 1} onChange={() => setPositionType(1)} />
-                    변수로 지정
-                  </label>
-                  {positionType === 1 && <VariablePositionInputs posX={posX} posY={posY} onPosXChange={setPosX} onPosYChange={setPosY} />}
-                  <label style={radioStyle}>
-                    <input type="radio" name="picture-pos-type" checked={positionType === 2} onChange={() => setPositionType(2)} />
-                    프리셋 지정
-                  </label>
-                  {positionType === 2 && (
-                    <PresetPositionInputs presetX={presetX} presetY={presetY} offsetX={presetOffsetX} offsetY={presetOffsetY}
-                      onPresetXChange={setPresetX} onPresetYChange={setPresetY}
-                      onOffsetXChange={setPresetOffsetX} onOffsetYChange={setPresetOffsetY} />
-                  )}
-                </div>
-              </Fieldset>
+                </Fieldset>
+              ) : (
+                <Fieldset legend="위치" style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={labelStyle}>원점:</span>
+                      <label style={radioStyle}><input type="radio" name="show-pic-origin" checked={origin === 0} onChange={() => setOrigin(0)} />왼쪽 위</label>
+                      <label style={radioStyle}><input type="radio" name="show-pic-origin" checked={origin === 1} onChange={() => setOrigin(1)} />중앙</label>
+                    </div>
+                    <label style={radioStyle}><input type="radio" name="picture-pos-type" checked={positionType === 0} onChange={() => setPositionType(0)} />직접 지정</label>
+                    {positionType === 0 && <DirectPositionInputs posX={posX} posY={posY} onPosXChange={setPosX} onPosYChange={setPosY} />}
+                    <label style={radioStyle}><input type="radio" name="picture-pos-type" checked={positionType === 1} onChange={() => setPositionType(1)} />변수로 지정</label>
+                    {positionType === 1 && <VariablePositionInputs posX={posX} posY={posY} onPosXChange={setPosX} onPosYChange={setPosY} />}
+                    <label style={radioStyle}><input type="radio" name="picture-pos-type" checked={positionType === 2} onChange={() => setPositionType(2)} />프리셋 지정</label>
+                    {positionType === 2 && (
+                      <PresetPositionInputs presetX={presetX} presetY={presetY} offsetX={presetOffsetX} offsetY={presetOffsetY}
+                        onPresetXChange={setPresetX} onPresetYChange={setPresetY}
+                        onOffsetXChange={setPresetOffsetX} onOffsetYChange={setPresetOffsetY} />
+                    )}
+                  </div>
+                </Fieldset>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <ScaleFields width={scaleWidth} height={scaleHeight} onWidthChange={setScaleWidth} onHeightChange={setScaleHeight} />
                 <BlendFields opacity={opacity} blendMode={blendMode} onOpacityChange={setOpacity} onBlendModeChange={setBlendMode} />

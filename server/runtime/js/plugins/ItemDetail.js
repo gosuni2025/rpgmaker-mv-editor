@@ -109,20 +109,53 @@
         if (!item) return null;
         var note = item.note || '';
 
-        var imgM      = note.match(/<detailImg:\s*(.+?)>/i);
-        var imgAlignM = note.match(/<detailImgAlign:\s*(\w+)\s*,\s*(\w+)>/i);
-        var textM     = note.match(/<detailText>([\s\S]*?)<\/detailText>/i);
-        var txtAlignM = note.match(/<detailTextAlign:\s*(\w+)\s*,\s*(\w+)>/i);
+        // 신형: <detailPic>JSON</detailPic> + <detailTxt>JSON</detailTxt>
+        var picM = note.match(/<detailPic>([\s\S]*?)<\/detailPic>/i);
+        var txtM = note.match(/<detailTxt>([\s\S]*?)<\/detailTxt>/i);
 
-        if (!imgM && !textM) return null;
+        // 구형 호환: <detailImg: ...> + <detailText>...</detailText>
+        var legacyImgM      = !picM && note.match(/<detailImg:\s*(.+?)>/i);
+        var legacyImgAlignM = !picM && note.match(/<detailImgAlign:\s*(\w+)\s*,\s*(\w+)>/i);
+        var legacyTextM     = !txtM && note.match(/<detailText>([\s\S]*?)<\/detailText>/i);
+        var legacyTxtAlignM = !txtM && note.match(/<detailTextAlign:\s*(\w+)\s*,\s*(\w+)>/i);
+
+        var pic = null, txt = null;
+
+        if (picM) {
+            try { pic = JSON.parse(picM[1]); } catch(e) {}
+        } else if (legacyImgM) {
+            pic = {
+                image:     legacyImgM[1].trim(),
+                origin:    0,
+                scaleWidth: 100, scaleHeight: 100,
+                opacity:   255, blendMode: 0,
+                shaderData: null, transitionData: null,
+                imgHAlign: legacyImgAlignM ? legacyImgAlignM[1].toLowerCase() : DEF_IMG_HALIGN,
+                imgVAlign: legacyImgAlignM ? legacyImgAlignM[2].toLowerCase() : DEF_IMG_VALIGN
+            };
+        }
+
+        if (txtM) {
+            try { txt = JSON.parse(txtM[1]); } catch(e) {}
+        } else if (legacyTextM) {
+            txt = {
+                text:       legacyTextM[1].trim(),
+                textHAlign: legacyTxtAlignM ? legacyTxtAlignM[1].toLowerCase() : DEF_TXT_HALIGN,
+                textVAlign: legacyTxtAlignM ? legacyTxtAlignM[2].toLowerCase() : DEF_TXT_VALIGN
+            };
+        }
+
+        if (!pic && !txt) return null;
 
         return {
-            image:      imgM      ? imgM[1].trim()       : null,
-            imgHAlign:  imgAlignM ? imgAlignM[1].toLowerCase() : DEF_IMG_HALIGN,
-            imgVAlign:  imgAlignM ? imgAlignM[2].toLowerCase() : DEF_IMG_VALIGN,
-            text:       textM     ? textM[1].trim()      : null,
-            textHAlign: txtAlignM ? txtAlignM[1].toLowerCase() : DEF_TXT_HALIGN,
-            textVAlign: txtAlignM ? txtAlignM[2].toLowerCase() : DEF_TXT_VALIGN
+            image:      pic ? pic.image      : null,
+            imgHAlign:  pic ? (pic.imgHAlign  || DEF_IMG_HALIGN) : DEF_IMG_HALIGN,
+            imgVAlign:  pic ? (pic.imgVAlign  || DEF_IMG_VALIGN) : DEF_IMG_VALIGN,
+            opacity:    pic ? (pic.opacity    != null ? pic.opacity    : 255) : 255,
+            blendMode:  pic ? (pic.blendMode  || 0) : 0,
+            text:       txt ? txt.text        : null,
+            textHAlign: txt ? (txt.textHAlign || DEF_TXT_HALIGN) : DEF_TXT_HALIGN,
+            textVAlign: txt ? (txt.textVAlign || DEF_TXT_VALIGN) : DEF_TXT_VALIGN
         };
     }
 
@@ -190,7 +223,11 @@
         if (detail.imgVAlign === 'middle') dy = Math.floor((ch - dh) / 2);
         else if (detail.imgVAlign === 'bottom') dy = ch - dh;
 
+        // opacity 적용 (0-255 → 0.0-1.0)
+        var prevOpacity = this.contents.paintOpacity;
+        this.contents.paintOpacity = (detail.opacity != null) ? detail.opacity : 255;
         this.contents.blt(bmp, 0, 0, bw, bh, dx, dy, dw, dh);
+        this.contents.paintOpacity = prevOpacity;
     };
 
     // 제어문자를 제거한 순수 텍스트 너비 측정

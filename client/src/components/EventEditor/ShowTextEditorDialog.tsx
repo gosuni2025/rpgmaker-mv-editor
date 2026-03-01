@@ -5,15 +5,32 @@ import { EnhancedTextEditor } from './EnhancedTextEditor';
 import { MessagePreview } from './MessagePreview';
 import { buildTextExtra } from './messageEditorUtils';
 
-export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: {
+const HALIGN_OPTIONS = [
+  { value: 'left'   as const, label: '왼쪽' },
+  { value: 'center' as const, label: '가운데' },
+  { value: 'right'  as const, label: '오른쪽' },
+];
+const VALIGN_OPTIONS = [
+  { value: 'top'    as const, label: '위' },
+  { value: 'middle' as const, label: '가운데' },
+  { value: 'bottom' as const, label: '아래' },
+];
+
+export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines, mode, initTextAlign, onOkTextOnly }: {
   p: unknown[]; onOk: (params: unknown[], extra?: EventCommand[]) => void; onCancel: () => void; existingLines?: string[];
+  mode?: 'full' | 'textOnly';
+  initTextAlign?: { h: 'left' | 'center' | 'right'; v: 'top' | 'middle' | 'bottom' };
+  onOkTextOnly?: (text: string, h: string, v: string) => void;
 }) {
+  const isTextOnly = mode === 'textOnly';
   const [faceName, setFaceName] = useState<string>((p[0] as string) || '');
   const [faceIndex, setFaceIndex] = useState<number>((p[1] as number) || 0);
   const [background, setBackground] = useState<number>((p[2] as number) || 0);
   const [positionType, setPositionType] = useState<number>((p[3] as number) || 2);
   const [text, setText] = useState(existingLines?.join('\n') || '');
   const [bulkInput, setBulkInput] = useState(false);
+  const [textHAlign, setTextHAlign] = useState<'left' | 'center' | 'right'>(initTextAlign?.h ?? 'left');
+  const [textVAlign, setTextVAlign] = useState<'top' | 'middle' | 'bottom'>(initTextAlign?.v ?? 'bottom');
 
   const [previewWidth, setPreviewWidth] = useState(() => {
     const saved = localStorage.getItem('showtext-preview-width');
@@ -45,9 +62,13 @@ export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: {
   }, []);
 
   const handleOk = () => {
-    const params = [faceName, faceIndex, background, positionType];
-    const extra = buildTextExtra(text, bulkInput, 401, params);
-    onOk(params, extra);
+    if (isTextOnly && onOkTextOnly) {
+      onOkTextOnly(text, textHAlign, textVAlign);
+    } else {
+      const params = [faceName, faceIndex, background, positionType];
+      const extra = buildTextExtra(text, bulkInput, 401, params);
+      onOk(params, extra);
+    }
   };
 
   const radioRowStyle: React.CSSProperties = { display: 'flex', gap: 12, marginTop: 4 };
@@ -56,39 +77,71 @@ export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: {
   return (
     <div className="modal-overlay">
       <div className="show-text-fullscreen-dialog">
-        <div className="image-picker-header">텍스트 표시</div>
+        <div className="image-picker-header">{isTextOnly ? '아이템 상세 텍스트' : '텍스트 표시'}</div>
         <div className="show-text-body">
           <div className="show-text-settings">
-            <div style={{ fontSize: 12, color: '#aaa' }}>
-              얼굴
-              <ImagePicker type="faces" value={faceName} onChange={setFaceName} index={faceIndex} onIndexChange={setFaceIndex} />
-            </div>
-            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
-              배경
-              <div style={radioRowStyle}>
-                {([{ value: 0, label: '창' }, { value: 1, label: '어둡게' }, { value: 2, label: '투명' }] as const).map(opt => (
-                  <label key={opt.value} style={radioLabelStyle}>
-                    <input type="radio" name="showtext-background" value={opt.value} checked={background === opt.value} onChange={() => setBackground(opt.value)} />
-                    {opt.label}
-                  </label>
-                ))}
+            {!isTextOnly && (
+              <>
+                <div style={{ fontSize: 12, color: '#aaa' }}>
+                  얼굴
+                  <ImagePicker type="faces" value={faceName} onChange={setFaceName} index={faceIndex} onIndexChange={setFaceIndex} />
+                </div>
+                <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
+                  배경
+                  <div style={radioRowStyle}>
+                    {([{ value: 0, label: '창' }, { value: 1, label: '어둡게' }, { value: 2, label: '투명' }] as const).map(opt => (
+                      <label key={opt.value} style={radioLabelStyle}>
+                        <input type="radio" name="showtext-background" value={opt.value} checked={background === opt.value} onChange={() => setBackground(opt.value)} />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
+                  창의 위치
+                  <div style={radioRowStyle}>
+                    {([{ value: 0, label: '위' }, { value: 1, label: '가운데' }, { value: 2, label: '아래' }] as const).map(opt => (
+                      <label key={opt.value} style={radioLabelStyle}>
+                        <input type="radio" name="showtext-position" value={opt.value} checked={positionType === opt.value} onChange={() => setPositionType(opt.value)} />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            {isTextOnly && (
+              <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: 12, color: '#aaa' }}>
+                <div>
+                  가로 정렬
+                  <div style={radioRowStyle}>
+                    {HALIGN_OPTIONS.map(o => (
+                      <label key={o.value} style={radioLabelStyle}>
+                        <input type="radio" name="detail-text-halign" checked={textHAlign === o.value} onChange={() => setTextHAlign(o.value)} />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  세로 정렬
+                  <div style={radioRowStyle}>
+                    {VALIGN_OPTIONS.map(o => (
+                      <label key={o.value} style={radioLabelStyle}>
+                        <input type="radio" name="detail-text-valign" checked={textVAlign === o.value} onChange={() => setTextVAlign(o.value)} />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
-              창의 위치
-              <div style={radioRowStyle}>
-                {([{ value: 0, label: '위' }, { value: 1, label: '가운데' }, { value: 2, label: '아래' }] as const).map(opt => (
-                  <label key={opt.value} style={radioLabelStyle}>
-                    <input type="radio" name="showtext-position" value={opt.value} checked={positionType === opt.value} onChange={() => setPositionType(opt.value)} />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-              <input type="checkbox" checked={bulkInput} onChange={e => setBulkInput(e.target.checked)} />
-              일괄 입력 <span style={{ color: '#666', fontSize: 11 }}>(4줄마다 자동 분할)</span>
-            </label>
+            )}
+            {!isTextOnly && (
+              <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <input type="checkbox" checked={bulkInput} onChange={e => setBulkInput(e.target.checked)} />
+                일괄 입력 <span style={{ color: '#666', fontSize: 11 }}>(4줄마다 자동 분할)</span>
+              </label>
+            )}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <label style={{ fontSize: 12, color: '#aaa', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 텍스트:
@@ -102,10 +155,16 @@ export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: {
           <div className="show-text-preview-panel" style={{ width: previewWidth }}>
             <div className="show-text-preview-header">
               미리보기
-              <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>816×624</span>
+              {!isTextOnly && <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>816×624</span>}
             </div>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: 4, padding: 6 }}>
-              <MessagePreview faceName={faceName} faceIndex={faceIndex} background={background} positionType={positionType} text={text} />
+              {isTextOnly ? (
+                <div style={{ padding: 12, color: '#ddd', fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.6, textAlign: textHAlign }}>
+                  {text || <span style={{ color: '#555' }}>텍스트 없음</span>}
+                </div>
+              ) : (
+                <MessagePreview faceName={faceName} faceIndex={faceIndex} background={background} positionType={positionType} text={text} />
+              )}
             </div>
           </div>
         </div>

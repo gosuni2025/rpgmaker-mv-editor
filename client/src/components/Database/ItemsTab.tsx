@@ -6,72 +6,51 @@ import DamageEditor from '../common/DamageEditor';
 import TranslateButton from '../common/TranslateButton';
 import EffectsEditor from '../common/EffectsEditor';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
-import ImagePicker from '../common/ImagePicker';
+import { ShowPictureEditorDialog, type ItemDetailPicData } from '../EventEditor/ShowPictureEditorDialog';
+import { ShowTextEditorDialog } from '../EventEditor/ShowTextEditorDialog';
 import DatabaseList from './DatabaseList';
 import { useDatabaseTab } from './useDatabaseTab';
 import { makeScopeOptions, makeOccasionOptions, makeHitTypeOptions } from './dbConstants';
 import { useDbRef } from './useDbRef';
 
-type HAlign = 'left' | 'center' | 'right';
-type VAlign = 'top' | 'middle' | 'bottom';
-
-interface DetailInfo {
-  image: string;
-  imgHAlign: HAlign;
-  imgVAlign: VAlign;
+interface DetailTxtData {
   text: string;
-  textHAlign: HAlign;
-  textVAlign: VAlign;
+  textHAlign: 'left' | 'center' | 'right';
+  textVAlign: 'top' | 'middle' | 'bottom';
 }
 
-function parseDetailFromNote(note: string): DetailInfo {
-  const imgM      = note.match(/<detailImg:\s*(.+?)>/i);
-  const imgAlignM = note.match(/<detailImgAlign:\s*(\w+)\s*,\s*(\w+)>/i);
-  const textM     = note.match(/<detailText>([\s\S]*?)<\/detailText>/i);
-  const txtAlignM = note.match(/<detailTextAlign:\s*(\w+)\s*,\s*(\w+)>/i);
-  return {
-    image:      imgM      ? imgM[1].trim()            : '',
-    imgHAlign:  (imgAlignM ? imgAlignM[1] : 'center') as HAlign,
-    imgVAlign:  (imgAlignM ? imgAlignM[2] : 'middle') as VAlign,
-    text:       textM     ? textM[1].trim()           : '',
-    textHAlign: (txtAlignM ? txtAlignM[1] : 'left')   as HAlign,
-    textVAlign: (txtAlignM ? txtAlignM[2] : 'bottom') as VAlign,
-  };
+function parsePicFromNote(note: string): ItemDetailPicData | null {
+  const m = note.match(/<detailPic>([\s\S]*?)<\/detailPic>/i);
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { return null; }
 }
 
-function buildNoteWithDetail(note: string, d: DetailInfo): string {
-  // 기존 detail 태그 제거
-  let base = note
+function parseTxtFromNote(note: string): DetailTxtData | null {
+  const m = note.match(/<detailTxt>([\s\S]*?)<\/detailTxt>/i);
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { return null; }
+}
+
+function stripDetailTags(note: string): string {
+  return note
+    .replace(/<detailPic>[\s\S]*?<\/detailPic>\n?/gi, '')
+    .replace(/<detailTxt>[\s\S]*?<\/detailTxt>\n?/gi, '')
+    // 구버전 태그 호환 제거
     .replace(/<detailImg:[^>]*>\n?/gi, '')
     .replace(/<detailImgAlign:[^>]*>\n?/gi, '')
     .replace(/<detailText>[\s\S]*?<\/detailText>\n?/gi, '')
     .replace(/<detailTextAlign:[^>]*>\n?/gi, '')
     .trimEnd();
+}
 
+function buildNoteWithDetail(note: string, pic: ItemDetailPicData | null, txt: DetailTxtData | null): string {
+  const base = stripDetailTags(note);
   const parts: string[] = [];
-  if (d.image) {
-    parts.push(`<detailImg: ${d.image}>`);
-    parts.push(`<detailImgAlign: ${d.imgHAlign}, ${d.imgVAlign}>`);
-  }
-  if (d.text) {
-    parts.push(`<detailText>\n${d.text}\n</detailText>`);
-    parts.push(`<detailTextAlign: ${d.textHAlign}, ${d.textVAlign}>`);
-  }
-
+  if (pic) parts.push(`<detailPic>${JSON.stringify(pic)}</detailPic>`);
+  if (txt) parts.push(`<detailTxt>${JSON.stringify(txt)}</detailTxt>`);
   if (!parts.length) return base;
   return base ? base + '\n' + parts.join('\n') : parts.join('\n');
 }
-
-const HALIGN_OPTIONS: { value: HAlign; label: string }[] = [
-  { value: 'left',   label: '왼쪽' },
-  { value: 'center', label: '가운데' },
-  { value: 'right',  label: '오른쪽' },
-];
-const VALIGN_OPTIONS: { value: VAlign; label: string }[] = [
-  { value: 'top',    label: '위' },
-  { value: 'middle', label: '가운데' },
-  { value: 'bottom', label: '아래' },
-];
 
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 20 };
 
@@ -110,14 +89,20 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
     useDatabaseTab(data, onChange, createNewItem, deepCopyItem);
   const animations = useDbRef('/database/animations');
   const [showAnimPicker, setShowAnimPicker] = useState(false);
-  const [showImgPicker, setShowImgPicker] = useState(false);
+  const [showPicEditor, setShowPicEditor] = useState(false);
+  const [showTxtEditor, setShowTxtEditor] = useState(false);
 
-  const detail = selectedItem ? parseDetailFromNote(selectedItem.note || '') : null;
+  const note = selectedItem?.note || '';
+  const picData = selectedItem ? parsePicFromNote(note) : null;
+  const txtData = selectedItem ? parseTxtFromNote(note) : null;
 
-  function updateDetail(patch: Partial<DetailInfo>) {
-    if (!selectedItem || !detail) return;
-    const next = { ...detail, ...patch };
-    handleFieldChange('note', buildNoteWithDetail(selectedItem.note || '', next));
+  function setPic(pic: ItemDetailPicData | null) {
+    if (!selectedItem) return;
+    handleFieldChange('note', buildNoteWithDetail(note, pic, txtData));
+  }
+  function setTxt(txt: DetailTxtData | null) {
+    if (!selectedItem) return;
+    handleFieldChange('note', buildNoteWithDetail(note, picData, txt));
   }
 
   const SCOPE_OPTIONS = makeScopeOptions(t);
@@ -275,69 +260,35 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
             <div className="db-form-section">아이템 상세 표시</div>
 
             {/* 이미지 */}
-            <div className="db-form-row" style={{ alignItems: 'flex-end', gap: 6 }}>
-              <label style={{ flex: 1 }}>
-                상세 이미지 (img/pictures/)
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    value={detail?.image || ''}
-                    onChange={(e) => updateDetail({ image: e.target.value })}
-                    placeholder="파일명 (확장자 생략)"
-                    style={{ flex: 1 }}
-                  />
-                  <button className="db-picker-btn" onClick={() => setShowImgPicker(true)}>
-                    {detail?.image ? '변경' : '선택'}
-                  </button>
-                </div>
-              </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <button className="db-btn" onClick={() => setShowPicEditor(true)}>
+                {picData ? '이미지 수정...' : '이미지 설정...'}
+              </button>
+              {picData && (
+                <>
+                  <span style={{ fontSize: 12, color: '#7cb3ff', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {picData.image || '(이미지 없음)'}
+                    {picData.shaderData && picData.shaderData.length > 0 && <span style={{ color: '#ffa' }}> + 셰이더</span>}
+                  </span>
+                  <button className="db-btn" style={{ fontSize: 11, color: '#f88', padding: '1px 6px' }} onClick={() => setPic(null)}>지우기</button>
+                </>
+              )}
             </div>
 
-            {detail?.image && (
-              <div className="db-form-row" style={{ gap: 6 }}>
-                <label style={{ flex: 1 }}>
-                  이미지 가로 정렬
-                  <select value={detail.imgHAlign} onChange={(e) => updateDetail({ imgHAlign: e.target.value as HAlign })}>
-                    {HALIGN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </label>
-                <label style={{ flex: 1 }}>
-                  이미지 세로 정렬
-                  <select value={detail.imgVAlign} onChange={(e) => updateDetail({ imgVAlign: e.target.value as VAlign })}>
-                    {VALIGN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </label>
-              </div>
-            )}
-
             {/* 텍스트 */}
-            <label>
-              상세 텍스트
-              <textarea
-                value={detail?.text || ''}
-                onChange={(e) => updateDetail({ text: e.target.value })}
-                placeholder={'여러 줄 가능. \\c[색] 등 제어문자 사용 가능.'}
-                rows={5}
-                style={{ width: '100%', resize: 'vertical' }}
-              />
-            </label>
-
-            {detail?.text && (
-              <div className="db-form-row" style={{ gap: 6 }}>
-                <label style={{ flex: 1 }}>
-                  텍스트 가로 정렬
-                  <select value={detail.textHAlign} onChange={(e) => updateDetail({ textHAlign: e.target.value as HAlign })}>
-                    {HALIGN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </label>
-                <label style={{ flex: 1 }}>
-                  텍스트 세로 정렬
-                  <select value={detail.textVAlign} onChange={(e) => updateDetail({ textVAlign: e.target.value as VAlign })}>
-                    {VALIGN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </label>
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button className="db-btn" onClick={() => setShowTxtEditor(true)}>
+                {txtData ? '텍스트 수정...' : '텍스트 설정...'}
+              </button>
+              {txtData && (
+                <>
+                  <span style={{ fontSize: 12, color: '#7cb3ff', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {txtData.text.split('\n')[0] || '(텍스트 없음)'}
+                  </span>
+                  <button className="db-btn" style={{ fontSize: 11, color: '#f88', padding: '1px 6px' }} onClick={() => setTxt(null)}>지우기</button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -350,13 +301,29 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
         />
       )}
 
-      {showImgPicker && detail && (
-        <ImagePicker
-          type="pictures"
-          value={detail.image}
-          onChange={(v) => { updateDetail({ image: v }); setShowImgPicker(false); }}
-          onClose={() => setShowImgPicker(false)}
-          defaultOpen
+      {showPicEditor && selectedItem && (
+        <ShowPictureEditorDialog
+          p={[]}
+          mode="itemDetail"
+          initItemDetail={picData ?? undefined}
+          onOk={() => {}}
+          onOkItemDetail={(data) => { setPic(data); setShowPicEditor(false); }}
+          onCancel={() => setShowPicEditor(false)}
+        />
+      )}
+
+      {showTxtEditor && selectedItem && (
+        <ShowTextEditorDialog
+          p={[]}
+          mode="textOnly"
+          existingLines={txtData ? [txtData.text] : undefined}
+          initTextAlign={txtData ? { h: txtData.textHAlign, v: txtData.textVAlign } : undefined}
+          onOk={() => {}}
+          onOkTextOnly={(text, h, v) => {
+            setTxt(text ? { text, textHAlign: h as DetailTxtData['textHAlign'], textVAlign: v as DetailTxtData['textVAlign'] } : null);
+            setShowTxtEditor(false);
+          }}
+          onCancel={() => setShowTxtEditor(false)}
         />
       )}
     </div>
