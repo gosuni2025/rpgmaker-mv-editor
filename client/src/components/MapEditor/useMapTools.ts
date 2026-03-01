@@ -283,7 +283,7 @@ export function useMapTools(
       const isMulti = sTiles && (stW > 1 || stH > 1);
 
       const getTileForPos = (x: number, y: number): number => {
-        if (!isMulti) return tileId;
+        if (!isMulti || tileId === 0) return tileId;
         const col = ((x % stW) + stW) % stW;
         const row = ((y % stH) + stH) % stH;
         return sTiles[row][col];
