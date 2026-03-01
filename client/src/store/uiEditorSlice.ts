@@ -51,7 +51,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'loadCustomScenes' | 'saveCustomScenes' | 'addCustomScene' | 'removeCustomScene' | 'updateCustomScene' |
   'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects' |
   'setCustomSceneSelectedWidget' | 'pushCustomSceneUndo' | 'undoCustomScene' | 'redoCustomScene' |
-  'addWidget' | 'removeWidget' | 'updateWidget' | 'moveWidgetWithChildren' | 'reorderWidgetInTree' | 'updateNavigation' | 'updateSceneRoot'
+  'addWidget' | 'removeWidget' | 'updateWidget' | 'moveWidgetWithChildren' | 'reorderWidgetInTree' | 'updateNavigation' | 'updateSceneRoot' |
+  'renameWidget' | 'duplicateWidget'
 >> = (set, get) => ({
   editorMode: 'map',
   uiEditorScene: (() => { try { const tb = JSON.parse(localStorage.getItem(TOOLBAR_STORAGE_KEY) || '{}'); return tb.uiEditorScene || 'Scene_Options'; } catch { return 'Scene_Options'; } })(),
@@ -598,6 +599,91 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
             [sceneId]: { ...scene, root: newRoot } as any,
           },
         },
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  renameWidget: (sceneId: string, oldId: string, newId: string) => {
+    if (!oldId || !newId || oldId === newId) return;
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene || !scene.root) return {};
+
+      // nav 참조 필드 목록
+      const NAV_KEYS = ['navUp', 'navDown', 'navLeft', 'navRight'] as const;
+
+      // 위젯 트리에서 ID 변경 + nav 참조 업데이트
+      function renameInTree(widget: WidgetDef): WidgetDef {
+        const updated: any = { ...widget };
+        if (updated.id === oldId) updated.id = newId;
+        NAV_KEYS.forEach(k => { if (updated[k] === oldId) updated[k] = newId; });
+        if (updated.children?.length) updated.children = updated.children.map(renameInTree);
+        return updated as WidgetDef;
+      }
+
+      // navigation config 참조 업데이트
+      const nav = (scene as CustomSceneDefV2).navigation;
+      let newNav = nav;
+      if (nav) {
+        newNav = { ...nav };
+        if (nav.defaultFocus === oldId) newNav.defaultFocus = newId;
+        if (nav.cancelWidget === oldId) newNav.cancelWidget = newId;
+        if (nav.focusOrder) newNav.focusOrder = nav.focusOrder.map(id => id === oldId ? newId : id);
+      }
+
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root: renameInTree(scene.root), navigation: newNav } as any,
+          },
+        },
+        customSceneSelectedWidget: state.customSceneSelectedWidget === oldId ? newId : state.customSceneSelectedWidget,
+        customSceneDirty: true,
+      };
+    });
+  },
+
+  duplicateWidget: (sceneId: string, widgetId: string) => {
+    set((state) => {
+      const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
+      if (!scene || !scene.root) return {};
+
+      // 위젯 깊은 복사 (새 ID 부여)
+      function cloneWidget(widget: WidgetDef, suffix: string): WidgetDef {
+        const cloned: any = { ...widget, id: widget.id + suffix };
+        if (cloned.children?.length) cloned.children = cloned.children.map((c: WidgetDef) => cloneWidget(c, suffix));
+        return cloned as WidgetDef;
+      }
+
+      // 고유 suffix 생성
+      const suffix = '_' + Date.now().toString(36).slice(-4);
+      let cloned: WidgetDef | null = null;
+
+      // 부모 찾아서 원본 바로 뒤에 삽입
+      function insertAfter(widget: WidgetDef): WidgetDef {
+        if (!widget.children?.length) return widget;
+        const idx = widget.children.findIndex(c => c.id === widgetId);
+        if (idx >= 0) {
+          cloned = cloneWidget({ ...widget.children[idx], x: widget.children[idx].x + 10, y: widget.children[idx].y + 10 }, suffix);
+          const newChildren = [...widget.children.slice(0, idx + 1), cloned, ...widget.children.slice(idx + 1)];
+          return { ...widget, children: newChildren };
+        }
+        return { ...widget, children: widget.children.map(insertAfter) };
+      }
+
+      const newRoot = insertAfter(scene.root);
+      if (!cloned) return {};
+
+      return {
+        customScenes: {
+          scenes: {
+            ...state.customScenes.scenes,
+            [sceneId]: { ...scene, root: newRoot } as any,
+          },
+        },
+        customSceneSelectedWidget: (cloned as WidgetDef).id,
         customSceneDirty: true,
       };
     });

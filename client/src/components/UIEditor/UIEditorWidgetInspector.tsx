@@ -844,9 +844,24 @@ const SCENE_W = 816, SCENE_H = 624;
 export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: WidgetDef }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const moveWidgetWithChildren = useEditorStore((s) => s.moveWidgetWithChildren);
+  const renameWidget = useEditorStore((s) => s.renameWidget);
+  const duplicateWidget = useEditorStore((s) => s.duplicateWidget);
   const projectPath = useEditorStore((s) => s.projectPath);
   const pushCustomSceneUndo = useEditorStore((s) => s.pushCustomSceneUndo);
   const update = (updates: Partial<WidgetDef>) => updateWidget(sceneId, widget.id, updates);
+
+  // 이름(ID) 변경 로컬 상태
+  const [idDraft, setIdDraft] = useState(widget.id);
+  useEffect(() => { setIdDraft(widget.id); }, [widget.id]);
+  const applyRename = () => {
+    const trimmed = idDraft.trim();
+    if (trimmed && trimmed !== widget.id) {
+      pushCustomSceneUndo();
+      renameWidget(sceneId, widget.id, trimmed);
+    } else {
+      setIdDraft(widget.id);
+    }
+  };
 
   const [gaugeSkinNames, setGaugeSkinNames] = useState<string[]>([]);
   useEffect(() => {
@@ -868,7 +883,7 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
 
   return (
     <div>
-      {/* 위젯 타입 배지 */}
+      {/* 위젯 타입 배지 + 복사 버튼 */}
       <div style={{ padding: '6px 10px 4px', borderBottom: '1px solid #3a3a3a', display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{
           fontSize: 10, padding: '2px 6px', borderRadius: 3,
@@ -876,7 +891,12 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         }}>
           {WIDGET_TYPE_LABELS[widget.type] || widget.type.toUpperCase()}
         </span>
-        <span style={{ fontSize: 11, color: '#888', fontFamily: 'monospace' }}>{widget.id}</span>
+        <span style={{ fontSize: 11, color: '#888', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{widget.id}</span>
+        <button
+          style={{ ...smallBtnStyle, fontSize: 10, padding: '1px 7px', flexShrink: 0 }}
+          title="이 위젯을 복사 (바로 아래에 삽입, ID에 접미사 추가)"
+          onClick={() => { pushCustomSceneUndo(); duplicateWidget(sceneId, widget.id); }}
+        >복사</button>
       </div>
 
       {/* ── 섹션: 기본 속성 ── */}
@@ -885,8 +905,14 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         <div style={sectionStyle}>
           <div style={rowStyle}>
             <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
-            <input style={{ ...inputStyle, flex: 1 }} value={widget.id}
-              onChange={(e) => update({ id: e.target.value } as any)} />
+            <input
+              style={{ ...inputStyle, flex: 1, outline: idDraft !== widget.id ? '1px solid #f84' : undefined }}
+              value={idDraft}
+              onChange={(e) => setIdDraft(e.target.value)}
+              onBlur={applyRename}
+              onKeyDown={(e) => { if (e.key === 'Enter') { applyRename(); (e.target as HTMLInputElement).blur(); } else if (e.key === 'Escape') { setIdDraft(widget.id); } }}
+              title="Enter로 확정. 모든 참조(nav 타겟, navigation 설정)가 함께 갱신됩니다."
+            />
           </div>
           <div style={rowStyle}>
             <span style={{ fontSize: 11, color: '#888', width: 50 }}>X</span>

@@ -311,6 +311,8 @@ export interface EditorState {
   reorderWidgetInTree: (sceneId: string, dragId: string, targetId: string, position: 'before' | 'inside') => void;
   updateNavigation: (sceneId: string, nav: Partial<NavigationConfig>) => void;
   updateSceneRoot: (sceneId: string, root: WidgetDef) => void;
+  renameWidget: (sceneId: string, oldId: string, newId: string) => void;
+  duplicateWidget: (sceneId: string, widgetId: string) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;
