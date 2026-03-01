@@ -312,6 +312,41 @@
     }
 
     //-------------------------------------------------------------------------
+    // state trait → 한국어 설명 텍스트 자동 생성
+    //-------------------------------------------------------------------------
+    var PARAM_NAMES  = ['최대HP','최대MP','공격력','방어력','마법공격력','마법방어력','민첩성','행운'];
+    var XPARAM_NAMES = ['명중률','회피율','크리티컬','크리티컬 회피','마법 회피','마법 반사','반격률','HP 재생률','MP 재생률','TP 재생률'];
+    var SPARAM_NAMES = ['목표율','가드율','회복율','약점배율','경험치','아이템 획득율','MP 소비율','TP 충전율'];
+
+    function traitToText(trait) {
+        var pct, sign;
+        if (trait.code === 21) {                    // TRAIT_PARAM
+            pct  = Math.round((trait.value - 1.0) * 100);
+            sign = pct >= 0 ? '+' : '';
+            return (PARAM_NAMES[trait.dataId] || '?') + ' ' + sign + pct + '%';
+        } else if (trait.code === 22) {             // TRAIT_XPARAM
+            pct  = Math.round(trait.value * 100);
+            sign = pct >= 0 ? '+' : '';
+            return (XPARAM_NAMES[trait.dataId] || '?') + ' ' + sign + pct + '%';
+        } else if (trait.code === 23) {             // TRAIT_SPARAM
+            pct  = Math.round((trait.value - 1.0) * 100);
+            sign = pct >= 0 ? '+' : '';
+            return (SPARAM_NAMES[trait.dataId] || '?') + ' ' + sign + pct + '%';
+        } else if (trait.code === 14) {             // TRAIT_STATE_RESIST
+            var sn = $dataStates && $dataStates[trait.dataId];
+            return (sn ? sn.name : '상태') + ' 무효';
+        } else if (trait.code === 62) {             // TRAIT_SPECIAL_FLAG
+            return (['자동전투','방어중','대기중','불멸'][trait.dataId] || '');
+        }
+        return '';
+    }
+
+    function autoStateDesc(state) {
+        if (!state.traits || state.traits.length === 0) return '';
+        return state.traits.map(traitToText).filter(Boolean).join(', ');
+    }
+
+    //-------------------------------------------------------------------------
     // 아이콘 인덱스(표시 순서) → 이름/설명/남은 턴 정보 반환
     //-------------------------------------------------------------------------
     function getIconInfo(battler, iconIdx) {
@@ -324,7 +359,7 @@
             var turns = battler._stateTurns ? battler._stateTurns[st.id] : undefined;
             return {
                 name:  st.name,
-                desc:  (st.note || '').trim(),
+                desc:  (st.note || '').trim() || autoStateDesc(st),
                 turns: (turns > 0) ? turns : null
             };
         }
