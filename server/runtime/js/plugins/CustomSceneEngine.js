@@ -9,7 +9,6 @@
  *
  * data/UIScenes/_index.json + 씬별 JSON 파일을 읽어 커스텀 씬(Scene_CS_*)을 동적으로 생성합니다.
  * 에디터의 씬 에디터에서 정의한 씬을 게임 런타임에서 실행할 수 있습니다.
- * 구 방식(data/UIEditorScenes.json)도 폴백으로 지원합니다.
  *
  * ● 기본 동작
  *   data/UIScenes/_index.json 이 없으면 아무 씬도 등록하지 않습니다.
@@ -71,22 +70,18 @@
   }
 
   /**
-   * 씬 데이터 로드:
-   *   1) UIScenes/_index.json → 씬별 파일 로드
-   *   2) 폴백: UIEditorScenes.json (구 방식)
+   * 씬 데이터 로드: UIScenes/_index.json → 씬별 파일 로드
+   * _index.json 이 없으면 빈 씬 목록 반환 (씬 미등록 상태)
    */
   function loadScenesData() {
     var index = loadJSONSafe('data/UIScenes/_index.json');
-    if (index && Array.isArray(index)) {
-      var scenes = {};
-      for (var i = 0; i < index.length; i++) {
-        var scene = loadJSONSafe('data/UIScenes/' + index[i] + '.json');
-        if (scene && scene.id) scenes[scene.id] = scene;
-      }
-      return { scenes: scenes };
+    if (!index || !Array.isArray(index)) return { scenes: {} };
+    var scenes = {};
+    for (var i = 0; i < index.length; i++) {
+      var scene = loadJSONSafe('data/UIScenes/' + index[i] + '.json');
+      if (scene && scene.id) scenes[scene.id] = scene;
     }
-    // 구 방식 폴백
-    return loadJSON('data/UIEditorScenes.json');
+    return { scenes: scenes };
   }
 
   _scenesData = loadScenesData();
@@ -2657,6 +2652,24 @@
     this._focusables = [];
     this._activeIndex = -1;
     this._scene = null;
+    this._pendingNavDir = null;
+    this._navPrevDir = null;
+    this._navRepeatTimer = 0;
+    // keydown 직접 감지 — Input.isPressed 실패 대비
+    var self = this;
+    var keyDirMap = { 38:'up', 40:'down', 37:'left', 39:'right',
+                      87:'up', 83:'down', 65:'left', 68:'right' };
+    this._keydownHandler = function(e) {
+      var dir = keyDirMap[e.keyCode];
+      if (dir) { self._pendingNavDir = dir; }
+    };
+    document.addEventListener('keydown', this._keydownHandler);
+  };
+  NavigationManager.prototype.dispose = function() {
+    if (this._keydownHandler) {
+      document.removeEventListener('keydown', this._keydownHandler);
+      this._keydownHandler = null;
+    }
   };
   NavigationManager.prototype.setScene = function(scene) {
     this._scene = scene;
@@ -2724,24 +2737,45 @@
     var activeWidget = this._activeIndex >= 0 ? this._focusables[this._activeIndex] : null;
 
     // ── 방향키 명시적 네비게이션 (navUp/navDown/navLeft/navRight) ──
-    // DEBUG 로그
-    var anyDir = Input.isRepeated('up') || Input.isRepeated('down') || Input.isRepeated('left') || Input.isRepeated('right');
-    if (anyDir) {
-      console.log('[NavMgr] dir key detected | activeWidget:', activeWidget ? activeWidget._id : 'null',
-        '| hasDef:', !!(activeWidget && activeWidget._def),
-        '| def.navUp:', activeWidget && activeWidget._def ? activeWidget._def.navUp : 'N/A',
-        '| def.navDown:', activeWidget && activeWidget._def ? activeWidget._def.navDown : 'N/A',
-        '| def.navLeft:', activeWidget && activeWidget._def ? activeWidget._def.navLeft : 'N/A',
-        '| def.navRight:', activeWidget && activeWidget._def ? activeWidget._def.navRight : 'N/A'
-      );
+    // Input.isPressed 기반 자체 repeat: isRepeated의 pressedTime 타이밍 문제를 우회
+    var DIRS = ['up', 'down', 'left', 'right'];
+    var dirPressed = null;
+    for (var di = 0; di < DIRS.length; di++) {
+      if (Input.isPressed(DIRS[di])) { dirPressed = DIRS[di]; break; }
     }
-    if (activeWidget && activeWidget._def) {
+    // _pendingNavDir: keydown 이벤트로 즉시 감지한 방향 (isPressed 실패 대비)
+    if (!dirPressed && this._pendingNavDir) {
+      dirPressed = this._pendingNavDir;
+    }
+    this._pendingNavDir = null;
+
+    var doMove = false;
+    if (dirPressed) {
+      if (this._navPrevDir !== dirPressed) {
+        this._navPrevDir = dirPressed;
+        this._navRepeatTimer = 0;
+        doMove = true;
+        console.log('[NavMgr] dir first-press:', dirPressed);
+      } else {
+        this._navRepeatTimer++;
+        var wait = Input.keyRepeatWait || 24;
+        var interval = Input.keyRepeatInterval || 6;
+        if (this._navRepeatTimer >= wait && (this._navRepeatTimer - wait) % interval === 0) {
+          doMove = true;
+        }
+      }
+    } else {
+      this._navPrevDir = null;
+      this._navRepeatTimer = 0;
+    }
+
+    if (doMove && activeWidget && activeWidget._def) {
       var def = activeWidget._def;
       var navTarget = null;
-      if      (Input.isRepeated('up')    && def.navUp)    navTarget = def.navUp;
-      else if (Input.isRepeated('down')  && def.navDown)  navTarget = def.navDown;
-      else if (Input.isRepeated('left')  && def.navLeft)  navTarget = def.navLeft;
-      else if (Input.isRepeated('right') && def.navRight) navTarget = def.navRight;
+      if      (dirPressed === 'up')    navTarget = def.navUp    || null;
+      else if (dirPressed === 'down')  navTarget = def.navDown  || null;
+      else if (dirPressed === 'left')  navTarget = def.navLeft  || null;
+      else if (dirPressed === 'right') navTarget = def.navRight || null;
       if (navTarget) {
         console.log('[NavMgr] moving to:', navTarget);
         if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
@@ -3474,6 +3508,7 @@
 
   Scene_CustomUI.prototype.terminate = function() {
     Scene_Base.prototype.terminate.call(this);
+    if (this._navManager && this._navManager.dispose) this._navManager.dispose();
     var sceneDef = this._getSceneDef();
     if (sceneDef && sceneDef.saveConfigOnExit) {
       if (typeof ConfigManager !== 'undefined' && typeof ConfigManager.save === 'function') {

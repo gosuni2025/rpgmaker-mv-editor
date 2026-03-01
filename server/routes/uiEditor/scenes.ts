@@ -43,12 +43,6 @@ router.get('/', (req, res) => {
     return res.json({ scenes: readAllScenes(dir) });
   }
 
-  // 구 방식 폴백 (UIEditorScenes.json)
-  const oldPath = path.join(path.dirname(dir), 'UIEditorScenes.json');
-  if (fs.existsSync(oldPath)) {
-    try { return res.json(JSON.parse(fs.readFileSync(oldPath, 'utf8'))); }
-    catch { return res.json({ scenes: {} }); }
-  }
   res.json({ scenes: {} });
 });
 

@@ -60,7 +60,7 @@ UI 에디터는 두 가지 서브시스템으로 구성됩니다:
 
 ## 커스텀 씬 엔진
 
-`CustomSceneEngine.js` 플러그인이 `data/UIScenes/_index.json` + 씬별 JSON 파일을 읽어 게임 내 UI 씬을 동적으로 생성합니다. (구 방식: `data/UIEditorScenes.json` — 폴백으로만 지원)
+`CustomSceneEngine.js` 플러그인이 `data/UIScenes/_index.json` + 씬별 JSON 파일을 읽어 게임 내 UI 씬을 동적으로 생성합니다.
 
 ### 씬 선택 및 생성
 

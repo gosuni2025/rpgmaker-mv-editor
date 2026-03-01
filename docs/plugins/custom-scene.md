@@ -7,7 +7,6 @@
 `data/UIScenes/_index.json` + 씬별 JSON 파일을 읽어 커스텀 씬(`Scene_CS_*`)을 동적으로 생성합니다.
 에디터의 씬 에디터에서 위젯 트리로 정의한 씬을 게임 런타임에서 실행할 수 있습니다.
 
-> **구 방식 폴백**: `data/UIEditorScenes.json`이 존재하면 `data/UIScenes/`가 없을 때 대신 읽습니다.
 
 ## 씬 저장 구조
 
