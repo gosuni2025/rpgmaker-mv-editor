@@ -255,8 +255,8 @@
 
   Sprite_Character.prototype._destroyNpcName = function () {
     if (this._npcNameSprite) {
-      this.removeChild(this._npcNameSprite);
-      if (this._npcNameSprite.bitmap) this._npcNameSprite.bitmap.destroy();
+      // destroy()는 geometry/material/bitmap까지 모두 해제 (removeChild + GPU 리소스 정리)
+      this._npcNameSprite.destroy();
       this._npcNameSprite  = null;
       this._npcNameCurrent = null;
     }

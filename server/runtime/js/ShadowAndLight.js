@@ -1691,20 +1691,30 @@ ShadowLight._removeLightsFromScene = function(scene) {
     if (this._directionalLight) {
         scene.remove(this._directionalLight.target);
         scene.remove(this._directionalLight);
+        if (this._directionalLight.shadow && this._directionalLight.shadow.map) {
+            this._directionalLight.shadow.map.dispose();
+        }
         this._directionalLight = null;
     }
     // SpotLight 제거
     if (this._playerSpotLight) {
         if (this._playerSpotTarget) scene.remove(this._playerSpotTarget);
         scene.remove(this._playerSpotLight);
+        if (this._playerSpotLight.shadow && this._playerSpotLight.shadow.map) {
+            this._playerSpotLight.shadow.map.dispose();
+        }
         this._playerSpotLight = null;
         this._playerSpotTarget = null;
     }
     // sunLights 제거
     if (this._sunLights) {
         for (var i = 0; i < this._sunLights.length; i++) {
-            scene.remove(this._sunLights[i].target);
-            scene.remove(this._sunLights[i]);
+            var sl = this._sunLights[i];
+            scene.remove(sl.target);
+            scene.remove(sl);
+            if (sl.shadow && sl.shadow.map) {
+                sl.shadow.map.dispose();
+            }
         }
         this._sunLights = [];
     }
