@@ -242,6 +242,9 @@
     var sprite    = new Sprite(bitmap);
     sprite.anchor.x = 0.5;
     sprite.anchor.y = 1.0;
+    // 타일맵의 모든 레이어(상단 타일 포함) 위에 항상 렌더링되도록 고정 renderOrder 설정
+    // 에디터 오버레이(9990+) 아래, 타일맵 최상위 오브젝트 레이어 위
+    sprite._hudRenderOrder = 8989;
     this.addChild(sprite);
     this._npcNameSprite = sprite;
     // 텍스트 중심이 anchor(0.5) 기준으로 +markerBlockW/2 오른쪽에 있으므로

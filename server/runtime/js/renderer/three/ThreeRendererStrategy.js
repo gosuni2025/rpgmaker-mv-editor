@@ -323,6 +323,9 @@
             if (node._threeObj.isMesh) {
                 if (forceOrder !== undefined) {
                     node._threeObj.renderOrder = forceOrder;
+                } else if (node._hudRenderOrder !== undefined) {
+                    // HUD 오버레이 (NPC 이름 등): 타일맵 모든 레이어 위에 고정 renderOrder
+                    node._threeObj.renderOrder = node._hudRenderOrder;
                 } else {
                     // 오브젝트 물 메시는 container보다 먼저 렌더링 (물 → 일반 타일 순서)
                     var meshChildren = node._threeObj.children;
