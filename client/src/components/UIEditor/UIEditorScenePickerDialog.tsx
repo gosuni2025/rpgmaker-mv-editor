@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import useEscClose from '../../hooks/useEscClose';
+import HelpButton from '../common/HelpButton';
 
 type TopTab = 'original' | 'custom';
 type SubTab  = 'clone' | 'sub' | 'plugin' | 'debug' | 'sample';
@@ -212,7 +213,20 @@ export default function UIEditorScenePickerDialog({
     <div className="sp-overlay" onKeyDown={handleKeyDown}>
       <div className="sp-dialog">
         <div className="sp-header">
-          씬 선택
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            씬 선택
+            <HelpButton>
+              <strong>RPGMakerMV 원본</strong> — 기본 제공 씬 목록입니다.<br />
+              현재 씬을 다른 씬으로 교체할 때 사용합니다.<br /><br />
+              <strong>커스텀 씬</strong> — UIEditorScenes.json에 정의한 씬입니다.<br />
+              하위 분류:<br />
+              &nbsp;• <strong>커스텀 복제</strong>: 오리지널 씬을 커스텀으로 대체<br />
+              &nbsp;• <strong>서브씬</strong>: 리스트 행 렌더링용 씬<br />
+              &nbsp;• <strong>플러그인</strong>: 플러그인이 제공하는 씬<br />
+              &nbsp;• <strong>Debug</strong>: 디버그/개발용 씬<br />
+              &nbsp;• <strong>Sample</strong>: 샘플/예제 씬
+            </HelpButton>
+          </span>
           <button className="sp-close" onClick={onClose} title="닫기">×</button>
         </div>
 
