@@ -2828,8 +2828,13 @@
     if (this._focusables.length === 0) return;
     var startIdx = 0;
     if (this._defaultFocusId) {
+      var dfid = this._defaultFocusId;
+      var dfSimple = dfid.indexOf('/') >= 0 ? dfid.split('/').pop() : dfid;
       for (var i = 0; i < this._focusables.length; i++) {
-        if (this._focusables[i]._id === this._defaultFocusId) { startIdx = i; break; }
+        var w = this._focusables[i];
+        if (w._id === dfid || w._fullPath === dfid || (dfid.indexOf('/') >= 0 && w._id === dfSimple)) {
+          startIdx = i; break;
+        }
       }
     }
     this._activateAt(startIdx);
@@ -2845,8 +2850,13 @@
     this._focusables[idx]._runScript('onFocus');
   };
   NavigationManager.prototype.focusWidget = function(id) {
+    // 풀 경로 또는 단순 id 모두 지원 ("navTest/root/main_panel/btn_close" 또는 "btn_close")
+    var simpleId = id.indexOf('/') >= 0 ? id.split('/').pop() : id;
     for (var i = 0; i < this._focusables.length; i++) {
-      if (this._focusables[i]._id === id) { this._activateAt(i); return; }
+      var w = this._focusables[i];
+      if (w._id === id || w._fullPath === id || (id.indexOf('/') >= 0 && w._id === simpleId)) {
+        this._activateAt(i); return;
+      }
     }
   };
   NavigationManager.prototype.focusNext = function() {
@@ -3033,15 +3043,22 @@
     this._rootWidget = this._buildWidget(sceneDef.root, null);
     if (!this._rootWidget) return;
 
-    // 위젯 맵 구축 (id → 위젯)
+    // 위젯 맵 구축 (id → 위젯, fullPath → 위젯)
+    // fullPath 형식: "sceneId/widgetId/.../widgetId" (예: "navTest/root/main_panel/btn_close")
     var self = this;
-    function buildMap(widget) {
-      if (widget._id) self._widgetMap[widget._id] = widget;
-      for (var i = 0; i < widget._children.length; i++) {
-        buildMap(widget._children[i]);
+    var scenePrefix = (sceneDef.id || '') + '/';
+    function buildMap(widget, parentPath) {
+      if (widget._id) {
+        self._widgetMap[widget._id] = widget;
+        widget._fullPath = parentPath + widget._id;
+        self._widgetMap[widget._fullPath] = widget;
+        var childPath = widget._fullPath + '/';
+        for (var i = 0; i < widget._children.length; i++) {
+          buildMap(widget._children[i], childPath);
+        }
       }
     }
-    buildMap(this._rootWidget);
+    buildMap(this._rootWidget, scenePrefix);
 
     // 비-Window 루트(배경 스프라이트 등)는 windowLayer보다 먼저(뒤에) 렌더링되어야 함
     // → addChildAt(rootObj, 0) 으로 index 0에 삽입하여 windowLayer 아래에 그려지게 함
