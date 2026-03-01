@@ -2883,7 +2883,6 @@
       var w2 = this._widgetMap[id2];
       var obj = w2.displayObject();
       if (obj && obj instanceof Window_Base) {
-        console.log('[_createWidgetTree] addWindow:', id2, 'x='+obj.x, 'y='+obj.y);
         this.addWindow(obj);
       }
     }

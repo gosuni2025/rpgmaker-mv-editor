@@ -45,7 +45,7 @@ export function AnimEffectSection({ label, value, onChange, onUndoPush, isExit, 
   /** 퇴장 섹션에서 "↩ 반전" 시 참조할 등장 효과 목록 */
   entranceValue?: UIWindowEntranceEffect[];
 }) {
-  const effects = value;
+  const effects = Array.isArray(value) ? value : [];
   const [addOpen, setAddOpen] = useState(false);
   const effectLabels = isExit ? EXIT_EFFECT_LABELS : EFFECT_LABELS;
 
