@@ -208,11 +208,13 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
           <select
             style={{ ...selectStyle, flex: 1 }}
             value={scene.category ?? ''}
-            onChange={(e) => updateCustomScene(sceneId, { category: (e.target.value || undefined) as 'sub' | 'plugin' | undefined })}
+            onChange={(e) => updateCustomScene(sceneId, { category: (e.target.value || undefined) as 'sub' | 'plugin' | 'debug' | 'sample' | undefined })}
           >
             <option value="">커스텀 복제</option>
             <option value="sub">서브씬 (행 렌더링용)</option>
             <option value="plugin">플러그인 씬</option>
+            <option value="debug">Debug</option>
+            <option value="sample">Sample</option>
           </select>
         </div>
         <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
