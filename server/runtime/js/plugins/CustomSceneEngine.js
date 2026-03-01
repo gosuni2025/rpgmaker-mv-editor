@@ -1712,6 +1712,8 @@
       } else { // stretch
         bmp.blt(bitmap, sx, sy, sw, sh, 0, 0, w, h);
       }
+      if (self._bitmap && self._bitmap !== bmp) self._bitmap.destroy();
+      self._bitmap = bmp;
       sprite.bitmap = bmp;
     });
   };
@@ -1742,6 +1744,8 @@
       self._drawDecoBg(bmp, drawW, drawH, def);
       bmp.blt(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, drawW, drawH);
       self._drawDecoBorder(bmp, drawW, drawH, def);
+      if (self._bitmap && self._bitmap !== bmp) self._bitmap.destroy();
+      self._bitmap = bmp;
       sprite.bitmap = bmp;
     });
   };
@@ -3026,6 +3030,14 @@
     } else {
       this._createLegacyWindows(sceneDef);
     }
+
+    // GPU 누수 디버그 — 씬 열릴 때 스냅샷
+    var _r = typeof Graphics !== 'undefined' ? Graphics._renderer : null;
+    this._dbgOpenTex = _r ? _r.info.memory.textures : -1;
+    this._dbgOpenGeo = _r ? _r.info.memory.geometries : -1;
+    this._dbgOpenBitmapCount = typeof Bitmap !== 'undefined' ? Bitmap._gpuTexCount : -1;
+    console.log('[CSE:' + this._sceneId + '] OPEN  GPU tex=' + this._dbgOpenTex
+      + ' geo=' + this._dbgOpenGeo + ' bitmapCount=' + this._dbgOpenBitmapCount);
   };
 
   Scene_CustomUI.prototype._createLegacyWindows = function(sceneDef) {
@@ -3688,6 +3700,11 @@
   };
 
   Scene_CustomUI.prototype.terminate = function() {
+    var _r = typeof Graphics !== 'undefined' ? Graphics._renderer : null;
+    var _texBefore = _r ? _r.info.memory.textures : -1;
+    var _geoBefore = _r ? _r.info.memory.geometries : -1;
+    var _bmBefore  = typeof Bitmap !== 'undefined' ? Bitmap._gpuTexCount : -1;
+
     Scene_Base.prototype.terminate.call(this);
     if (this._navManager && this._navManager.dispose) this._navManager.dispose();
     // 위젯 트리 전체 destroy → GPU tex/geo 해제
@@ -3713,6 +3730,18 @@
         ConfigManager.save();
       }
     }
+
+    // GPU 누수 디버그 — 씬 닫힐 때 비교
+    var _texAfter = _r ? _r.info.memory.textures : -1;
+    var _geoAfter = _r ? _r.info.memory.geometries : -1;
+    var _bmAfter  = typeof Bitmap !== 'undefined' ? Bitmap._gpuTexCount : -1;
+    console.log('[CSE:' + this._sceneId + '] CLOSE GPU tex=' + _texAfter
+      + ' geo=' + _geoAfter + ' bitmapCount=' + _bmAfter
+      + ' | freed tex=' + (_texBefore - _texAfter) + ' geo=' + (_geoBefore - _geoAfter)
+      + ' bitmaps=' + (_bmBefore - _bmAfter)
+      + ' | net since open: tex+' + (_texAfter - this._dbgOpenTex)
+      + ' geo+' + (_geoAfter - this._dbgOpenGeo)
+      + ' bitmaps+' + (_bmAfter - this._dbgOpenBitmapCount));
   };
 
   Scene_CustomUI.prototype._onOptionsCancel = function(widget) {

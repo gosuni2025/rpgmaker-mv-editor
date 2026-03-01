@@ -836,11 +836,13 @@ Bitmap.prototype._createCanvas = function(width, height){
 Bitmap.prototype._createBaseTexture = function(source){
     if (this.__baseTexture) {
         this.__baseTexture.dispose();
+        Bitmap._gpuTexCount--;
     }
     this.__baseTexture = RendererFactory.createBaseTexture(source);
     this.__baseTexture.mipmap = false;
     this.__baseTexture.width = source.width;
     this.__baseTexture.height = source.height;
+    Bitmap._gpuTexCount++;
 
     if (this._smooth) {
         RendererFactory.setScaleMode(this._baseTexture, RendererFactory.SCALE_MODE_LINEAR);
@@ -848,6 +850,9 @@ Bitmap.prototype._createBaseTexture = function(source){
         RendererFactory.setScaleMode(this._baseTexture, RendererFactory.SCALE_MODE_NEAREST);
     }
 };
+
+// GPU 텍스처 생성/해제 추적 카운터 (누수 디버깅용)
+Bitmap._gpuTexCount = 0;
 
 Bitmap.prototype._clearImgInstance = function(){
     this._image.src = "";
@@ -1713,6 +1718,7 @@ Bitmap.prototype.destroy = function() {
     if (this.__baseTexture) {
         this.__baseTexture.dispose();
         this.__baseTexture = null;
+        Bitmap._gpuTexCount--;
     }
 };
 
