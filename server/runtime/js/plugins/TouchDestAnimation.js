@@ -629,10 +629,15 @@
 
     function removeGlowFromSprite(sp) {
         if (sp && sp._eventGlowChild) {
-            disposeBitmapTexture(sp._eventGlowChild.bitmap);
-            sp.removeChild(sp._eventGlowChild);
+            var glow = sp._eventGlowChild;
             sp._eventGlowChild = null;
             sp._glowFrameKey = null;
+            disposeBitmapTexture(glow.bitmap);
+            if (glow.destroy) {
+                glow.destroy(); // geometry + material dispose, 부모에서도 제거
+            } else {
+                sp.removeChild(glow);
+            }
         }
     }
 
