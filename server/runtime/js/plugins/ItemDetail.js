@@ -438,7 +438,7 @@
                 var ww = Graphics.boxWidth - wx;
                 var wh = Graphics.boxHeight - wy;
                 this._itemDetailWindow = new Window_ItemDetail(wx, wy, ww, wh);
-                this.addWindow(this._itemDetailWindow);
+                this.addChild(this._itemDetailWindow); // windowLayer 위에 그려지도록 직접 추가
                 // 전체화면 뷰어 (맨 위에 추가)
                 this._itemDetailFullscreen = new ItemDetailFullscreen();
                 this.addChild(this._itemDetailFullscreen);
