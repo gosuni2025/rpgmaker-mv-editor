@@ -51,14 +51,10 @@ const projectManager = {
     return JSON.parse(raw);
   },
 
-  /** 확장 데이터 쓰기 (빈 객체면 파일 삭제) */
+  /** 확장 데이터 쓰기 (빈 객체면 {} 파일 생성, 파일이 이미 있으면 덮어쓰기) */
   writeExtJSON(mapFilename: string, data: Record<string, unknown>): void {
     const extFile = this.extFilename(mapFilename);
     const filePath = path.join(this.getDataPath(), extFile);
-    if (Object.keys(data).length === 0) {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return;
-    }
     fileWatcher.markApiWrite(extFile);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
   },
