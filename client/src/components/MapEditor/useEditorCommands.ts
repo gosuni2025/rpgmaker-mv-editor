@@ -53,6 +53,7 @@ export function useEditorCommands() {
   const setIsObjectPasting = useEditorStore((s) => s.setIsObjectPasting);
   const setObjectPastePreviewPos = useEditorStore((s) => s.setObjectPastePreviewPos);
   const clearObjectSelection = useEditorStore((s) => s.clearObjectSelection);
+  const clearObjectBrush = useEditorStore((s) => s.clearObjectBrush);
 
   const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
   const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
@@ -381,6 +382,10 @@ export function useEditorCommands() {
   useEffect(() => {
     const handleEscape = () => {
       const pState = useEditorStore.getState();
+      if (pState.objectBrushTiles) {
+        pState.clearObjectBrush();
+        return;
+      }
       if (pState.isPassagePasting) {
         pState.setIsPassagePasting(false);
         pState.setPassagePastePreviewPos(null);
@@ -430,5 +435,5 @@ export function useEditorCommands() {
     };
     window.addEventListener('editor-escape', handleEscape);
     return () => window.removeEventListener('editor-escape', handleEscape);
-  }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection]);
+  }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection, clearObjectBrush]);
 }

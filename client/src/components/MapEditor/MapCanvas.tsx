@@ -53,7 +53,6 @@ export default function MapCanvas() {
   const showTileInfo = useEditorStore((s) => s.showTileInfo);
   const mode3d = useEditorStore((s) => s.mode3d);
   const objectBrushTiles = useEditorStore((s) => s.objectBrushTiles);
-  const clearObjectBrush = useEditorStore((s) => s.clearObjectBrush);
 
   // Compose hooks
   const { showGrid, showTileId, altPressed, panning } = useKeyboardShortcuts(containerRef);
@@ -123,17 +122,6 @@ export default function MapCanvas() {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
-
-  // 브러시 모드 ESC 취소
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && useEditorStore.getState().objectBrushTiles) {
-        clearObjectBrush();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [clearObjectBrush]);
 
   useMapScrollPersistence(containerRef, currentMapId, zoomLevel);
 
