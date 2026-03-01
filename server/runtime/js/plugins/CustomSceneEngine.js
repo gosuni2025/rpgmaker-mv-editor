@@ -2543,7 +2543,8 @@
   Widget_TextList.prototype._rebuildFromScript = function() {
     if (!this._dataScript || !this._window) return;
     try {
-      var items = (new Function('return (' + this._dataScript + ')'))();
+      var $ctx = (SceneManager._scene && SceneManager._scene._ctx) || {};
+      var items = (new Function('$ctx', 'return (' + this._dataScript + ')'))($ctx);
       if (!Array.isArray(items)) items = [];
       this._window._winDef.commands = items;
       if (this._autoHeight) {
