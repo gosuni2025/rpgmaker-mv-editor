@@ -7,7 +7,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
   'systemData' | 'playerCharacterName' | 'playerCharacterIndex' | 'parseErrors' |
   'selectedStartPosition' |
-  'openProject' | 'closeProject' | 'restoreLastProject' | 'loadMaps' | 'selectMap' |
+  'openProject' | 'closeProject' | 'restoreLastProject' | 'loadMaps' | 'selectMap' | 'clearCurrentMap' |
   'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'renameMap' | 'setPlayerStartPosition' | 'setVehicleStartPosition' |
   'clearVehicleStartPosition' | 'setSelectedStartPosition' |
   'setTestStartPosition' | 'clearTestStartPosition'
@@ -167,6 +167,10 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   loadMaps: async () => {
     const maps = await apiClient.get<(MapInfo | null)[]>('/maps');
     set({ maps });
+  },
+
+  clearCurrentMap: () => {
+    set({ currentMapId: null, currentMap: null, tilesetInfo: null });
   },
 
   selectMap: async (mapId: number) => {

@@ -320,6 +320,7 @@ export interface EditorState {
   restoreLastProject: () => Promise<void>;
   loadMaps: () => Promise<void>;
   selectMap: (mapId: number) => Promise<void>;
+  clearCurrentMap: () => void;
   saveCurrentMap: () => Promise<void>;
 
   // Actions - Map CRUD

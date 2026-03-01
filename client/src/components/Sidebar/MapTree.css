@@ -108,3 +108,32 @@
 }
 
 /* highlight는 App.css의 mark.search-highlight 전역 스타일 사용 */
+
+/* Drag & Drop */
+.map-tree-node.map-tree-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.map-tree-node[data-drag-over="into"] {
+  background: rgba(38, 117, 191, 0.25);
+  outline: 1px solid #2675bf;
+  outline-offset: -1px;
+}
+
+.map-tree-node[data-drag-over="before"] {
+  border-top: 2px solid #4a9eff;
+}
+
+.map-tree-node[data-drag-over="after"] {
+  border-bottom: 2px solid #4a9eff;
+}
+
+/* Multi-select */
+.map-tree-node.multi-selected {
+  background: rgba(38, 117, 191, 0.35);
+}
+
+.map-tree-node.multi-selected.selected {
+  background: #2675bf;
+}

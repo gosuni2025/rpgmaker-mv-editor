@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
@@ -21,6 +21,12 @@ interface ContextMenuState {
   mapId: number;
 }
 
+interface DragOverInfo {
+  id: number;
+  position: 'before' | 'after' | 'into';
+}
+
+// ── Tree helpers ──────────────────────────────────────────────────────────────
 
 function buildTree(maps: (MapInfo | null)[]): TreeNodeData[] {
   if (!maps || maps.length === 0) return [];
@@ -43,6 +49,12 @@ function buildTree(maps: (MapInfo | null)[]): TreeNodeData[] {
     }
   });
 
+  const sortByOrder = (nodes: TreeNodeData[]) => {
+    nodes.sort((a, b) => a.order - b.order);
+    nodes.forEach(n => sortByOrder(n.children));
+  };
+  sortByOrder(roots);
+
   return roots;
 }
 
@@ -62,7 +74,127 @@ function filterTree(nodes: TreeNodeData[], query: string): TreeNodeData[] {
   return result;
 }
 
-/** 검색어와 일치하는 부분을 <mark>로 감싸 반환 (대소문자 무시, 연속 substring) */
+/** DFS 평탄화: 드래그 범위 선택(Shift+click) 기준용 */
+function flattenTree(nodes: TreeNodeData[], collapsed: Record<number, boolean>): number[] {
+  const result: number[] = [];
+  const visit = (node: TreeNodeData) => {
+    result.push(node.id);
+    if (!collapsed[node.id] && node.children.length > 0) {
+      node.children.forEach(visit);
+    }
+  };
+  nodes.forEach(visit);
+  return result;
+}
+
+// ── Drag-drop helpers ─────────────────────────────────────────────────────────
+
+function isDescendant(maps: (MapInfo | null)[], nodeId: number, potentialAncestorId: number): boolean {
+  let current = maps.find(m => m?.id === nodeId);
+  while (current && current.parentId !== 0) {
+    if (current.parentId === potentialAncestorId) return true;
+    current = maps.find(m => m?.id === current!.parentId);
+  }
+  return false;
+}
+
+function recompactSiblings(maps: (MapInfo | null)[], parentId: number, excludeId: number) {
+  const siblings = maps
+    .filter(m => m && m.parentId === parentId && m.id !== excludeId)
+    .sort((a, b) => a!.order - b!.order);
+  siblings.forEach((m, idx) => { if (m) m.order = idx; });
+}
+
+function applyDrop(
+  maps: (MapInfo | null)[],
+  draggingId: number,
+  targetId: number,
+  position: 'before' | 'after' | 'into'
+): (MapInfo | null)[] {
+  if (draggingId === targetId) return maps;
+
+  const newMaps = maps.map(m => m ? { ...m } : null);
+  const dragging = newMaps.find(m => m?.id === draggingId);
+  const target = newMaps.find(m => m?.id === targetId);
+  if (!dragging || !target) return maps;
+
+  const newParentId = position === 'into' ? targetId : target.parentId;
+  if (isDescendant(newMaps, newParentId, draggingId) || newParentId === draggingId) return maps;
+
+  const oldParentId = dragging.parentId;
+
+  if (position === 'into') {
+    const existingChildren = newMaps.filter(m => m && m.parentId === targetId && m.id !== draggingId);
+    const maxOrder = existingChildren.length > 0 ? Math.max(...existingChildren.map(m => m!.order)) : -1;
+    dragging.parentId = targetId;
+    dragging.order = maxOrder + 1;
+    recompactSiblings(newMaps, oldParentId, draggingId);
+  } else {
+    const newSiblings = newMaps
+      .filter(m => m && m.parentId === newParentId && m.id !== draggingId)
+      .sort((a, b) => a!.order - b!.order);
+
+    const targetIdx = newSiblings.findIndex(m => m!.id === targetId);
+    if (targetIdx === -1) return maps;
+
+    dragging.parentId = newParentId;
+    newSiblings.splice(position === 'before' ? targetIdx : targetIdx + 1, 0, dragging);
+    newSiblings.forEach((m, idx) => { if (m) m.order = idx; });
+
+    if (oldParentId !== newParentId) {
+      recompactSiblings(newMaps, oldParentId, draggingId);
+    }
+  }
+
+  return newMaps;
+}
+
+/** 여러 맵을 동시에 이동. DFS 순서 기준으로 처리 */
+function applyMultiDrop(
+  maps: (MapInfo | null)[],
+  draggingIds: number[],
+  targetId: number,
+  position: 'before' | 'after' | 'into',
+  flatOrder: number[]
+): (MapInfo | null)[] {
+  // 드래그 대상 중 targetId나 그 조상을 제외
+  const validIds = draggingIds.filter(id => {
+    if (id === targetId) return false;
+    if (isDescendant(maps, targetId, id)) return false; // target이 id의 자손이면 제외
+    return true;
+  });
+  if (validIds.length === 0) return maps;
+  if (validIds.length === 1) return applyDrop(maps, validIds[0], targetId, position);
+
+  // flatOrder 기준으로 정렬
+  const sorted = [...validIds].sort((a, b) => {
+    const ia = flatOrder.indexOf(a);
+    const ib = flatOrder.indexOf(b);
+    return ia - ib;
+  });
+
+  let current = maps;
+  if (position === 'before') {
+    // 순서대로 각각 targetId 앞에 삽입 → [A, B, C, target, ...]
+    for (const id of sorted) {
+      current = applyDrop(current, id, targetId, 'before');
+    }
+  } else if (position === 'after') {
+    // 역순으로 각각 targetId 뒤에 삽입 → [target, A, B, C, ...]
+    for (const id of [...sorted].reverse()) {
+      current = applyDrop(current, id, targetId, 'after');
+    }
+  } else {
+    // 순서대로 target의 자식으로 추가
+    for (const id of sorted) {
+      current = applyDrop(current, id, targetId, 'into');
+    }
+  }
+
+  return current;
+}
+
+// ── TreeNode ──────────────────────────────────────────────────────────────────
 
 interface TreeNodeProps {
   node: TreeNodeData;
@@ -70,15 +202,22 @@ interface TreeNodeProps {
   selectedId: number | null;
   selectedDisplayName?: string;
   filterQuery?: string;
-  onSelect: (id: number) => void;
+  onSelect: (id: number, e: React.MouseEvent) => void;
   onDoubleClick: (id: number) => void;
   collapsed: Record<number, boolean>;
   onToggle: (id: number) => void;
   onContextMenu: (e: React.MouseEvent, mapId: number) => void;
   startPositions: Record<number, string[]>;
+  multiSelectedIds: Set<number>;
+  draggingIds: Set<number>;
+  dragOverInfo: DragOverInfo | null;
+  onDragStart: (id: number) => void;
+  onDragOver: (e: React.DragEvent, id: number) => void;
+  onDragEnd: () => void;
+  onDrop: (e: React.DragEvent, targetId: number, position: 'before' | 'after' | 'into') => void;
 }
 
-function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions }: TreeNodeProps) {
+function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions, multiSelectedIds, draggingIds, dragOverInfo, onDragStart, onDragOver, onDragEnd, onDrop }: TreeNodeProps) {
   const isCollapsed = collapsed[node.id];
   const hasChildren = node.children && node.children.length > 0;
   const badges = startPositions[node.id];
@@ -86,23 +225,45 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, o
   const idPrefix = `[${idStr}]`;
   const baseName = node.name || `Map ${node.id}`;
   const isSelected = node.id === selectedId;
-  // 선택된 맵은 currentMap의 displayName(최신 편집값) 우선, 아니면 MapInfo에 캐싱된 displayName 사용
+  const isMultiSelected = multiSelectedIds.has(node.id);
+  const isDraggingThis = draggingIds.has(node.id);
+  const isOver = dragOverInfo?.id === node.id;
+  const overPos = isOver ? dragOverInfo!.position : null;
   const dn = isSelected ? (selectedDisplayName || node.displayName || '') : (node.displayName || '');
 
-  // 검색어 강조: 각 파트를 분리하여 개별 강조
   const q = filterQuery || '';
   const labelNode = dn ? (
     <>{highlightMatch(baseName, q)}<span style={{ color: '#999' }}>({highlightMatch(dn, q)})</span></>
   ) : highlightMatch(baseName, q);
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragOver(e, node.id);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragOverInfo && dragOverInfo.id === node.id) {
+      onDrop(e, node.id, dragOverInfo.position);
+    }
+  };
+
   return (
     <>
       <div
-        className={`map-tree-node${node.id === selectedId ? ' selected' : ''}`}
+        className={`map-tree-node${isSelected ? ' selected' : ''}${isMultiSelected && !isSelected ? ' multi-selected' : ''}${isDraggingThis ? ' map-tree-dragging' : ''}`}
+        data-drag-over={overPos ?? undefined}
         style={{ paddingLeft: 8 + depth * 16 }}
-        onClick={() => onSelect(node.id)}
+        draggable
+        onClick={(e) => onSelect(node.id, e)}
         onDoubleClick={() => onDoubleClick(node.id)}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node.id); }}
+        onDragStart={(e) => { e.stopPropagation(); onDragStart(node.id); }}
+        onDragOver={handleDragOver}
+        onDragEnd={onDragEnd}
+        onDrop={handleDrop}
       >
         <span
           className="map-tree-toggle"
@@ -135,6 +296,13 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, o
             onToggle={onToggle}
             onContextMenu={onContextMenu}
             startPositions={startPositions}
+            multiSelectedIds={multiSelectedIds}
+            draggingIds={draggingIds}
+            dragOverInfo={dragOverInfo}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+            onDrop={onDrop}
           />
         ))
       }
@@ -142,28 +310,40 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, o
   );
 }
 
+// ── MapTree ───────────────────────────────────────────────────────────────────
+
 export default function MapTree() {
   const { t } = useTranslation();
   const maps = useEditorStore((s) => s.maps);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectMap = useEditorStore((s) => s.selectMap);
+  const clearCurrentMap = useEditorStore((s) => s.clearCurrentMap);
   const deleteMap = useEditorStore((s) => s.deleteMap);
+  const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
   const systemData = useEditorStore((s) => s.systemData);
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
   const [mapPropertiesId, setMapPropertiesId] = useState<number | null>(null);
-  // 신규 맵 생성 모드: parentId를 담아두고 MapPropertiesDialog를 신규 모드로 열기
   const [newMapParentId, setNewMapParentId] = useState<number | null>(null);
   const [filterQuery, setFilterQuery] = useState('');
   const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
   const loadMaps = useEditorStore((s) => s.loadMaps);
 
+  // Multi-select state
+  const [multiSelectedIds, setMultiSelectedIds] = useState<Set<number>>(new Set());
+  const lastClickedIdRef = useRef<number | null>(null);
+
+  // Drag state
+  const [draggingIds, setDraggingIds] = useState<Set<number>>(new Set());
+  const [dragOverInfo, setDragOverInfo] = useState<DragOverInfo | null>(null);
+  const draggingIdsRef = useRef<Set<number>>(new Set());
+
   const tree = useMemo(() => buildTree(maps), [maps]);
   const filteredTree = useMemo(() => filterTree(tree, filterQuery), [tree, filterQuery]);
+  const flatOrder = useMemo(() => flattenTree(filteredTree, collapsed), [filteredTree, collapsed]);
 
-  // Build a map of mapId -> badge labels for start positions
   const startPositions = useMemo(() => {
     const result: Record<number, string[]> = {};
     if (!systemData) return result;
@@ -183,7 +363,49 @@ export default function MapTree() {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // 더블클릭: 맵 속성 다이얼로그(편집 모드) 열기
+  // 맵 선택 (Ctrl+click: 토글, Shift+click: 범위, 일반: 단일)
+  const handleSelect = useCallback((id: number, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // 토글
+      setMultiSelectedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        if (next.size > 1) {
+          clearCurrentMap();
+        } else if (next.size === 1) {
+          const [singleId] = next;
+          selectMap(singleId);
+        }
+        return next;
+      });
+      lastClickedIdRef.current = id;
+    } else if (e.shiftKey && lastClickedIdRef.current !== null) {
+      // 범위 선택
+      const fromIdx = flatOrder.indexOf(lastClickedIdRef.current);
+      const toIdx = flatOrder.indexOf(id);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const start = Math.min(fromIdx, toIdx);
+        const end = Math.max(fromIdx, toIdx);
+        const rangeIds = new Set(flatOrder.slice(start, end + 1));
+        setMultiSelectedIds(rangeIds);
+        if (rangeIds.size > 1) {
+          clearCurrentMap();
+        } else {
+          selectMap(id);
+        }
+      }
+    } else {
+      // 단일 선택
+      setMultiSelectedIds(new Set());
+      lastClickedIdRef.current = id;
+      selectMap(id);
+    }
+  }, [flatOrder, selectMap, clearCurrentMap]);
+
   const handleDoubleClick = useCallback((mapId: number) => {
     setMapPropertiesId(mapId);
   }, []);
@@ -194,7 +416,6 @@ export default function MapTree() {
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  // 컨텍스트 메뉴 외부 클릭 시 닫기
   useEffect(() => {
     if (!contextMenu) return;
     const onMouseDown = (e: MouseEvent) => {
@@ -243,7 +464,6 @@ export default function MapTree() {
     await handleDeleteMapById(mapId);
   }, [contextMenu, closeContextMenu, handleDeleteMapById]);
 
-  // 복사 기능
   const handleCopyMap = useCallback(() => {
     const targetId = contextMenu?.mapId ?? currentMapId;
     if (targetId && targetId > 0) {
@@ -252,7 +472,6 @@ export default function MapTree() {
     closeContextMenu();
   }, [contextMenu, currentMapId, closeContextMenu]);
 
-  // 붙여넣기 기능
   const handlePasteMap = useCallback(async () => {
     if (!copiedMapId) return;
     closeContextMenu();
@@ -266,6 +485,60 @@ export default function MapTree() {
       console.error('Failed to paste map:', err);
     }
   }, [copiedMapId, loadMaps, selectMap, closeContextMenu]);
+
+  // ── Drag handlers ────────────────────────────────────────────────────────────
+
+  const handleDragStart = useCallback((id: number) => {
+    // 드래그하는 노드가 멀티선택에 포함되어 있으면 전체 선택 이동
+    const ids = multiSelectedIds.has(id) && multiSelectedIds.size > 1
+      ? new Set(multiSelectedIds)
+      : new Set([id]);
+    setDraggingIds(ids);
+    draggingIdsRef.current = ids;
+  }, [multiSelectedIds]);
+
+  const handleDragOver = useCallback((e: React.DragEvent, id: number) => {
+    if (draggingIdsRef.current.has(id)) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    const position: 'before' | 'after' | 'into' = ratio < 0.28 ? 'before' : ratio > 0.72 ? 'after' : 'into';
+    setDragOverInfo(prev => {
+      if (prev?.id === id && prev?.position === position) return prev;
+      return { id, position };
+    });
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingIds(new Set());
+    setDragOverInfo(null);
+    draggingIdsRef.current = new Set();
+  }, []);
+
+  const handleDrop = useCallback(async (_e: React.DragEvent, targetId: number, position: 'before' | 'after' | 'into') => {
+    const srcIds = draggingIdsRef.current;
+    setDraggingIds(new Set());
+    setDragOverInfo(null);
+    draggingIdsRef.current = new Set();
+
+    if (srcIds.size === 0) return;
+
+    const srcArr = Array.from(srcIds);
+    const newMaps = srcArr.length === 1
+      ? applyDrop(maps, srcArr[0], targetId, position)
+      : applyMultiDrop(maps, srcArr, targetId, position, flatOrder);
+
+    if (newMaps === maps) return;
+
+    try {
+      await updateMapInfos(newMaps);
+      if (position === 'into') {
+        setCollapsed(prev => ({ ...prev, [targetId]: false }));
+      }
+      setMultiSelectedIds(new Set());
+    } catch (err) {
+      console.error('Failed to reorder maps:', err);
+    }
+  }, [maps, updateMapInfos, flatOrder]);
 
   const projectName = useEditorStore((s) => s.projectName);
   const [rootCollapsed, setRootCollapsed] = useState(false);
@@ -284,26 +557,25 @@ export default function MapTree() {
 
   return (
     <div className="map-tree" tabIndex={-1} onKeyDown={(e) => {
-      // 검색 입력 중에는 단축키 무시
       if ((document.activeElement as HTMLElement)?.classList.contains('fuzzy-search-input')) return;
-      
+
+      if (e.key === 'Escape') {
+        setMultiSelectedIds(new Set());
+      }
       if (e.key === 'Delete' && currentMapId != null && currentMapId !== 0) {
         e.preventDefault();
         e.nativeEvent.stopImmediatePropagation();
         handleDeleteMapById(currentMapId);
       }
-      // Ctrl+C: 맵 복사
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && currentMapId != null && currentMapId !== 0) {
         e.preventDefault();
         setCopiedMapId(currentMapId);
       }
-      // Ctrl+V: 맵 붙여넣기
       if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedMapId != null) {
         e.preventDefault();
         handlePasteMap();
       }
     }} onContextMenu={(e) => {
-      // 빈 공간 우클릭 시 루트 레벨 컨텍스트 메뉴 표시
       e.preventDefault();
       setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 });
     }}>
@@ -337,12 +609,19 @@ export default function MapTree() {
               selectedId={currentMapId}
               selectedDisplayName={currentMap?.displayName || undefined}
               filterQuery={filterQuery}
-              onSelect={selectMap}
+              onSelect={handleSelect}
               onDoubleClick={handleDoubleClick}
               collapsed={filterQuery ? {} : collapsed}
               onToggle={handleToggle}
               onContextMenu={handleContextMenu}
               startPositions={startPositions}
+              multiSelectedIds={multiSelectedIds}
+              draggingIds={filterQuery ? new Set() : draggingIds}
+              dragOverInfo={filterQuery ? null : dragOverInfo}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+              onDrop={handleDrop}
             />
           ))}
         </>
@@ -381,8 +660,8 @@ export default function MapTree() {
                 {t('mapTree.copyMap', '맵 복사')}
                 <span className="context-menu-shortcut">Ctrl+C</span>
               </div>
-              <div 
-                className={`context-menu-item${!copiedMapId ? ' disabled' : ''}`} 
+              <div
+                className={`context-menu-item${!copiedMapId ? ' disabled' : ''}`}
                 onClick={copiedMapId ? handlePasteMap : undefined}
               >
                 {t('mapTree.pasteMap', '맵 붙여넣기')}
