@@ -1449,6 +1449,7 @@
         childObj.x += this._x;
         childObj.y += this._y;
         if (child._decoSprite) { child._decoSprite.x += this._x; child._decoSprite.y += this._y; }
+        if (child._rowOverlay) { child._rowOverlay.x += this._x; child._rowOverlay.y += this._y; }
       } else if (this._displayObject) {
         if (child._decoSprite) this._displayObject.addChild(child._decoSprite);
         this._displayObject.addChild(childObj);
@@ -2693,9 +2694,11 @@
     if (idx < 0 || idx >= this._focusables.length) return;
     if (this._activeIndex >= 0 && this._focusables[this._activeIndex]) {
       this._focusables[this._activeIndex].deactivate();
+      this._focusables[this._activeIndex]._runScript('onBlur');
     }
     this._activeIndex = idx;
     this._focusables[idx].activate();
+    this._focusables[idx]._runScript('onFocus');
   };
   NavigationManager.prototype.focusWidget = function(id) {
     for (var i = 0; i < this._focusables.length; i++) {
@@ -2717,13 +2720,14 @@
     var activeWidget = this._activeIndex >= 0 ? this._focusables[this._activeIndex] : null;
 
     // ── 방향키 명시적 네비게이션 (navUp/navDown/navLeft/navRight) ──
+    // isTriggered 대신 isRepeated 사용: Window_Selectable 업데이트 순서와 무관하게 안정적 처리
     if (activeWidget && activeWidget._def) {
       var def = activeWidget._def;
       var navTarget = null;
-      if (Input.isTriggered('up')    && def.navUp)    navTarget = def.navUp;
-      else if (Input.isTriggered('down')  && def.navDown)  navTarget = def.navDown;
-      else if (Input.isTriggered('left')  && def.navLeft)  navTarget = def.navLeft;
-      else if (Input.isTriggered('right') && def.navRight) navTarget = def.navRight;
+      if      (Input.isRepeated('up')    && def.navUp)    navTarget = def.navUp;
+      else if (Input.isRepeated('down')  && def.navDown)  navTarget = def.navDown;
+      else if (Input.isRepeated('left')  && def.navLeft)  navTarget = def.navLeft;
+      else if (Input.isRepeated('right') && def.navRight) navTarget = def.navRight;
       if (navTarget) {
         if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
         this.focusWidget(navTarget);
