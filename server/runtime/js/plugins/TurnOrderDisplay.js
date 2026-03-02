@@ -77,8 +77,8 @@
         if (battler.isActor()) {
             this._srcBitmap = ImageManager.loadFace(battler.faceName());
         } else {
-            var bName = battler.enemy().battlerName();
-            var bHue  = battler.enemy().battlerHue();
+            var bName = battler.enemy().battlerName;
+            var bHue  = battler.enemy().battlerHue;
             this._srcBitmap = ImageManager.loadEnemy(bName, bHue);
         }
     };
