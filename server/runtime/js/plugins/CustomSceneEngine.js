@@ -4073,48 +4073,44 @@
   //   나머지 배틀 로직(BattleLog, BattleStatus 등)은 원본 Scene_Battle 유지
   //===========================================================================
   function applyBattleOverrides(Klass, sceneId) {
+    // Scene_CustomUI의 위젯 관련 메서드들을 주입 (Scene_Battle에 없는 것만)
+    var SCU = Scene_CustomUI.prototype;
+    var SCB = Scene_Battle.prototype;
+    for (var key in SCU) {
+      if (SCU.hasOwnProperty(key) && !SCB.hasOwnProperty(key)) {
+        Klass.prototype[key] = SCU[key];
+      }
+    }
+
+    // initialize: 위젯 트리 상태 초기화
     var origInit = Klass.prototype.initialize;
     Klass.prototype.initialize = function() {
       origInit.call(this);
       this._ctx = this._ctx || {};
-      this._battleWidgets = [];
+      this._widgetMap = {};
+      this._rootWidget = null;
     };
 
+    // _getSceneDef: sceneId 고정
     Klass.prototype._getSceneDef = function() {
       return (_scenesData.scenes || {})[sceneId] || null;
     };
 
-    Klass.prototype._findWidgetDef = function(node, id) {
-      if (!node) return null;
-      if (node.id === id) return node;
-      var children = node.children || [];
-      for (var i = 0; i < children.length; i++) {
-        var found = this._findWidgetDef(children[i], id);
-        if (found) return found;
-      }
-      return null;
-    };
-
-    Klass.prototype._addBattleWidget = function(widget) {
-      if (!widget) return null;
-      this._battleWidgets.push(widget);
-      var obj = widget.displayObject ? widget.displayObject() : null;
-      if (obj && obj instanceof Window_Base) this.addWindow(obj);
-      return obj instanceof Window_Base ? obj : null;
-    };
-
-    Klass.prototype._buildListWidget = function(id) {
+    // createAllWindows: 위젯 트리 먼저 생성 → 원본 창 생성
+    // (createPartyCommandWindow/createActorCommandWindow가 _widgetMap 위젯 재사용)
+    var origCreateAllWindows = Klass.prototype.createAllWindows;
+    Klass.prototype.createAllWindows = function() {
       var sceneDef = this._getSceneDef();
-      var def = sceneDef && this._findWidgetDef(sceneDef.root, id);
-      if (!def) return null;
-      var widget = new Widget_List();
-      widget.initialize(def, null);
-      return this._addBattleWidget(widget) ? widget : null;
+      if (sceneDef && sceneDef.root) {
+        this._createWidgetTree(sceneDef);
+      }
+      origCreateAllWindows.call(this);
     };
 
+    // createPartyCommandWindow: _widgetMap['partyCommand'] 재사용 (없으면 원본 폴백)
     Klass.prototype.createPartyCommandWindow = function() {
-      var widget = this._buildListWidget('partyCommand');
-      if (widget) {
+      var widget = this._widgetMap && this._widgetMap['partyCommand'];
+      if (widget && widget._window) {
         var win = widget._window;
         win.setup = function() { this.refresh(); this.select(0); this.activate(); this.open(); };
         this._partyCommandWindow = win;
@@ -4127,9 +4123,10 @@
       this._partyCommandWindow.deselect();
     };
 
+    // createActorCommandWindow: _widgetMap['actorCommand'] 재사용 (없으면 원본 폴백)
     Klass.prototype.createActorCommandWindow = function() {
-      var widget = this._buildListWidget('actorCommand');
-      if (widget) {
+      var widget = this._widgetMap && this._widgetMap['actorCommand'];
+      if (widget && widget._window) {
         var win = widget._window;
         var actorWidget = widget;
         win.setup = function(actor) {
@@ -4191,12 +4188,18 @@
       else if (last === 'item') { this._itemWindow.show(); this._itemWindow.activate(); }
     };
 
+    // update: _widgetMap의 모든 위젯 업데이트
     var origUpdate = Klass.prototype.update;
     Klass.prototype.update = function() {
       origUpdate.call(this);
-      for (var i = 0; i < this._battleWidgets.length; i++) this._battleWidgets[i].update();
+      if (this._widgetMap) {
+        for (var id in this._widgetMap) {
+          if (this._widgetMap[id].update) this._widgetMap[id].update();
+        }
+      }
     };
   }
+
 
   //===========================================================================
   // 커스텀 씬 등록
