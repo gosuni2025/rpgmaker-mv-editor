@@ -157,6 +157,19 @@
     // 선택 항목 없음 (커서 없음)
     Window_ItemDetail.prototype.maxItems = function () { return 0; };
 
+    // ── 디버그용 processTouch 오버라이드 (visible=true일 때만 로그) ──
+    Window_ItemDetail.prototype.processTouch = function () {
+        var ti = TouchInput.isTriggered();
+        var tc = TouchInput.isCancelled();
+        if ((ti || tc) && this.visible) {
+            var inside = this.isTouchedInsideFrame ? this.isTouchedInsideFrame() : '?';
+            console.log('[ItemDetail] processTouch | triggered=' + ti +
+                ' cancelled=' + tc + ' insideFrame=' + inside +
+                ' active=' + this.active);
+        }
+        Window_Selectable.prototype.processTouch.call(this);
+    };
+
     // 이미지가 있을 때만 ok(전체화면) 활성화
     Window_ItemDetail.prototype.isCurrentItemEnabled = function () {
         return !!(this._detail && this._detail.image);
@@ -509,12 +522,23 @@
         // (updateChildren()이 실행되지 않으므로 직접 호출 필요)
         if (dw && dw.visible) {
             this.updateFade();
+            dw.activate();
             dw.update();
+            // update 후 dw가 닫혔으면(cancel/ok handler 실행됨) → input clear + 쿨다운
+            if (!dw.visible) {
+                Input.clear(); TouchInput.clear();
+                this._popupInputCooldown = 3;
+            }
             return;
         }
         if (aw && aw.visible) {
             this.updateFade();
+            aw.activate();
             aw.update();
+            if (!aw.visible) {
+                Input.clear(); TouchInput.clear();
+                this._popupInputCooldown = 3;
+            }
             return;
         }
 
@@ -563,12 +587,15 @@
 
             // ── 상세 팝업 핸들러 ──
             this._itemDetailWindow.setHandler('ok', function () {
+                console.log('[ItemDetail] ok handler 실행');
                 var dw = self._itemDetailWindow;
                 self._itemDetailFullscreen.open(dw._item, dw._detail);
             });
 
             this._itemDetailWindow.setHandler('cancel', function () {
+                console.log('[ItemDetail] cancel handler 실행 | dw.visible before=', self._itemDetailWindow.visible);
                 self._itemDetailWindow.hide();
+                console.log('[ItemDetail] cancel handler 실행 | dw.visible after=', self._itemDetailWindow.visible);
                 var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
                 var ilW  = self._widgetMap && self._widgetMap[ilId];
                 if (ilW && ilW.activate) ilW.activate();
@@ -635,14 +662,27 @@
 
             // MV 표준 방식: window.update()를 직접 호출하여 processHandling()/processTouch() 실행
             // (updateChildren()이 실행되지 않으므로 직접 호출 필요)
+            // NavManager 등이 dw를 deactivate할 수 있으므로 매 프레임 activate() 보장
             if (dw && dw.visible) {
                 if (this.updateFade) this.updateFade();
+                dw.activate();
                 dw.update();
+                // update 후 dw가 닫혔으면(cancel/ok handler 실행됨) → input clear + 쿨다운
+                if (!dw.visible) {
+                    console.log('[ItemDetail] DW closed by handler → input clear');
+                    Input.clear(); TouchInput.clear();
+                    this._popupInputCooldown = 3;
+                }
                 return;
             }
             if (aw && aw.visible) {
                 if (this.updateFade) this.updateFade();
+                aw.activate();
                 aw.update();
+                if (!aw.visible) {
+                    Input.clear(); TouchInput.clear();
+                    this._popupInputCooldown = 3;
+                }
                 return;
             }
 
