@@ -2029,7 +2029,8 @@
     var gaugeH     = 16;
     var gaugeGap   = 2;
     var overlayH   = nameH + (gaugeH + gaugeGap) * gaugeCount;
-    var overlayY   = Math.max(0, faceH - overlayH);
+    // 오버레이를 슬롯 하단에 맞춤 (화면 아래에 딱 붙도록)
+    var overlayY   = Math.max(0, totalH - overlayH);
 
     for (var i = 0; i < maxSlots; i++) {
       var slotSpr = new Sprite();
@@ -4316,7 +4317,7 @@
       if (!win[method]) return;
       var orig = win[method].bind(win);
       win[method] = function() {
-        orig.apply(win, arguments);
+        try { orig.apply(win, arguments); } catch(e) { /* 원본 창 에러 무시 — widget 메서드는 계속 호출 */ }
         if (method === 'activate') win.active = false;  // 원본 입력 차단
         win.x = -9999;
         if (widget[method]) widget[method].apply(widget, arguments);
