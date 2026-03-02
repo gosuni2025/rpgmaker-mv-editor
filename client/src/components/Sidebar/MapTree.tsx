@@ -412,9 +412,7 @@ export default function MapTree() {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  const handleFolderToggle = useCallback((id: number) => {
-    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+  const handleFolderToggle = handleToggle;
 
   // 선택 처리
   const handleSelect = useCallback((id: number, e: React.MouseEvent) => {

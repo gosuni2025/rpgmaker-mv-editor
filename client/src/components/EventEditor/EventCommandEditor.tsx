@@ -5,10 +5,9 @@ import type { EventCommand, MoveRoute } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 import CommandInsertDialog from './CommandInsertDialog';
 import MoveRouteDialog from './MoveRouteDialog';
-import type { WaypointSession, WaypointPos } from '../../utils/astar';
-import { findNearestReachableTile } from '../../utils/astar';
 import { emitWaypointSessionChange, pushWaypointHistory } from '../MapEditor/useWaypointMode';
 import useEditorStore from '../../store/useEditorStore';
+import { buildWaypointSession } from './buildWaypointSession';
 import {
   NO_PARAM_CODES, CONTINUATION_CODES, BLOCK_END_CODES, CHILD_TO_PARENT,
   HAS_PARAM_EDITOR, getDropTargetIndent,
@@ -436,82 +435,19 @@ export default function EventCommandEditor({ commands, onChange, context, onWayp
             setShowMoveRoute(null);
           }} onCancel={() => setShowMoveRoute(null)}
           onWaypointMode={(charId) => {
-            const mapEvents = useEditorStore.getState().currentMap?.events ?? [];
-            const currentEvent = context?.eventId != null
-              ? (mapEvents.find(e => e && e.id === context.eventId) as any)
-              : null;
-            const startX = currentEvent?.x ?? 0;
-            const startY = currentEvent?.y ?? 0;
-            const editingIdx = showMoveRoute.editing;
-            // 새 커맨드 삽입 위치 (onWaypointModeStart로 컴포넌트가 언마운트된 후에도 사용)
-            const capturedInsertAt = primaryIndex >= 0 ? primaryIndex : commands.length - 1;
-            const capturedEventId = context?.eventId;
-            const capturedPageIndex = context?.pageIndex ?? 0;
-            const session: WaypointSession = {
-              eventId: context?.eventId ?? 0,
-              routeKey: editingIdx !== undefined ? `cmd_p${context?.pageIndex ?? 0}_c${editingIdx}` : `cmd_p${context?.pageIndex ?? 0}_c${capturedInsertAt}`,
-              type: 'command',
-              pageIndex: context?.pageIndex ?? 0,
-              commandIndex: editingIdx,
-              characterId: charId,
-              startX,
-              startY,
-              waypoints: (() => {
-                const initial: WaypointPos[] = [];
-                const ms = useEditorStore.getState();
-                const md = ms.currentMap;
-                const tf = ms.tilesetInfo;
-                if (md && tf) {
-                  const nearby = findNearestReachableTile(startX, startY, md.data, md.width, md.height, tf.flags);
-                  if (nearby) initial.push({ id: crypto.randomUUID(), x: nearby.x, y: nearby.y });
-                }
-                return initial;
-              })(),
-              allowDiagonal: false,
-              avoidEvents: false,
-              ignorePassability: false,
-              onConfirm: (commands) => {
-                const route = {
-                  list: [...commands, { code: 0 }],
-                  repeat: false,
-                  skippable: false,
-                  wait: true,
-                };
-                if (capturedEventId != null) {
-                  // 맵 이벤트: onWaypointModeStart로 컴포넌트가 언마운트되므로 직접 스토어 업데이트
-                  const st = useEditorStore.getState();
-                  if (!st.currentMap) return;
-                  const evs = [...(st.currentMap.events || [])];
-                  const evIdx = evs.findIndex(e => e && e.id === capturedEventId);
-                  if (evIdx >= 0 && evs[evIdx]) {
-                    const evCopy = { ...evs[evIdx]! };
-                    const pagesCopy = [...evCopy.pages];
-                    const listCopy = [...(pagesCopy[capturedPageIndex]?.list || [])];
-                    if (editingIdx !== undefined) {
-                      listCopy[editingIdx] = { ...listCopy[editingIdx], parameters: [charId, route] };
-                    } else {
-                      listCopy.splice(capturedInsertAt, 0, { code: 205, indent: 0, parameters: [charId, route] });
-                    }
-                    pagesCopy[capturedPageIndex] = { ...pagesCopy[capturedPageIndex], list: listCopy };
-                    evCopy.pages = pagesCopy;
-                    evs[evIdx] = evCopy;
-                    useEditorStore.setState({ currentMap: { ...st.currentMap, events: evs } as any });
-                  }
-                } else {
-                  // 커먼 이벤트 등: 컴포넌트가 마운트 상태이므로 ref 경유
-                  if (editingIdx !== undefined) {
-                    waypointConfirmRef.current?.updateCommandParams(editingIdx, [charId, route]);
-                  } else {
-                    waypointConfirmRef.current?.insertCommandWithParams(205, [charId, route]);
-                  }
-                }
-              },
-            };
+            const session = buildWaypointSession({
+              charId,
+              context,
+              editingIdx: showMoveRoute.editing,
+              primaryIndex,
+              commandsLength: commands.length,
+              waypointConfirmRef,
+            });
             (window as any)._editorWaypointSession = session;
-            pushWaypointHistory(session); // 초기 상태 스냅샷
+            pushWaypointHistory(session);
             emitWaypointSessionChange();
             setShowMoveRoute(null);
-            onWaypointModeStart?.(); // 부모 창(EventDetail 등) 닫기
+            onWaypointModeStart?.();
           }}
         />
       )}

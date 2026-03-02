@@ -1011,6 +1011,149 @@ function SceneWidgetInspector({ widget, update }: {
   );
 }
 
+// ── GaugeWidgetContent ─────────────────────────────────────
+
+function GaugeWidgetContent({ widget, update, gaugeSkinNames }: {
+  widget: WidgetDef_Gauge; update: (u: Partial<WidgetDef>) => void; gaugeSkinNames: string[];
+}) {
+  return (
+    <div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>현재값 식</span>
+        <input style={{ ...inputStyle, flex: 1 }}
+          placeholder="e.g. $gameParty.members()[0].hp"
+          value={widget.valueExpr || ''}
+          onChange={(e) => update({ valueExpr: e.target.value || undefined } as any)} />
+        <ExpressionPickerButton mode="js" onInsert={(code) => update({ valueExpr: code } as any)} />
+      </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>최대값 식</span>
+        <input style={{ ...inputStyle, flex: 1 }}
+          placeholder="e.g. $gameParty.members()[0].mhp"
+          value={widget.maxExpr || ''}
+          onChange={(e) => update({ maxExpr: e.target.value || undefined } as any)} />
+        <ExpressionPickerButton mode="js" onInsert={(code) => update({ maxExpr: code } as any)} />
+      </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>레이블 식</span>
+        <input style={{ ...inputStyle, flex: 1 }}
+          placeholder="e.g. 'HP'"
+          value={widget.labelExpr || ''}
+          onChange={(e) => update({ labelExpr: e.target.value || undefined } as any)} />
+        <ExpressionPickerButton mode="js" onInsert={(code) => update({ labelExpr: code } as any)} />
+      </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>액터 인덱스 식</span>
+        <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
+          placeholder="e.g. $ctx.actorIndex"
+          value={widget.actorIndexExpr || ''}
+          onChange={(e) => update({ actorIndexExpr: e.target.value || undefined } as any)} />
+        <ExpressionPickerButton mode="js" onInsert={(code) => update({ actorIndexExpr: code } as any)} />
+      </div>
+      <div style={rowStyle}>
+        <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 스킨</span>
+        <select style={{ ...selectStyle, flex: 1 }}
+          value={widget.gaugeSkinId || ''}
+          onChange={(e) => update({ gaugeSkinId: e.target.value || undefined } as any)}>
+          <option value="">(없음 — Window.png 폴백)</option>
+          {gaugeSkinNames.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+        <input type="checkbox" checked={widget.showLabel !== false}
+          onChange={(e) => update({ showLabel: e.target.checked } as any)}
+          style={{ accentColor: '#4af', cursor: 'pointer' }} />
+        레이블 표시
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+        <input type="checkbox" checked={widget.showValue !== false}
+          onChange={(e) => update({ showValue: e.target.checked } as any)}
+          style={{ accentColor: '#4af', cursor: 'pointer' }} />
+        수치 표시 (현재/최대)
+      </label>
+    </div>
+  );
+}
+
+// ── ImageWidgetContent ─────────────────────────────────────
+
+function ImageWidgetContent({ widget, update }: {
+  widget: WidgetDef_Image; update: (u: Partial<WidgetDef>) => void;
+}) {
+  const src: ImageSource = widget.imageSource || 'file';
+  const hasBitmapExpr = !!widget.bitmapExpr;
+  return (
+    <div>
+      <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: '#888' }}>비트맵 식</span>
+        <ExpressionPickerButton mode="bitmap" onInsert={(code) => update({ bitmapExpr: code } as any)} />
+      </div>
+      <textarea
+        style={{ ...inputStyle, height: 50, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
+        value={widget.bitmapExpr || ''}
+        placeholder="Bitmap을 반환하는 JS 식&#10;예: CSHelper.enemyBattler($ctx.enemy)&#10;비워두면 소스 타입 사용"
+        onChange={(e) => update({ bitmapExpr: e.target.value || undefined } as any)}
+      />
+      {hasBitmapExpr && <>
+        <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 11, color: '#888' }}>srcRect 식</span>
+          <ExpressionPickerButton mode="srcRect" onInsert={(code) => update({ srcRectExpr: code } as any)} />
+        </div>
+        <textarea
+          style={{ ...inputStyle, height: 40, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
+          value={widget.srcRectExpr || ''}
+          placeholder="{x,y,w,h}를 반환하는 JS 식&#10;예: CSHelper.actorFaceSrcRect($ctx.actor)"
+          onChange={(e) => update({ srcRectExpr: e.target.value || undefined } as any)}
+        />
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 70 }}>피팅</span>
+          <select style={{ ...selectStyle, flex: 1 }}
+            value={widget.fitMode || 'stretch'}
+            onChange={(e) => update({ fitMode: e.target.value as any } as any)}>
+            <option value="stretch">늘림</option>
+            <option value="contain">비율 유지 (contain)</option>
+            <option value="none">원본 크기</option>
+          </select>
+        </div>
+      </>}
+      {!hasBitmapExpr && <>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 70 }}>소스</span>
+          <select style={{ ...selectStyle, flex: 1 }} value={src}
+            onChange={(e) => update({ imageSource: e.target.value as ImageSource } as any)}>
+            <option value="file">파일</option>
+            <option value="actorFace">액터 얼굴</option>
+            <option value="actorCharacter">액터 캐릭터</option>
+          </select>
+        </div>
+        {src === 'file' && <>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
+            <input style={{ ...inputStyle, flex: 1 }}
+              value={widget.imageName || ''}
+              onChange={(e) => update({ imageName: e.target.value } as any)} />
+          </div>
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
+            <input style={{ ...inputStyle, flex: 1 }}
+              value={widget.imageFolder || 'img/system/'}
+              onChange={(e) => update({ imageFolder: e.target.value } as any)} />
+          </div>
+        </>}
+        {(src === 'actorFace' || src === 'actorCharacter') && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 70 }}>파티 슬롯</span>
+            <input style={{ ...inputStyle, width: 60 }} type="number" min={0} max={3}
+              value={widget.actorIndex ?? 0}
+              onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
+            <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0~3</span>
+          </div>
+        )}
+      </>}
+    </div>
+  );
+}
+
 // ── WidgetInspector (main export) ─────────────────────────
 
 const SCENE_W = 816, SCENE_H = 624;
@@ -1256,143 +1399,8 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
           <div style={sectionStyle}>
             {widget.type === 'label' && <LabelTypeSection widget={widget as WidgetDef_Label} update={update} />}
             {widget.type === 'textArea' && <TextAreaTypeSection widget={widget as WidgetDef_TextArea} update={update} />}
-            {widget.type === 'gauge' && (() => {
-              const g = widget as WidgetDef_Gauge;
-              return (
-                <div>
-                  <div style={rowStyle}>
-                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>현재값 식</span>
-                    <input style={{ ...inputStyle, flex: 1 }}
-                      placeholder="e.g. $gameParty.members()[0].hp"
-                      value={g.valueExpr || ''}
-                      onChange={(e) => update({ valueExpr: e.target.value || undefined } as any)} />
-                    <ExpressionPickerButton mode="js" onInsert={(code) => update({ valueExpr: code } as any)} />
-                  </div>
-                  <div style={rowStyle}>
-                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>최대값 식</span>
-                    <input style={{ ...inputStyle, flex: 1 }}
-                      placeholder="e.g. $gameParty.members()[0].mhp"
-                      value={g.maxExpr || ''}
-                      onChange={(e) => update({ maxExpr: e.target.value || undefined } as any)} />
-                    <ExpressionPickerButton mode="js" onInsert={(code) => update({ maxExpr: code } as any)} />
-                  </div>
-                  <div style={rowStyle}>
-                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>레이블 식</span>
-                    <input style={{ ...inputStyle, flex: 1 }}
-                      placeholder="e.g. 'HP'"
-                      value={g.labelExpr || ''}
-                      onChange={(e) => update({ labelExpr: e.target.value || undefined } as any)} />
-                    <ExpressionPickerButton mode="js" onInsert={(code) => update({ labelExpr: code } as any)} />
-                  </div>
-                  <div style={rowStyle}>
-                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>액터 인덱스 식</span>
-                    <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
-                      placeholder="e.g. $ctx.actorIndex"
-                      value={g.actorIndexExpr || ''}
-                      onChange={(e) => update({ actorIndexExpr: e.target.value || undefined } as any)} />
-                    <ExpressionPickerButton mode="js" onInsert={(code) => update({ actorIndexExpr: code } as any)} />
-                  </div>
-                  <div style={rowStyle}>
-                    <span style={{ fontSize: 11, color: '#888', width: 70 }}>게이지 스킨</span>
-                    <select style={{ ...selectStyle, flex: 1 }}
-                      value={g.gaugeSkinId || ''}
-                      onChange={(e) => update({ gaugeSkinId: e.target.value || undefined } as any)}>
-                      <option value="">(없음 — Window.png 폴백)</option>
-                      {gaugeSkinNames.map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
-                    <input type="checkbox" checked={g.showLabel !== false}
-                      onChange={(e) => update({ showLabel: e.target.checked } as any)}
-                      style={{ accentColor: '#4af', cursor: 'pointer' }} />
-                    레이블 표시
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
-                    <input type="checkbox" checked={g.showValue !== false}
-                      onChange={(e) => update({ showValue: e.target.checked } as any)}
-                      style={{ accentColor: '#4af', cursor: 'pointer' }} />
-                    수치 표시 (현재/최대)
-                  </label>
-                </div>
-              );
-            })()}
-            {widget.type === 'image' && (() => {
-              const img = widget as WidgetDef_Image;
-              const src: ImageSource = img.imageSource || 'file';
-              const hasBitmapExpr = !!img.bitmapExpr;
-              return (
-                <div>
-                  {/* bitmapExpr 모드 */}
-                  <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: '#888' }}>비트맵 식</span>
-                    <ExpressionPickerButton mode="bitmap" onInsert={(code) => update({ bitmapExpr: code } as any)} />
-                  </div>
-                  <textarea
-                    style={{ ...inputStyle, height: 50, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
-                    value={img.bitmapExpr || ''}
-                    placeholder="Bitmap을 반환하는 JS 식&#10;예: CSHelper.enemyBattler($ctx.enemy)&#10;비워두면 소스 타입 사용"
-                    onChange={(e) => update({ bitmapExpr: e.target.value || undefined } as any)}
-                  />
-                  {hasBitmapExpr && <>
-                    <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 11, color: '#888' }}>srcRect 식</span>
-                      <ExpressionPickerButton mode="srcRect" onInsert={(code) => update({ srcRectExpr: code } as any)} />
-                    </div>
-                    <textarea
-                      style={{ ...inputStyle, height: 40, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
-                      value={img.srcRectExpr || ''}
-                      placeholder="{x,y,w,h}를 반환하는 JS 식&#10;예: CSHelper.actorFaceSrcRect($ctx.actor)"
-                      onChange={(e) => update({ srcRectExpr: e.target.value || undefined } as any)}
-                    />
-                    <div style={rowStyle}>
-                      <span style={{ fontSize: 11, color: '#888', width: 70 }}>피팅</span>
-                      <select style={{ ...selectStyle, flex: 1 }}
-                        value={img.fitMode || 'stretch'}
-                        onChange={(e) => update({ fitMode: e.target.value as any } as any)}>
-                        <option value="stretch">늘림</option>
-                        <option value="contain">비율 유지 (contain)</option>
-                        <option value="none">원본 크기</option>
-                      </select>
-                    </div>
-                  </>}
-                  {/* 기존 소스 모드 (bitmapExpr 없을 때) */}
-                  {!hasBitmapExpr && <>
-                    <div style={rowStyle}>
-                      <span style={{ fontSize: 11, color: '#888', width: 70 }}>소스</span>
-                      <select style={{ ...selectStyle, flex: 1 }} value={src}
-                        onChange={(e) => update({ imageSource: e.target.value as ImageSource } as any)}>
-                        <option value="file">파일</option>
-                        <option value="actorFace">액터 얼굴</option>
-                        <option value="actorCharacter">액터 캐릭터</option>
-                      </select>
-                    </div>
-                    {src === 'file' && <>
-                      <div style={rowStyle}>
-                        <span style={{ fontSize: 11, color: '#888', width: 70 }}>이미지</span>
-                        <input style={{ ...inputStyle, flex: 1 }}
-                          value={img.imageName || ''}
-                          onChange={(e) => update({ imageName: e.target.value } as any)} />
-                      </div>
-                      <div style={rowStyle}>
-                        <span style={{ fontSize: 11, color: '#888', width: 70 }}>폴더</span>
-                        <input style={{ ...inputStyle, flex: 1 }}
-                          value={img.imageFolder || 'img/system/'}
-                          onChange={(e) => update({ imageFolder: e.target.value } as any)} />
-                      </div>
-                    </>}
-                    {(src === 'actorFace' || src === 'actorCharacter') && (
-                      <div style={rowStyle}>
-                        <span style={{ fontSize: 11, color: '#888', width: 70 }}>파티 슬롯</span>
-                        <input style={{ ...inputStyle, width: 60 }} type="number" min={0} max={3}
-                          value={img.actorIndex ?? 0}
-                          onChange={(e) => update({ actorIndex: parseInt(e.target.value) || 0 } as any)} />
-                        <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0~3</span>
-                      </div>
-                    )}
-                  </>}
-                </div>
-              );
-            })()}
+            {widget.type === 'gauge' && <GaugeWidgetContent widget={widget as WidgetDef_Gauge} update={update} gaugeSkinNames={gaugeSkinNames} />}
+            {widget.type === 'image' && <ImageWidgetContent widget={widget as WidgetDef_Image} update={update} />}
             {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
             {isListLike && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
             {widget.type === 'scene' && <SceneWidgetInspector widget={widget as WidgetDef_Scene} update={update} />}

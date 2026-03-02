@@ -2,6 +2,7 @@ import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from '
 import type { CustomScenesData, CustomSceneDef, CustomWindowDef, WidgetDef, NavigationConfig, CustomSceneDefV2 } from './uiEditorTypes';
 import { TOOLBAR_STORAGE_KEY } from './types';
 import apiClient from '../api/client';
+import { wtAdd, wtRemove, wtUpdate, wtMove, wtReorder, wtRename, wtDuplicate } from './widgetTreeMutations';
 
 /** undo/redo 후 iframe에 전체 override 상태를 재적용 (씬 새로고침으로 처리) */
 function _syncOverridesToIframe(overrides: Record<string, UIWindowOverride>) {
@@ -464,22 +465,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     set((state) => {
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
-
-      function addToParent(widget: WidgetDef): WidgetDef {
-        if (widget.id === parentId) {
-          return { ...widget, children: [...(widget.children || []), def] };
-        }
-        if (!widget.children?.length) return widget;
-        return { ...widget, children: widget.children.map(addToParent) };
-      }
-
       return {
-        customScenes: {
-          scenes: {
-            ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: addToParent(scene.root) } as any,
-          },
-        },
+        customScenes: { scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: wtAdd(scene.root, parentId, def) } as any } },
         customSceneDirty: true,
       };
     });
@@ -489,20 +476,10 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     set((state) => {
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
-
-      function removeFromTree(widget: WidgetDef): WidgetDef | null {
-        if (widget.id === widgetId) return null;
-        if (!widget.children?.length) return widget;
-        return { ...widget, children: widget.children.map(removeFromTree).filter(Boolean) as WidgetDef[] };
-      }
-
-      const newRoot = removeFromTree(scene.root);
+      const newRoot = wtRemove(scene.root, widgetId);
       if (!newRoot) return {};
-
       return {
-        customScenes: {
-          scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: newRoot } as any },
-        },
+        customScenes: { scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: newRoot } as any } },
         customSceneDirty: true,
       };
     });
@@ -512,25 +489,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     set((state) => {
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
-
-      const POSITION_KEYS = ['x', 'y', 'width', 'height'];
-      const touchesPos = POSITION_KEYS.some((k) => k in updates);
-
-      function updateInTree(widget: WidgetDef): WidgetDef {
-        if (widget.id === widgetId) {
-          const merged = { ...widget, ...updates } as WidgetDef & { nativeDefault?: boolean };
-          // 위치를 사용자가 직접 수정하면 nativeDefault 제거
-          if (touchesPos) delete merged.nativeDefault;
-          return merged as WidgetDef;
-        }
-        if (!widget.children?.length) return widget;
-        return { ...widget, children: widget.children.map(updateInTree) };
-      }
-
       return {
-        customScenes: {
-          scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: updateInTree(scene.root) } as any },
-        },
+        customScenes: { scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: wtUpdate(scene.root, widgetId, updates) } as any } },
         customSceneDirty: true,
       };
     });
@@ -540,28 +500,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     set((state) => {
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
-
-      // 자식들은 절대 좌표 → delta만큼 함께 이동
-      function applyDelta(widget: WidgetDef, dx: number, dy: number): WidgetDef {
-        const moved = { ...widget, x: widget.x + dx, y: widget.y + dy };
-        if (!moved.children?.length) return moved;
-        return { ...moved, children: moved.children.map(c => applyDelta(c, dx, dy)) };
-      }
-
-      function moveInTree(widget: WidgetDef): WidgetDef {
-        if (widget.id === widgetId) {
-          const moved = applyDelta(widget, x - widget.x, y - widget.y) as WidgetDef & { nativeDefault?: boolean };
-          delete moved.nativeDefault;
-          return moved as WidgetDef;
-        }
-        if (!widget.children?.length) return widget;
-        return { ...widget, children: widget.children.map(moveInTree) };
-      }
-
       return {
-        customScenes: {
-          scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: moveInTree(scene.root) } as any },
-        },
+        customScenes: { scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: wtMove(scene.root, widgetId, x, y) } as any } },
         customSceneDirty: true,
       };
     });
@@ -571,48 +511,10 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     set((state) => {
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
-
-      // 1. dragId 위젯을 트리에서 추출
-      let dragged: WidgetDef | null = null;
-      function extract(widget: WidgetDef): WidgetDef {
-        if (!widget.children?.length) return widget;
-        const idx = widget.children.findIndex((c) => c.id === dragId);
-        if (idx >= 0) {
-          dragged = widget.children[idx];
-          return { ...widget, children: widget.children.filter((_, i) => i !== idx) };
-        }
-        return { ...widget, children: widget.children.map(extract) };
-      }
-      const rootAfterExtract = extract(scene.root);
-      if (!dragged) return {};
-
-      // 2. targetId 위치에 삽입
-      let inserted = false;
-      function insert(widget: WidgetDef): WidgetDef {
-        const ch = widget.children || [];
-        if (position === 'inside' && widget.id === targetId) {
-          inserted = true;
-          return { ...widget, children: [...ch, dragged!] };
-        }
-        const idx = ch.findIndex((c) => c.id === targetId);
-        if (idx >= 0 && position === 'before') {
-          inserted = true;
-          const next = [...ch];
-          next.splice(idx, 0, dragged!);
-          return { ...widget, children: next };
-        }
-        if (!ch.length) return widget;
-        return { ...widget, children: ch.map(insert) };
-      }
-      const newRoot = insert(rootAfterExtract);
-
+      const newRoot = wtReorder(scene.root, dragId, targetId, position);
+      if (newRoot === scene.root) return {};
       return {
-        customScenes: {
-          scenes: {
-            ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: newRoot } as any,
-          },
-        },
+        customScenes: { scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: newRoot } as any } },
         customSceneDirty: true,
       };
     });
@@ -624,19 +526,6 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
 
-      // nav 참조 필드 목록
-      const NAV_KEYS = ['navUp', 'navDown', 'navLeft', 'navRight'] as const;
-
-      // 위젯 트리에서 ID 변경 + nav 참조 업데이트
-      function renameInTree(widget: WidgetDef): WidgetDef {
-        const updated: any = { ...widget };
-        if (updated.id === oldId) updated.id = newId;
-        NAV_KEYS.forEach(k => { if (updated[k] === oldId) updated[k] = newId; });
-        if (updated.children?.length) updated.children = updated.children.map(renameInTree);
-        return updated as WidgetDef;
-      }
-
-      // navigation config 참조 업데이트
       const nav = (scene as CustomSceneDefV2).navigation;
       let newNav = nav;
       if (nav) {
@@ -650,7 +539,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
         customScenes: {
           scenes: {
             ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: renameInTree(scene.root), navigation: newNav } as any,
+            [sceneId]: { ...scene, root: wtRename(scene.root, oldId, newId), navigation: newNav } as any,
           },
         },
         customSceneSelectedWidget: state.customSceneSelectedWidget === oldId ? newId : state.customSceneSelectedWidget,
@@ -663,41 +552,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     set((state) => {
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
-
-      // 위젯 깊은 복사 (새 ID 부여)
-      function cloneWidget(widget: WidgetDef, suffix: string): WidgetDef {
-        const cloned: any = { ...widget, id: widget.id + suffix };
-        if (cloned.children?.length) cloned.children = cloned.children.map((c: WidgetDef) => cloneWidget(c, suffix));
-        return cloned as WidgetDef;
-      }
-
-      // 고유 suffix 생성
-      const suffix = '_' + Date.now().toString(36).slice(-4);
-      let cloned: WidgetDef | null = null;
-
-      // 부모 찾아서 원본 바로 뒤에 삽입
-      function insertAfter(widget: WidgetDef): WidgetDef {
-        if (!widget.children?.length) return widget;
-        const idx = widget.children.findIndex(c => c.id === widgetId);
-        if (idx >= 0) {
-          cloned = cloneWidget({ ...widget.children[idx], x: widget.children[idx].x + 10, y: widget.children[idx].y + 10 }, suffix);
-          const newChildren = [...widget.children.slice(0, idx + 1), cloned, ...widget.children.slice(idx + 1)];
-          return { ...widget, children: newChildren };
-        }
-        return { ...widget, children: widget.children.map(insertAfter) };
-      }
-
-      const newRoot = insertAfter(scene.root);
-      if (!cloned) return {};
-
+      const { root: newRoot, clonedId } = wtDuplicate(scene.root, widgetId);
+      if (!clonedId) return {};
       return {
-        customScenes: {
-          scenes: {
-            ...state.customScenes.scenes,
-            [sceneId]: { ...scene, root: newRoot } as any,
-          },
-        },
-        customSceneSelectedWidget: (cloned as WidgetDef).id,
+        customScenes: { scenes: { ...state.customScenes.scenes, [sceneId]: { ...scene, root: newRoot } as any } },
+        customSceneSelectedWidget: clonedId,
         customSceneDirty: true,
       };
     });
