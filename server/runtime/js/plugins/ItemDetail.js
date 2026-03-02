@@ -157,19 +157,6 @@
     // 선택 항목 없음 (커서 없음)
     Window_ItemDetail.prototype.maxItems = function () { return 0; };
 
-    // ── 디버그용 processTouch 오버라이드 (visible=true일 때만 로그) ──
-    Window_ItemDetail.prototype.processTouch = function () {
-        var ti = TouchInput.isTriggered();
-        var tc = TouchInput.isCancelled();
-        if ((ti || tc) && this.visible) {
-            var inside = this.isTouchedInsideFrame ? this.isTouchedInsideFrame() : '?';
-            console.log('[ItemDetail] processTouch | triggered=' + ti +
-                ' cancelled=' + tc + ' insideFrame=' + inside +
-                ' active=' + this.active);
-        }
-        Window_Selectable.prototype.processTouch.call(this);
-    };
-
     // 이미지가 있을 때만 ok(전체화면) 활성화
     Window_ItemDetail.prototype.isCurrentItemEnabled = function () {
         return !!(this._detail && this._detail.image);
@@ -587,18 +574,15 @@
 
             // ── 상세 팝업 핸들러 ──
             this._itemDetailWindow.setHandler('ok', function () {
-                console.log('[ItemDetail] ok handler 실행');
                 var dw = self._itemDetailWindow;
                 self._itemDetailFullscreen.open(dw._item, dw._detail);
             });
 
             this._itemDetailWindow.setHandler('cancel', function () {
-                console.log('[ItemDetail] cancel handler 실행 | dw.visible before=', self._itemDetailWindow.visible);
                 self._itemDetailWindow.hide();
-                console.log('[ItemDetail] cancel handler 실행 | dw.visible after=', self._itemDetailWindow.visible);
-                var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
-                var ilW  = self._widgetMap && self._widgetMap[ilId];
-                if (ilW && ilW.activate) ilW.activate();
+                // ilW.activate()를 즉시 호출하면 같은 프레임 내 씬 전환이 트리거될 수 있으므로
+                // _pendingActivateId에 저장하여 쿨다운 종료 시 실행
+                self._pendingActivateId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
             });
 
             // ── 사용/살펴보기 핸들러 ──
@@ -657,6 +641,17 @@
                 this._popupInputCooldown--;
                 Input.clear();
                 if (this.updateFade) this.updateFade();
+                // 쿨다운 마지막 프레임에 item_list window 복원
+                if (this._popupInputCooldown === 0 && this._pendingActivateId) {
+                    var ilId = this._pendingActivateId;
+                    this._pendingActivateId = null;
+                    var ilW = this._widgetMap && this._widgetMap[ilId];
+                    // Widget_TextList.activate()는 _rebuildFromScript()를 실행하여
+                    // 씬 전환을 트리거할 수 있으므로, 내부 Window만 activate
+                    if (ilW && ilW._window && ilW._window.activate) {
+                        ilW._window.activate();
+                    }
+                }
                 return;
             }
 
@@ -669,7 +664,6 @@
                 dw.update();
                 // update 후 dw가 닫혔으면(cancel/ok handler 실행됨) → input clear + 쿨다운
                 if (!dw.visible) {
-                    console.log('[ItemDetail] DW closed by handler → input clear');
                     Input.clear(); TouchInput.clear();
                     this._popupInputCooldown = 3;
                 }
