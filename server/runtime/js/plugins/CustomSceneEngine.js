@@ -2900,14 +2900,20 @@
       this._rowOverlay = cursorOverlay;
       this._csCursorReparented = false;
       this._autoRefresh = false; // cursorOnly는 drawItem이 없으므로 autoRefresh 불필요
+      // _window.visible은 항상 false로 고정 — 커서는 _rowOverlay에서만 렌더링
+      // (visible 토글 시 UITheme 스킨 프레임이 깜빡이는 문제 방지)
+      win.visible = false;
     }
   };
 
-  // 첫 표시 시 초기 빌드 + _rowOverlay(cursorOnly) visible 동기화
+  // show/hide: cursorOnly 모드에서는 _window.visible 건드리지 않고 _rowOverlay.visible만 제어
   Widget_List.prototype.show = function() {
-    Widget_Base.prototype.show.call(this);
-    this._csCursorOverlayVisible = true;
-    if (this._rowOverlay) this._rowOverlay.visible = true;
+    if (this._def && this._def.cursorOnly) {
+      this._csCursorOverlayVisible = true;
+      if (this._rowOverlay) this._rowOverlay.visible = true;
+    } else {
+      Widget_Base.prototype.show.call(this);
+    }
     if (!this._builtOnce && this._dataScript) {
       this._builtOnce = true;
       this._rebuildFromScript();
@@ -2915,29 +2921,25 @@
   };
 
   Widget_List.prototype.hide = function() {
-    Widget_Base.prototype.hide.call(this);
-    this._csCursorOverlayVisible = false;
-    if (this._rowOverlay) this._rowOverlay.visible = false;
-    if (this._def && this._def.cursorOnly)
-      console.log('[CSE:cursorOnly] hide()', this._id, '_rowOverlay.visible=', this._rowOverlay ? this._rowOverlay.visible : 'null');
+    if (this._def && this._def.cursorOnly) {
+      this._csCursorOverlayVisible = false;
+      if (this._rowOverlay) this._rowOverlay.visible = false;
+    } else {
+      Widget_Base.prototype.hide.call(this);
+      this._csCursorOverlayVisible = false;
+      if (this._rowOverlay) this._rowOverlay.visible = false;
+    }
   };
 
   Widget_List.prototype.update = function() {
     Widget_TextList.prototype.update.call(this);
     if (this._def && this._def.cursorOnly) {
       this._updateCursorOverlay();
-      var beforeFix = this._rowOverlay ? this._rowOverlay.visible : 'null';
       // Widget_TextList.update()가 _rowOverlay.visible을 _window.visible로 매 프레임 덮어씀
-      // cursorOnly 모드에서는 hide()/show()로 설정한 _csCursorOverlayVisible로 복원
+      // _window.visible은 항상 false이므로 덮어쓰기 결과도 false → _csCursorOverlayVisible로 복원
       if (this._rowOverlay && this._csCursorOverlayVisible !== undefined) {
         this._rowOverlay.visible = this._csCursorOverlayVisible;
       }
-      if (this._updateCount % 60 === 1)
-        console.log('[CSE:cursorOnly] update()', this._id,
-          '_window.visible=', this._window ? this._window.visible : 'null',
-          'beforeFix=', beforeFix,
-          '_csCursorOverlayVisible=', this._csCursorOverlayVisible,
-          '_rowOverlay.visible=', this._rowOverlay ? this._rowOverlay.visible : 'null');
     }
   };
 
@@ -4679,16 +4681,9 @@
       if (BattleManager.isInputting()) {
         // 파티 커맨드 단계: 커서 강제 숨김 (매 프레임 강제 적용)
         if (!BattleManager.actor()) {
-          if (this._updateCount === undefined) this._updateCount = 0;
-          this._updateCount++;
-          if (this._updateCount % 60 === 1)
-            console.log('[CSE:actorCursor] partyCmd phase — hiding',
-              'visible=', actorWidget._rowOverlay ? actorWidget._rowOverlay.visible : 'null',
-              '_csCursorOverlayVisible=', actorWidget._csCursorOverlayVisible);
           if (actorWidget._csCursorOverlayVisible !== false) {
             actorWidget.hide();
           }
-          // _rowOverlay도 직접 숨김 (update()의 동기화 로직 우선 적용을 위해)
           if (actorWidget._rowOverlay) actorWidget._rowOverlay.visible = false;
         }
         return;
