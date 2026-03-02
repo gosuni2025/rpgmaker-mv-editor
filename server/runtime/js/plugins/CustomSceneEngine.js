@@ -1407,15 +1407,17 @@
     var dimAlpha = isLinked ? 1.0 : 0.63;
     if (Math.abs((this._displayObject.alpha || 1) - dimAlpha) > 0.005) {
       this._displayObject.alpha = dimAlpha;
-      // Three.js 런타임에서 _windowSpriteContainer가 ThreeContainer이므로
-      // PIXI Sprite 자식에게 alpha cascade가 전달되지 않음.
-      // 자식 위젯 displayObject에 직접 alpha를 전파한다.
       for (var _di = 0; _di < this._children.length; _di++) {
         var _dch = this._children[_di];
         var _dobj = _dch && _dch.displayObject && _dch.displayObject();
         if (!_dobj) continue;
         if (_dch._baseDimAlpha === undefined) _dch._baseDimAlpha = _dobj.alpha !== undefined ? _dobj.alpha : 1;
+        var _before = _dobj.alpha;
         _dobj.alpha = _dch._baseDimAlpha * dimAlpha;
+        console.log('[DIM2] panel=' + this._id + ' child=' + _dch._id +
+          ' alpha: ' + _before + ' → ' + _dobj.alpha +
+          ' (base=' + _dch._baseDimAlpha + ' dim=' + dimAlpha + ')' +
+          ' _dobj.constructor=' + (_dobj.constructor && _dobj.constructor.name));
       }
     }
   };
@@ -4451,7 +4453,11 @@
     var origSES = SCB.selectEnemySelection || function() {};
     Klass.prototype.selectEnemySelection = function() {
       var wmap = this._widgetMap || {};
-      if (wmap.actorCommand && wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
+      if (wmap.actorCommand) {
+        if (wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
+        if (wmap.actorCommand.hide) wmap.actorCommand.hide();
+        if (wmap.actorCommand._window && wmap.actorCommand._window.deselect) wmap.actorCommand._window.deselect();
+      }
       // statusWindow _rowOverlay(서브씬 스프라이트) + actorWindow _rowOverlay(커서) dim
       ['statusWindow', 'actorWindow'].forEach(function(id) {
         var w = wmap[id];
@@ -4542,6 +4548,8 @@
         if (this._windowLayer) this._windowLayer.addChild(enemyWidget._window);
         enemyWidget._window._csBattleLifted = false;
       }
+      // actorCommand 복구 (show + activate)
+      if (wmap.actorCommand && wmap.actorCommand.show) wmap.actorCommand.show();
       var last = this._ctx.lastActorCommand || 'attack';
       if (last === 'attack') { this._actorCommandWindow.activate(); }
       else if (last === 'skill') { this._skillWindow.show(); this._skillWindow.activate(); }
