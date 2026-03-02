@@ -502,17 +502,20 @@
             return;
         }
 
-        // isPressed+prev 추적으로 input 처리
+        // isPressed+prev 추적 + TouchInput으로 input 처리
+        // (마우스 클릭은 Input이 아닌 TouchInput으로 들어옴)
         if (dw && dw.visible) {
             this.updateFade();
-            var cancelNow = Input.isPressed('cancel');
-            var okNow     = Input.isPressed('ok');
-            if (cancelNow && !this._dwPrevCancel) {
-                Input.clear();
+            var cancelNow    = Input.isPressed('cancel');
+            var okNow        = Input.isPressed('ok');
+            var touchCancel  = TouchInput.isCancelled();
+            var touchOk      = TouchInput.isTriggered() && !TouchInput.isCancelled();
+            if ((cancelNow && !this._dwPrevCancel) || touchCancel) {
+                Input.clear(); TouchInput.clear();
                 this._popupInputCooldown = 3;
                 dw.callHandler('cancel');
-            } else if (okNow && !this._dwPrevOk) {
-                Input.clear();
+            } else if ((okNow && !this._dwPrevOk) || touchOk) {
+                Input.clear(); TouchInput.clear();
                 this._popupInputCooldown = 3;
                 dw.callHandler('ok');
             }
@@ -523,8 +526,9 @@
         if (aw && aw.visible) {
             this.updateFade();
             var c2 = Input.isPressed('cancel'), o2 = Input.isPressed('ok');
-            if (c2 && !this._awPrevCancel) { Input.clear(); this._popupInputCooldown = 3; aw.callHandler('cancel'); }
-            else if (o2 && !this._awPrevOk) { Input.clear(); this._popupInputCooldown = 3; aw.callHandler('ok'); }
+            var tc2 = TouchInput.isCancelled(), to2 = TouchInput.isTriggered() && !TouchInput.isCancelled();
+            if ((c2 && !this._awPrevCancel) || tc2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('cancel'); }
+            else if ((o2 && !this._awPrevOk) || to2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('ok'); }
             this._awPrevCancel = c2;
             this._awPrevOk     = o2;
             return;
@@ -642,19 +646,22 @@
                 return;
             }
 
-            // 팝업이 열린 동안: isPressed+prev 추적으로 input 처리
+            // 팝업이 열린 동안: isPressed+prev 추적 + TouchInput으로 input 처리
             // (Input.update()가 processHandling보다 먼저 실행되어 _pressedTime이 항상 >=1이므로
             //  isTriggered는 사용 불가 — isPressed로 첫 pressed 프레임을 직접 감지)
+            // (마우스 클릭은 Input이 아닌 TouchInput으로 들어오므로 TouchInput도 체크)
             if (dw && dw.visible) {
                 if (this.updateFade) this.updateFade();
-                var cancelNow = Input.isPressed('cancel');
-                var okNow     = Input.isPressed('ok');
-                if (cancelNow && !this._dwPrevCancel) {
-                    Input.clear();
+                var cancelNow   = Input.isPressed('cancel');
+                var okNow       = Input.isPressed('ok');
+                var touchCancel = TouchInput.isCancelled();
+                var touchOk     = TouchInput.isTriggered() && !TouchInput.isCancelled();
+                if ((cancelNow && !this._dwPrevCancel) || touchCancel) {
+                    Input.clear(); TouchInput.clear();
                     this._popupInputCooldown = 3;
                     dw.callHandler('cancel');
-                } else if (okNow && !this._dwPrevOk) {
-                    Input.clear();
+                } else if ((okNow && !this._dwPrevOk) || touchOk) {
+                    Input.clear(); TouchInput.clear();
                     this._popupInputCooldown = 3;
                     dw.callHandler('ok');
                 }
@@ -665,8 +672,9 @@
             if (aw && aw.visible) {
                 if (this.updateFade) this.updateFade();
                 var c2 = Input.isPressed('cancel'), o2 = Input.isPressed('ok');
-                if (c2 && !this._awPrevCancel) { Input.clear(); this._popupInputCooldown = 3; aw.callHandler('cancel'); }
-                else if (o2 && !this._awPrevOk) { Input.clear(); this._popupInputCooldown = 3; aw.callHandler('ok'); }
+                var tc2 = TouchInput.isCancelled(), to2 = TouchInput.isTriggered() && !TouchInput.isCancelled();
+                if ((c2 && !this._awPrevCancel) || tc2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('cancel'); }
+                else if ((o2 && !this._awPrevOk) || to2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('ok'); }
                 this._awPrevCancel = c2;
                 this._awPrevOk     = o2;
                 return;
