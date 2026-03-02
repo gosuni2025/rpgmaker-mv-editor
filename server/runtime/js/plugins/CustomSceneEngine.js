@@ -2511,8 +2511,11 @@
         this._window.deselect();
         if (this._window._windowCursorSprite) this._window._windowCursorSprite.visible = false;
       } else if (!this._window.active) {
-        // 비활성이면 커서를 마지막 위치에 정지(freeze). callUpdateHelp 없이 직접 처리
-        var clampedIdx = (this._lastIndex !== undefined && this._lastIndex >= 0 && this._lastIndex < items.length)
+        // 비활성이면 커서를 현재 위치에 정지(freeze). callUpdateHelp 없이 직접 처리
+        // 우선순위: 현재 인덱스(외부에서 select()로 설정된 값) > lastIndex > 0
+        var curIdx = this._window._index;
+        var clampedIdx = (curIdx >= 0 && curIdx < items.length) ? curIdx
+          : (this._lastIndex !== undefined && this._lastIndex >= 0 && this._lastIndex < items.length)
           ? this._lastIndex : 0;
         if (this._window._index !== clampedIdx) {
           this._window._index = clampedIdx;
@@ -2849,17 +2852,24 @@
     }
 
     var idx = win.index();
-    var visible = win.visible && win.active && idx >= 0;
+    // active 여부와 무관하게 visible + 인덱스 선택 시 커서 표시
+    // active=true → 깜박임(인터랙티브), active=false → 반투명 고정(인디케이터)
+    var visible = win.visible && idx >= 0;
     cursorSpr.visible = visible;
     if (visible) {
       cursorSpr.x = idx * this._csCursorSlotW;
       cursorSpr.y = 0;
-      // 블링크 효과
-      var blinkCount = (win._animationCount || 0) % 40;
-      var opacity = 255;
-      if (blinkCount < 20) opacity -= blinkCount * 8;
-      else                 opacity -= (40 - blinkCount) * 8;
-      cursorSpr.alpha = Math.max(0, opacity) / 255;
+      if (win.active) {
+        // 인터랙티브 모드: 깜박임 효과
+        var blinkCount = (win._animationCount || 0) % 40;
+        var opacity = 255;
+        if (blinkCount < 20) opacity -= blinkCount * 8;
+        else                 opacity -= (40 - blinkCount) * 8;
+        cursorSpr.alpha = Math.max(0, opacity) / 255;
+      } else {
+        // 인디케이터 모드: 반투명 고정 커서
+        cursorSpr.alpha = 0.5;
+      }
     }
   };
 
@@ -4377,11 +4387,34 @@
     };
 
     Klass.prototype.onActorCancel = function() {
-      this._actorWindow.hide();
+      // hide 대신 deactivate만 — 인디케이터 커서는 계속 보이도록 유지
+      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      if (actorWidget && actorWidget.deactivate) actorWidget.deactivate();
       var last = this._ctx.lastActorCommand;
       if (last === 'skill') { this._skillWindow.show(); this._skillWindow.activate(); }
       else if (last === 'item') { this._itemWindow.show(); this._itemWindow.activate(); }
       else { this._actorCommandWindow.activate(); }
+    };
+
+    // startPartyCommandSelection: 파티 커맨드 단계 → actorWindow 인디케이터 숨김
+    var origSPCS = SCB.startPartyCommandSelection;
+    Klass.prototype.startPartyCommandSelection = function() {
+      origSPCS.call(this);
+      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      if (actorWidget && actorWidget.hide) actorWidget.hide();
+    };
+
+    // startActorCommandSelection: 액터 커맨드 단계 → actorWindow 인디케이터 표시 (비활성)
+    var origSACS = SCB.startActorCommandSelection;
+    Klass.prototype.startActorCommandSelection = function() {
+      origSACS.call(this);
+      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      if (actorWidget) {
+        actorWidget.show();
+        var actor = BattleManager.actor();
+        if (actor) actorWidget.select(actor.index());
+        // activate하지 않음 — 인터랙티브 아닌 인디케이터 전용
+      }
     };
 
     Klass.prototype.onEnemyCancel = function() {
