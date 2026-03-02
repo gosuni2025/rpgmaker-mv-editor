@@ -2608,11 +2608,8 @@
       win._updateCursor = function() { if (this._windowCursorSprite) this._windowCursorSprite.visible = false; };
       console.log('[CSE] Widget_List focusable=false, updateCursor override, id=' + def.id);
     }
-    if (!this._itemSceneId) {
-      // itemScene 모드가 아닐 때만 UITheme 윈도우 스타일 적용
-      this._applyWindowStyle(win, def);
-      if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
-    }
+    this._applyWindowStyle(win, def);
+    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._baseOpacity = win.opacity;
     this._window = win;
     this._displayObject = win;
@@ -2632,8 +2629,9 @@
     // itemScene 모드: 오버레이 Sprite 생성
     if (this._itemSceneId) {
       var overlay = new Sprite();
-      overlay.x = this._x + (win._padding || win.standardPadding());
-      overlay.y = this._y + (win._padding || win.standardPadding());
+      var _overlayPad = win._padding != null ? win._padding : win.standardPadding();
+      overlay.x = this._x + _overlayPad;
+      overlay.y = this._y + _overlayPad;
       this._rowOverlay = overlay;
     }
   };
