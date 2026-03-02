@@ -59,12 +59,21 @@
                 get: function() { return _texVal; },
                 set: function(v) {
                     if (v > _texFrameMax) _texFrameMax = v;
-                    if (_tracking && v > _texVal) {
-                        _traceBuffer.push({
-                            type: 'tex',
-                            from: _texVal, to: v,
-                            stack: new Error().stack.split('\n').slice(2, 7).join('\n')
-                        });
+                    if (_tracking) {
+                        if (v > _texVal) {
+                            _traceBuffer.push({
+                                type: 'tex',
+                                from: _texVal, to: v,
+                                stack: new Error().stack.split('\n').slice(2, 7).join('\n')
+                            });
+                        } else if (v < _texVal) {
+                            // dispose 이벤트도 추적 (어디서 dispose되는지 확인)
+                            _traceBuffer.push({
+                                type: 'tex-dispose',
+                                from: _texVal, to: v,
+                                stack: new Error().stack.split('\n').slice(2, 7).join('\n')
+                            });
+                        }
                         if (_traceBuffer.length > 5000) _traceBuffer.shift();
                     }
                     _texVal = v;
@@ -77,12 +86,20 @@
                 get: function() { return _geoVal; },
                 set: function(v) {
                     if (v > _geoFrameMax) _geoFrameMax = v;
-                    if (_tracking && v > _geoVal) {
-                        _traceBuffer.push({
-                            type: 'geo',
-                            from: _geoVal, to: v,
-                            stack: new Error().stack.split('\n').slice(2, 7).join('\n')
-                        });
+                    if (_tracking) {
+                        if (v > _geoVal) {
+                            _traceBuffer.push({
+                                type: 'geo',
+                                from: _geoVal, to: v,
+                                stack: new Error().stack.split('\n').slice(2, 7).join('\n')
+                            });
+                        } else if (v < _geoVal) {
+                            _traceBuffer.push({
+                                type: 'geo-dispose',
+                                from: _geoVal, to: v,
+                                stack: new Error().stack.split('\n').slice(2, 7).join('\n')
+                            });
+                        }
                         if (_traceBuffer.length > 5000) _traceBuffer.shift();
                     }
                     _geoVal = v;
@@ -191,6 +208,26 @@
                         console.log((e.count > 1 ? 'x' + e.count + ' ' : '') + e.from + '→' + e.to + '\n' + e.stack);
                     });
                     console.groupEnd();
+                }
+
+                // dispose 이벤트 출력 (추적 구간 중 실제 dispose 위치 확인)
+                var disposeEvts = _traceBuffer.filter(function(t) {
+                    return t.type === 'tex-dispose' || t.type === 'geo-dispose';
+                });
+                if (disposeEvts.length > 0) {
+                    var dedupe3 = {};
+                    disposeEvts.forEach(function(t) {
+                        var key = t.type + '|' + t.stack;
+                        if (!dedupe3[key]) dedupe3[key] = { count: 0, type: t.type, from: t.from, to: t.to, stack: t.stack };
+                        dedupe3[key].count++;
+                    });
+                    console.group('Dispose 이벤트 (' + disposeEvts.length + '건)');
+                    Object.values(dedupe3).forEach(function(e) {
+                        console.log('[' + e.type + '] ' + (e.count > 1 ? 'x' + e.count + ' ' : '') + e.from + '→' + e.to + '\n' + e.stack);
+                    });
+                    console.groupEnd();
+                } else {
+                    console.log('Dispose 이벤트 없음 (추적 구간 중 dispose 미발생!)');
                 }
 
                 if (rawTexDelta <= 0 && rawGeoDelta <= 0) {
