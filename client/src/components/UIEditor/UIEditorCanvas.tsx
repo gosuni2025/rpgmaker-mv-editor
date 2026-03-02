@@ -33,6 +33,8 @@ export default function UIEditorCanvas() {
   const loadUiEditorOverrides = useEditorStore((s) => s.loadUiEditorOverrides);
   const sceneRedirects = useEditorStore((s) => s.sceneRedirects);
   const setSceneRedirects = useEditorStore((s) => s.setSceneRedirects);
+  const uiEditorConfigLoaded = useEditorStore((s) => s.uiEditorConfigLoaded);
+  const setUiEditorConfigLoaded = useEditorStore((s) => s.setUiEditorConfigLoaded);
   const setUiEditorSelectedElementType = useEditorStore((s) => s.setUiEditorSelectedElementType);
   const pushUiOverrideUndo = useEditorStore((s) => s.pushUiOverrideUndo);
   const undoUiOverride = useEditorStore((s) => s.undoUiOverride);
@@ -45,6 +47,7 @@ export default function UIEditorCanvas() {
   const setCustomSceneSelectedWidget = useEditorStore((s) => s.setCustomSceneSelectedWidget);
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const saveCustomScenes = useEditorStore((s) => s.saveCustomScenes);
+  const loadCustomScenes = useEditorStore((s) => s.loadCustomScenes);
   const uiNavVisual = useEditorStore((s) => s.uiNavVisual);
 
   const [widgetDragState, setWidgetDragState] = useState<WidgetDragState | null>(null);
@@ -93,7 +96,12 @@ export default function UIEditorCanvas() {
   // 저장된 config 로드
   useEffect(() => {
     if (!projectPath) return;
-    if (Object.keys(useEditorStore.getState().uiEditorOverrides).length > 0) return;
+    setUiEditorConfigLoaded(false);
+    if (Object.keys(useEditorStore.getState().uiEditorOverrides).length > 0) {
+      // 이미 오버라이드가 로드된 상태 → config도 로드된 것으로 간주
+      setUiEditorConfigLoaded(true);
+      return;
+    }
     apiClient.get<{ overrides?: Record<string, UIWindowOverride>; sceneRedirects?: Record<string, string> }>('/ui-editor/config')
       .then((data) => {
         if (data.overrides && Object.keys(data.overrides).length > 0) {
@@ -102,9 +110,10 @@ export default function UIEditorCanvas() {
         if (data.sceneRedirects) {
           setSceneRedirects(data.sceneRedirects);
         }
+        setUiEditorConfigLoaded(true);
       })
-      .catch(() => {});
-  }, [projectPath, loadUiEditorOverrides, setSceneRedirects]);
+      .catch(() => { setUiEditorConfigLoaded(true); });
+  }, [projectPath, loadUiEditorOverrides, setSceneRedirects, setUiEditorConfigLoaded]);
 
   // postMessage 수신
   useEffect(() => {
@@ -144,6 +153,9 @@ export default function UIEditorCanvas() {
         setUiEditorWindows(e.data.windows ?? []);
       } else if (type === 'windowClicked') {
         setUiEditorSelectedWindowId(e.data.windowId ?? null);
+      } else if (type === 'sceneDefUpdated') {
+        // 엔진이 nativeDefault 위치를 서버에 저장했으므로 씬 재로드
+        useEditorStore.getState().loadCustomScenes();
       } else if (type === 'cmdSave') {
         const s = useEditorStore.getState();
         apiClient.put('/ui-editor/config', { overrides: s.uiEditorOverrides, sceneRedirects: s.sceneRedirects })
@@ -160,6 +172,7 @@ export default function UIEditorCanvas() {
   // iframe ready 후 씬 로드 (sceneRedirects 포함 — API 로드 후 redirect 후킹이 올바르게 복원되도록)
   useEffect(() => {
     if (!uiEditorIframeReady) return;
+    if (!uiEditorConfigLoaded) return; // config 로드 완료 전엔 씬 로드 대기
     const currentRedirect = sceneRedirects[uiEditorScene];
     const hasCustomRedirect = currentRedirect?.startsWith('Scene_CS_');
     // 커스텀 씬이거나, 현재 씬이 커스텀 씬으로 리다이렉트된 경우 reloadCustomScenes 먼저 전송
@@ -176,7 +189,7 @@ export default function UIEditorCanvas() {
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'loadScene', sceneName: uiEditorScene }, '*'
     );
-  }, [uiEditorIframeReady, uiEditorScene, sceneRedirects]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [uiEditorIframeReady, uiEditorScene, sceneRedirects, uiEditorConfigLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 스킨 데이터 변경(기본 스킨 변경 등) 시 씬 재로드
   const isFirstRender = useRef(true);

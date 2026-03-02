@@ -39,7 +39,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinGaugeFile' | 'uiSkinGaugeBgX' | 'uiSkinGaugeBgY' | 'uiSkinGaugeBgW' | 'uiSkinGaugeBgH' | 'uiSkinGaugeFillX' | 'uiSkinGaugeFillY' | 'uiSkinGaugeFillW' | 'uiSkinGaugeFillH' | 'uiSkinGaugeFillDir' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiOverrideUndoStack' | 'uiOverrideRedoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' | 'uiNavVisual' |
   'uiFontSelectedFamily' | 'uiFontDefaultFace' | 'uiFontList' | 'uiFontSceneFonts' |
   'uiEditorSelectedElementType' |
-  'customScenes' | 'customSceneDirty' | 'sceneRedirects' |
+  'customScenes' | 'customSceneDirty' | 'sceneRedirects' | 'uiEditorConfigLoaded' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
@@ -49,7 +49,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'pushUiOverrideUndo' | 'undoUiOverride' | 'redoUiOverride' |
   'customSceneSelectedWidget' | 'customScenesUndoStack' | 'customScenesRedoStack' |
   'loadCustomScenes' | 'saveCustomScenes' | 'addCustomScene' | 'removeCustomScene' | 'updateCustomScene' |
-  'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects' |
+  'addCustomWindow' | 'removeCustomWindow' | 'updateCustomWindow' | 'setSceneRedirects' | 'setUiEditorConfigLoaded' |
   'setCustomSceneSelectedWidget' | 'pushCustomSceneUndo' | 'undoCustomScene' | 'redoCustomScene' |
   'addWidget' | 'removeWidget' | 'updateWidget' | 'moveWidgetWithChildren' | 'reorderWidgetInTree' | 'updateNavigation' | 'updateSceneRoot' |
   'renameWidget' | 'duplicateWidget'
@@ -115,6 +115,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   customSceneDirty: false,
   customSceneSelectedWidget: null as string | null,
   sceneRedirects: {},
+  uiEditorConfigLoaded: false,
   customScenesUndoStack: [],
   customScenesRedoStack: [],
 
@@ -396,6 +397,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     });
   },
   setSceneRedirects: (redirects: Record<string, string>) => set({ sceneRedirects: redirects }),
+  setUiEditorConfigLoaded: (loaded: boolean) => set({ uiEditorConfigLoaded: loaded }),
 
   setCustomSceneSelectedWidget: (id: string | null) => set({ customSceneSelectedWidget: id }),
 
@@ -511,8 +513,16 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       const scene = state.customScenes.scenes[sceneId] as CustomSceneDefV2;
       if (!scene || !scene.root) return {};
 
+      const POSITION_KEYS = ['x', 'y', 'width', 'height'];
+      const touchesPos = POSITION_KEYS.some((k) => k in updates);
+
       function updateInTree(widget: WidgetDef): WidgetDef {
-        if (widget.id === widgetId) return { ...widget, ...updates } as WidgetDef;
+        if (widget.id === widgetId) {
+          const merged = { ...widget, ...updates } as WidgetDef & { nativeDefault?: boolean };
+          // 위치를 사용자가 직접 수정하면 nativeDefault 제거
+          if (touchesPos) delete merged.nativeDefault;
+          return merged as WidgetDef;
+        }
         if (!widget.children?.length) return widget;
         return { ...widget, children: widget.children.map(updateInTree) };
       }
@@ -539,7 +549,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       }
 
       function moveInTree(widget: WidgetDef): WidgetDef {
-        if (widget.id === widgetId) return applyDelta(widget, x - widget.x, y - widget.y);
+        if (widget.id === widgetId) {
+          const moved = applyDelta(widget, x - widget.x, y - widget.y) as WidgetDef & { nativeDefault?: boolean };
+          delete moved.nativeDefault;
+          return moved as WidgetDef;
+        }
         if (!widget.children?.length) return widget;
         return { ...widget, children: widget.children.map(moveInTree) };
       }

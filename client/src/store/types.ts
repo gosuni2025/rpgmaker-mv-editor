@@ -103,6 +103,7 @@ export interface EditorState {
   customSceneDirty: boolean;
   customSceneSelectedWidget: string | null;
   sceneRedirects: Record<string, string>; // 씬 이름 → 대체할 커스텀 씬 이름
+  uiEditorConfigLoaded: boolean; // UIEditorConfig.json 로드 완료 여부
   customScenesUndoStack: CustomScenesData[];
   customScenesRedoStack: CustomScenesData[];
 
@@ -300,6 +301,7 @@ export interface EditorState {
   removeCustomWindow: (sceneId: string, winId: string) => void;
   updateCustomWindow: (sceneId: string, winId: string, updates: Partial<CustomWindowDef>) => void;
   setSceneRedirects: (redirects: Record<string, string>) => void;
+  setUiEditorConfigLoaded: (loaded: boolean) => void;
   setCustomSceneSelectedWidget: (id: string | null) => void;
   pushCustomSceneUndo: () => void;
   undoCustomScene: () => void;

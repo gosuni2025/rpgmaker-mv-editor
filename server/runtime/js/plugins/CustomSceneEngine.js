@@ -3904,6 +3904,50 @@
   //   battle.json에 widgetId가 정의되어 있으면 → 원본 창을 화면 밖으로, 위젯으로 위임
   //   정의되어 있지 않으면 → 원본 창 그대로 표시
   //===========================================================================
+
+  /** 위젯 트리에서 id로 위젯 def를 재귀 탐색 */
+  function _findWidgetDefById(root, id) {
+    if (!root) return null;
+    if (root.id === id) return root;
+    var children = root.children || [];
+    for (var i = 0; i < children.length; i++) {
+      var found = _findWidgetDefById(children[i], id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  /** 위젯 display object에 pos(x/y/width/height) 적용 */
+  function _applyPosToWidget(widget, pos) {
+    var dobj = widget.displayObject ? widget.displayObject() : null;
+    if (!dobj) return;
+    if (typeof dobj.move === 'function') {
+      dobj.move(pos.x, pos.y, pos.width, pos.height);
+    } else {
+      dobj.x = pos.x;
+      dobj.y = pos.y;
+    }
+    widget._x = pos.x;
+    widget._y = pos.y;
+    widget._width = pos.width;
+    widget._height = pos.height;
+  }
+
+  /** 씬 def를 에디터 API에 비동기 PUT 저장하고, 완료 시 callback 호출 */
+  function _saveSceneDef(sceneDef, callback) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('PUT', '/api/ui-editor/scenes/' + sceneDef.id, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      if (callback) {
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) callback();
+        };
+      }
+      xhr.send(JSON.stringify(sceneDef));
+    } catch (e) { /* 비에디터 환경에선 무시 */ }
+  }
+
   // widgetId(battle.json) → Scene 멤버 변수명 매핑
   var BATTLE_WIN_PROXY_MAP = [
     { widgetId: 'logWindow',    winProp: '_logWindow'    },
@@ -4020,7 +4064,19 @@
       }
       origCreateAllWindows.call(this);
 
-      // 프록시 설치: 위젯 정의된 창 → 원본 숨김 + 위젯으로 위임
+      // 1. 원본 창 위치 캡처 (proxy 설치 전 — proxy가 win.x를 -9999로 이동시키므로 반드시 먼저 캡처)
+      var nativePositions = {};
+      for (var pi = 0; pi < BATTLE_WIN_PROXY_MAP.length; pi++) {
+        var pentry = BATTLE_WIN_PROXY_MAP[pi];
+        var pwin = this[pentry.winProp];
+        if (pwin) {
+          nativePositions[pentry.widgetId] = {
+            x: pwin.x, y: pwin.y, width: pwin.width, height: pwin.height
+          };
+        }
+      }
+
+      // 2. 프록시 설치: 위젯 정의된 창 → 원본 숨김 + 위젯으로 위임
       var wmap = this._widgetMap || {};
       for (var i = 0; i < BATTLE_WIN_PROXY_MAP.length; i++) {
         var entry = BATTLE_WIN_PROXY_MAP[i];
@@ -4029,7 +4085,33 @@
         installBattleWindowProxy(win, widget, entry.widgetId);
       }
 
-      // 초기 숨김 위젯 처리 (skillWindow, itemWindow, actorWindow, enemyWindow)
+      // 3. nativeDefault 위젯: 원본 위치를 위젯에 적용하고 JSON에 저장
+      if (sceneDef && sceneDef.root) {
+        var needsSave = false;
+        for (var widgetId in nativePositions) {
+          var widgetDef = _findWidgetDefById(sceneDef.root, widgetId);
+          if (widgetDef && widgetDef.nativeDefault) {
+            var pos = nativePositions[widgetId];
+            widgetDef.x = pos.x;
+            widgetDef.y = pos.y;
+            widgetDef.width = pos.width;
+            widgetDef.height = pos.height;
+            var nwgt = wmap[widgetId];
+            if (nwgt) _applyPosToWidget(nwgt, pos);
+            needsSave = true;
+          }
+        }
+        if (needsSave) {
+          _saveSceneDef(sceneDef, function() {
+            // 에디터에 씬 정의 변경 알림 (nativeDefault 위치가 저장됨)
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'sceneDefUpdated', sceneId: sceneDef.id }, '*');
+            }
+          });
+        }
+      }
+
+      // 4. 초기 숨김 위젯 처리 (skillWindow, itemWindow, actorWindow, enemyWindow)
       var _hiddenAtStart = ['skillWindow', 'itemWindow', 'actorWindow', 'enemyWindow'];
       for (var hi = 0; hi < _hiddenAtStart.length; hi++) {
         var hw = wmap[_hiddenAtStart[hi]];

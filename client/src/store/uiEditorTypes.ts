@@ -204,6 +204,8 @@ export interface WidgetDefBase {
   width: number;
   height?: number;
   visible?: boolean;
+  /** true: 게임 엔진이 원본 MV 창의 위치를 읽어 JSON에 저장. 사용자가 에디터에서 이동하면 제거됨. */
+  nativeDefault?: boolean;
   /** false로 설정하면 preview에서 클릭 선택 불가 (로직 위젯 등) */
   previewSelectable?: boolean;
   /** 포커스 가능 여부. button/list/textList/options는 기본 true, 나머지는 기본 false */
