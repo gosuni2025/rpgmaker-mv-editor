@@ -4085,6 +4085,11 @@
         installBattleWindowProxy(win, widget, entry.widgetId);
       }
 
+      // Window_BattleMessage(메시지 창)은 커스텀 씬이 UI 전체를 대체하므로 화면 밖으로 이동
+      if (this._messageWindow) {
+        this._messageWindow.x = -9999;
+      }
+
       // 3. nativeDefault 위젯: 원본 위치를 위젯에 적용하고 JSON에 저장
       if (sceneDef && sceneDef.root) {
         var needsSave = false;
