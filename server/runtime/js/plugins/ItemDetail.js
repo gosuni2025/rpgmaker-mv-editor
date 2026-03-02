@@ -432,10 +432,20 @@
 
     // 팝업 창들 생성 (모두 addChild로 window layer 위에)
     Scene_Item.prototype.createDetailWindow = function () {
-        var pw = Math.floor(Graphics.boxWidth  * 0.70);
-        var ph = Math.floor(Graphics.boxHeight * 0.68);
-        var px = Math.floor((Graphics.boxWidth  - pw) / 2);
-        var py = Math.floor((Graphics.boxHeight - ph) / 2);
+        var bw = Graphics.boxWidth, bh = Graphics.boxHeight;
+
+        // 어두운 반투명 오버레이
+        var ovBmp = new Bitmap(bw, bh);
+        ovBmp.fillAll('#000000');
+        this._detailOverlay = new Sprite(ovBmp);
+        this._detailOverlay.opacity = 200;
+        this._detailOverlay.visible = false;
+        this.addChild(this._detailOverlay);
+
+        var pw = Math.floor(bw * 0.92);
+        var ph = Math.floor(bh * 0.90);
+        var px = Math.floor((bw - pw) / 2);
+        var py = Math.floor((bh - ph) / 2);
         this._detailWindow = new Window_ItemDetail(px, py, pw, ph);
         this.addChild(this._detailWindow);
 
@@ -470,12 +480,15 @@
         var fs = this._itemDetailFullscreen;
         var dw = this._detailWindow;
         var aw = this._itemActionWindow;
+        var popupOpen = (fs && fs.isOpen()) || (dw && dw.visible);
+
+        // 오버레이 동기화
+        if (this._detailOverlay) this._detailOverlay.visible = !!popupOpen;
 
         // 전체화면 (DOM 오버레이 닫기 요청 체크)
         if (fs && fs.isOpen()) {
             if (fs._closeRequested) { fs.close(); }
             Input.clear(); TouchInput.clear();
-            _Scene_Item_update.call(this);
             return;
         }
 
@@ -494,7 +507,6 @@
                 this._itemWindow.activate();
             }
             Input.clear(); TouchInput.clear();
-            _Scene_Item_update.call(this);
             return;
         }
 
@@ -525,7 +537,6 @@
                 this._itemWindow.activate();
             }
             Input.clear(); TouchInput.clear();
-            _Scene_Item_update.call(this);
             return;
         }
 
@@ -548,10 +559,19 @@
         Scene_CustomUI.prototype.create = function () {
             _CustomUI_create.call(this);
             if (this._sceneId === 'item') {
-                var pw = Math.floor(Graphics.boxWidth  * 0.70);
-                var ph = Math.floor(Graphics.boxHeight * 0.68);
-                var px = Math.floor((Graphics.boxWidth  - pw) / 2);
-                var py = Math.floor((Graphics.boxHeight - ph) / 2);
+                var bw = Graphics.boxWidth, bh = Graphics.boxHeight;
+
+                var ovBmp = new Bitmap(bw, bh);
+                ovBmp.fillAll('#000000');
+                this._detailOverlay = new Sprite(ovBmp);
+                this._detailOverlay.opacity = 200;
+                this._detailOverlay.visible = false;
+                this.addChild(this._detailOverlay);
+
+                var pw = Math.floor(bw * 0.92);
+                var ph = Math.floor(bh * 0.90);
+                var px = Math.floor((bw - pw) / 2);
+                var py = Math.floor((bh - ph) / 2);
                 this._itemDetailWindow = new Window_ItemDetail(px, py, pw, ph);
                 this.addChild(this._itemDetailWindow);
 
@@ -573,12 +593,15 @@
             var fs = this._itemDetailFullscreen;
             var dw = this._itemDetailWindow;
             var aw = this._itemActionWindow;
+            var popupOpen = (fs && fs.isOpen()) || (dw && dw.visible);
+
+            // 오버레이 동기화
+            if (this._detailOverlay) this._detailOverlay.visible = !!popupOpen;
 
             // 전체화면 상태
             if (fs && fs.isOpen()) {
                 if (fs._closeRequested) { fs.close(); }
                 Input.clear(); TouchInput.clear();
-                Scene_Base.prototype.update.call(this);
                 return;
             }
 
@@ -599,7 +622,6 @@
                     if (ilW2 && ilW2.activate) ilW2.activate();
                 }
                 Input.clear(); TouchInput.clear();
-                Scene_Base.prototype.update.call(this);
                 return;
             }
 
@@ -636,7 +658,6 @@
                     if (ilW && ilW.activate) ilW.activate();
                 }
                 Input.clear(); TouchInput.clear();
-                Scene_Base.prototype.update.call(this);
                 return;
             }
 
