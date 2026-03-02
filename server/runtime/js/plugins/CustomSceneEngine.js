@@ -2601,6 +2601,7 @@
       if (this._rowWidgets[di]) this._rowWidgets[di].destroy();
     }
     this._rowWidgets = [];
+    this._slotRoots = [];  // focusable 행 루트 버튼 목록 (slot navigation용)
     // 오버레이의 기존 자식 제거
     while (this._rowOverlay.children.length > 0) {
       this._rowOverlay.removeChildAt(0);
@@ -2619,8 +2620,9 @@
         if (Object.prototype.hasOwnProperty.call(rowData, k)) instanceCtx[k] = rowData[k];
       }
 
-      // 행 씬 루트 def 복제 후 width/height 동적 설정
+      // 행 씬 루트 def 복제 후 width/height 동적 설정 (id는 슬롯별 고유 값으로)
       var rootDef = JSON.parse(JSON.stringify(subSceneDef.root));
+      rootDef.id = subSceneDef.root.id + '_' + i;
       rootDef.x = 0;
       rootDef.y = 0;
       rootDef.width = itemW;
@@ -2665,9 +2667,9 @@
           if (dobj && !(dobj instanceof Window_Base)) {
             rowContainer.addChild(dobj);
           }
-          // itemScene 루트에 button이 있으면 action 핸들러 wiring
-          // (_setupWidgetHandlers는 Scene_CustomUI.create에서만 호출되므로 여기서 보완)
           if (scene._setupWidgetHandlers) scene._setupWidgetHandlers(built);
+          // focusable Widget_Button 루트는 slot navigation 대상으로 등록
+          if (built instanceof Widget_Button && built._focusable) self._slotRoots.push(built);
         }
       });
 
@@ -2680,6 +2682,46 @@
 
       this._rowOverlay.addChild(rowContainer);
       this._rowWidgets.push(rowWidget);
+    }
+    // 행 빌드 완료 후 네비게이션 링크 및 터치 위치 설정
+    this._setupSlotNavigation();
+  };
+
+  /**
+   * itemScene 모드: 슬롯 버튼 간 navLeft/navRight 링크, 터치 감지용 window 위치, onFocus 동기화 설정.
+   * _slotRoots 배열이 채워진 후(_rebuildRows 끝)에 호출됨.
+   */
+  Widget_TextList.prototype._setupSlotNavigation = function() {
+    var slots = this._slotRoots || [];
+    var scene = SceneManager._scene;
+    for (var i = 0; i < slots.length; i++) {
+      var btn = slots[i];
+      if (!btn) continue;
+      var rw = this._rowWidgets[i];
+      // 터치 감지 위치: window는 scene tree에 없으므로 실제 화면 좌표로 이동
+      if (btn._window && rw && rw._container) {
+        btn._window.move(
+          (this._rowOverlay ? this._rowOverlay.x : 0) + rw._container.x,
+          (this._rowOverlay ? this._rowOverlay.y : 0) + rw._container.y,
+          btn._window.width, btn._window.height
+        );
+      }
+      // 양방향 navLeft/navRight 링크 (슬롯이 2개 이상일 때만)
+      if (slots.length >= 2 && btn._def) {
+        btn._def.navLeft  = slots[(i - 1 + slots.length) % slots.length]._id;
+        btn._def.navRight = slots[(i + 1) % slots.length]._id;
+      }
+      // onFocus: actorWindow 인디케이터 커서를 이 슬롯 인덱스에 동기화
+      if (scene && scene._widgetMap) {
+        (function(b, idx) {
+          b._scripts = b._scripts || {};
+          b._scripts.onFocus = function() {
+            var sc = SceneManager._scene;
+            var aw = sc && sc._widgetMap && sc._widgetMap['actorWindow'];
+            if (aw && aw._window) aw._window.select(idx);
+          };
+        })(btn, i);
+      }
     }
   };
 
@@ -2697,6 +2739,15 @@
       // enabled 상태도 반영
       var rowData = commands[i] || {};
       rw._container.opacity = (rowData.enabled === false) ? 160 : 255;
+      // focusable 슬롯 버튼: 터치 감지용 window 위치를 화면 좌표로 갱신
+      var built = rw._subRoot;
+      if (built && built instanceof Widget_Button && built._focusable && built._window) {
+        built._window.move(
+          (this._rowOverlay ? this._rowOverlay.x : 0) + rect.x,
+          (this._rowOverlay ? this._rowOverlay.y : 0) + rect.y,
+          built._window.width, built._window.height
+        );
+      }
     }
   };
   Widget_TextList.prototype.collectFocusable = function(out) {
@@ -2886,6 +2937,39 @@
   // DELEGATE 호환: select/deselect 를 _window에 위임
   Widget_List.prototype.select   = function(i) { if (this._window) this._window.select(i); };
   Widget_List.prototype.deselect = function()  { if (this._window) this._window.deselect(); };
+
+  /**
+   * 슬롯 버튼 네비게이션 활성화: _slotRoots를 navManager의 임시 focusables로 교체.
+   * idx 슬롯 버튼을 포커스하고 navLeft/navRight로 인접 슬롯 이동이 가능해짐.
+   */
+  Widget_List.prototype.activateSlot = function(idx) {
+    var slots = this._slotRoots || [];
+    if (!slots.length) return;
+    var navMgr = SceneManager._scene && SceneManager._scene._navManager;
+    if (!navMgr) return;
+    // 현재 focusables 저장 후 슬롯 버튼으로 교체
+    this._savedSlotFocusables   = navMgr._focusables.slice();
+    this._savedSlotActiveIndex  = navMgr._activeIndex;
+    if (navMgr._activeIndex >= 0 && navMgr._focusables[navMgr._activeIndex]) {
+      navMgr._focusables[navMgr._activeIndex].deactivate();
+    }
+    navMgr._focusables  = slots.slice();
+    navMgr._activeIndex = -1;
+    navMgr._activateAt(Math.min(Math.max(idx || 0, 0), slots.length - 1));
+  };
+
+  /** 슬롯 버튼 네비게이션 비활성화: navManager focusables를 원래 목록으로 복원. */
+  Widget_List.prototype.deactivateSlots = function() {
+    var navMgr = SceneManager._scene && SceneManager._scene._navManager;
+    if (!navMgr) return;
+    navMgr.clearFocus();
+    if (this._savedSlotFocusables !== undefined) {
+      navMgr._focusables  = this._savedSlotFocusables || [];
+      navMgr._activeIndex = this._savedSlotActiveIndex !== undefined ? this._savedSlotActiveIndex : -1;
+      this._savedSlotFocusables  = undefined;
+      this._savedSlotActiveIndex = undefined;
+    }
+  };
 
   window.Widget_List = Widget_List;
 
@@ -4396,6 +4480,9 @@
     };
 
     Klass.prototype.onActorCancel = function() {
+      // 슬롯 네비게이션 비활성화
+      var statusWidget = this._widgetMap && this._widgetMap['statusWindow'];
+      if (statusWidget && statusWidget.deactivateSlots) statusWidget.deactivateSlots();
       // hide 대신 deactivate만 — 인디케이터 커서는 계속 보이도록 유지
       var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
       if (actorWidget && actorWidget.deactivate) actorWidget.deactivate();
@@ -4403,6 +4490,44 @@
       if (last === 'skill') { this._skillWindow.show(); this._skillWindow.activate(); }
       else if (last === 'item') { this._itemWindow.show(); this._itemWindow.activate(); }
       else { this._actorCommandWindow.activate(); }
+    };
+
+    var origOAO = SCB.onActorOk || function() {};
+    Klass.prototype.onActorOk = function() {
+      // 슬롯 네비게이션 비활성화 (액터 선택 완료)
+      var statusWidget = this._widgetMap && this._widgetMap['statusWindow'];
+      if (statusWidget && statusWidget.deactivateSlots) statusWidget.deactivateSlots();
+      origOAO.call(this);
+    };
+
+    // selectActorSelection: 슬롯 버튼 focusable 네비게이션으로 입력 처리
+    var origSAS = SCB.selectActorSelection || function() {};
+    Klass.prototype.selectActorSelection = function() {
+      origSAS.call(this);
+      // actorWindow cursorOnly 비활성화 (입력은 슬롯 버튼이 담당)
+      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      if (actorWidget && actorWidget._window) actorWidget._window.deactivate();
+      // statusWindow 슬롯 버튼 네비게이션 활성화
+      var statusWidget = this._widgetMap && this._widgetMap['statusWindow'];
+      if (statusWidget && statusWidget.activateSlot) {
+        var actor = BattleManager.actor();
+        if (actor) {
+          statusWidget.activateSlot(actor.index());
+          // 슬롯 버튼에 취소 핸들러 등록 (cancel → onActorCancel 경유)
+          var self = this;
+          var slots = statusWidget._slotRoots || [];
+          for (var si = 0; si < slots.length; si++) {
+            if (slots[si] && slots[si]._window) {
+              (function(win) {
+                win.setHandler('cancel', function() {
+                  var aw = self._actorWindow;
+                  if (aw && aw.callHandler) aw.callHandler('cancel');
+                });
+              })(slots[si]._window);
+            }
+          }
+        }
+      }
     };
 
     // startPartyCommandSelection: 파티 커맨드 단계 → actorWindow 인디케이터 숨김
@@ -4460,11 +4585,21 @@
           this._ctx.battleLog = this._logWindow._lines.join('\n');
         }
       }
+      if (this._navManager) this._navManager.update();
       if (this._widgetMap) {
         for (var id in this._widgetMap) {
           if (this._widgetMap[id].update) this._widgetMap[id].update();
         }
       }
+    };
+
+    // terminate: navManager keydown 리스너 정리 및 위젯 트리 해제
+    var origTerminate = Klass.prototype.terminate;
+    Klass.prototype.terminate = function() {
+      if (this._navManager && this._navManager.dispose) this._navManager.dispose();
+      if (this._rootWidget) { this._rootWidget.destroy(); this._rootWidget = null; }
+      this._widgetMap = {};
+      origTerminate.call(this);
     };
   }
 
