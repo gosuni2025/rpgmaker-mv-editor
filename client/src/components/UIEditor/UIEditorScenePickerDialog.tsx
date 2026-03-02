@@ -22,6 +22,7 @@ interface Props {
   sceneRedirects?: Record<string, string>;
   onSelect: (scene: string) => void;
   onClose: () => void;
+  initialTopTab?: TopTab;
 }
 
 const SUB_TAB_DEFS: { id: SubTab; label: string }[] = [
@@ -39,6 +40,7 @@ export default function UIEditorScenePickerDialog({
   sceneRedirects,
   onSelect,
   onClose,
+  initialTopTab,
 }: Props) {
   const [search, setSearch] = useState('');
   const [focused, setFocused] = useState(currentScene);
@@ -58,7 +60,7 @@ export default function UIEditorScenePickerDialog({
 
   // 초기 상위/하위 탭: currentScene에서 직접 계산 (allScenes 의존 없이)
   const [topTab, setTopTab] = useState<TopTab>(() =>
-    currentScene.startsWith('Scene_CS_') ? 'custom' : 'original'
+    initialTopTab ?? (currentScene.startsWith('Scene_CS_') ? 'custom' : 'original')
   );
   const [subTab, setSubTab] = useState<SubTab>(() => {
     if (!currentScene.startsWith('Scene_CS_')) return 'clone';

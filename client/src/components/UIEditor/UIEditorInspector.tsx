@@ -4,8 +4,25 @@ import { WindowInspector } from './UIEditorWindowInspector';
 import { ElementInspector } from './UIEditorElementInspector';
 import { useFontEditorData } from './UIEditorFontEditor';
 import { WidgetInspector } from './UIEditorCustomScenePanel';
+import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
 import type { WidgetDef, CustomSceneDefV2 } from '../../store/uiEditorTypes';
 import './UIEditor.css';
+
+const AVAILABLE_SCENES = [
+  { value: 'Scene_Title', label: '타이틀 (Scene_Title)' },
+  { value: 'Scene_Map', label: '맵 (Scene_Map)' },
+  { value: 'Scene_Battle', label: '배틀 (Scene_Battle)' },
+  { value: 'Scene_Menu', label: '메뉴 (Scene_Menu)' },
+  { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
+  { value: 'Scene_Status', label: '스테이터스 (Scene_Status)' },
+  { value: 'Scene_Item', label: '아이템 (Scene_Item)' },
+  { value: 'Scene_Skill', label: '스킬 (Scene_Skill)' },
+  { value: 'Scene_Equip', label: '장비 (Scene_Equip)' },
+  { value: 'Scene_Save', label: '저장 (Scene_Save)' },
+  { value: 'Scene_Load', label: '불러오기 (Scene_Load)' },
+  { value: 'Scene_GameEnd', label: '게임 종료 (Scene_GameEnd)' },
+  { value: 'Scene_Shop', label: '상점 (Scene_Shop)' },
+];
 
 const ALL_FONTS = [
   { family: '', label: '(미설정 — 기본 폰트 사용)' },
@@ -25,6 +42,7 @@ function SceneRedirectSection({ scene }: { scene: string }) {
   const customScenes = useEditorStore((s) => s.customScenes);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
+  const [showPicker, setShowPicker] = useState(false);
 
   const currentRedirect = sceneRedirects[scene] ?? '';
   const customSceneList = Object.values(customScenes.scenes);
@@ -48,64 +66,84 @@ function SceneRedirectSection({ scene }: { scene: string }) {
     iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: scene }, '*');
   };
 
+  const currentRedirectLabel = (() => {
+    if (!currentRedirect) return '';
+    const csId = currentRedirect.replace('Scene_CS_', '');
+    const cs = customScenes.scenes[csId];
+    return cs ? `${cs.displayName} (${currentRedirect})` : currentRedirect;
+  })();
+
+  const customSceneEntries = customSceneList.map((s) => ({ id: s.id, displayName: s.displayName, category: s.category }));
+
   return (
-    <div className="ui-inspector-section">
-      <div className="ui-inspector-section-title">씬 교체</div>
-      <div style={{ padding: '4px 12px 8px' }}>
-        <label className="ui-radio-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <input
-            type="radio"
-            name={`redirect-${scene}`}
-            checked={!currentRedirect}
-            onChange={() => handleChange('')}
-          />
-          인 게임 기본 씬 사용
-        </label>
-        <label className="ui-radio-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, opacity: customSceneList.length === 0 ? 0.5 : 1 }}>
-          <input
-            type="radio"
-            name={`redirect-${scene}`}
-            checked={!!currentRedirect}
-            disabled={customSceneList.length === 0}
-            onChange={() => customSceneList.length > 0 && handleChange(`Scene_CS_${customSceneList[0].id}`)}
-          />
-          커스텀 씬으로 교체
-        </label>
-        {currentRedirect && (
-          <select
-            style={{ width: '100%', background: '#3c3c3c', border: '1px solid #555', color: '#ddd', padding: '4px 6px', borderRadius: 2, fontSize: 12, marginTop: 2 }}
-            value={currentRedirect}
-            onChange={(e) => handleChange(e.target.value)}
-          >
-            {customSceneList.map((s) => (
-              <option key={s.id} value={`Scene_CS_${s.id}`}>
-                {s.displayName} (Scene_CS_{s.id})
-              </option>
-            ))}
-          </select>
-        )}
-        {customSceneList.length === 0 && (
-          <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-            커스텀 씬이 없습니다. 사이드바에서 새 씬을 만드세요.
-          </div>
-        )}
-        {currentRedirect && (
-          <div style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
-            게임에서 <strong style={{ color: '#ddd' }}>{scene}</strong>을 열면<br />
-            <strong style={{ color: '#2675bf' }}>{currentRedirect}</strong>으로 대체됩니다.
-          </div>
-        )}
-        {currentRedirect && (
-          <button
-            className="ui-canvas-toolbar-btn"
-            style={{ width: '100%', marginTop: 6 }}
-            onClick={() => setUiEditorScene(currentRedirect)}
-          >
-            설정된 커스텀 씬 열기 →
-          </button>
-        )}
+    <>
+      <div className="ui-inspector-section">
+        <div className="ui-inspector-section-title">씬 교체</div>
+        <div style={{ padding: '4px 12px 8px' }}>
+          <label className="ui-radio-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <input
+              type="radio"
+              name={`redirect-${scene}`}
+              checked={!currentRedirect}
+              onChange={() => handleChange('')}
+            />
+            인 게임 기본 씬 사용
+          </label>
+          <label className="ui-radio-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, opacity: customSceneList.length === 0 ? 0.5 : 1 }}>
+            <input
+              type="radio"
+              name={`redirect-${scene}`}
+              checked={!!currentRedirect}
+              disabled={customSceneList.length === 0}
+              onChange={() => customSceneList.length > 0 && setShowPicker(true)}
+            />
+            커스텀 씬으로 교체
+          </label>
+          {currentRedirect && (
+            <button
+              className="ui-editor-scene-select-btn"
+              style={{ width: '100%', marginBottom: 4 }}
+              onClick={() => setShowPicker(true)}
+            >
+              <span className="ui-editor-scene-select-label">{currentRedirectLabel}</span>
+              <span className="ui-editor-scene-select-arrow">▾</span>
+            </button>
+          )}
+          {customSceneList.length === 0 && (
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              커스텀 씬이 없습니다. 사이드바에서 새 씬을 만드세요.
+            </div>
+          )}
+          {currentRedirect && (
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+              게임에서 <strong style={{ color: '#ddd' }}>{scene}</strong>을 열면<br />
+              <strong style={{ color: '#2675bf' }}>{currentRedirect}</strong>으로 대체됩니다.
+            </div>
+          )}
+          {currentRedirect && (
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ width: '100%', marginTop: 6 }}
+              onClick={() => setUiEditorScene(currentRedirect)}
+            >
+              설정된 커스텀 씬 열기 →
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      {showPicker && (
+        <UIEditorScenePickerDialog
+          currentScene={currentRedirect || ''}
+          availableScenes={AVAILABLE_SCENES}
+          customScenes={customSceneEntries}
+          sceneRedirects={sceneRedirects}
+          initialTopTab="custom"
+          onSelect={(selected) => { if (selected.startsWith('Scene_CS_')) handleChange(selected); }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+    </>
   );
 }
 
