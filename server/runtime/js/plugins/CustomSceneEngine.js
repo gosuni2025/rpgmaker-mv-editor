@@ -2399,14 +2399,18 @@
     if (this._transition !== 'system') {
       this._updateTransitionState();
     }
-    // 비-focusable 버튼 자체 터치 처리 (Window_ButtonRow.processTouch는 active 요구)
-    if (!this._focusable && this._window && this._window.isOpen() && this._window.visible) {
+    // 버튼 터치 처리 — focusable: 포커스 이동 후 ok 실행 / non-focusable: 바로 ok 실행
+    if (this._window && this._window.isOpen() && this._window.visible) {
       if (TouchInput.isTriggered()) {
         var tx = TouchInput.x, ty = TouchInput.y;
         var wx = this._window.x, wy = this._window.y;
         var ww = this._window.width, wh = this._window.height;
         if (tx >= wx && tx < wx + ww && ty >= wy && ty < wy + wh) {
           this._btnTouching = true;
+          if (this._focusable) {
+            var navMgr = SceneManager._scene && SceneManager._scene._navManager;
+            if (navMgr) navMgr.focusWidget(this._id);
+          }
         }
       }
       if (this._btnTouching) {
