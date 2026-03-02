@@ -1411,18 +1411,14 @@
         var _dch = this._children[_di];
         var _dobj = _dch && _dch.displayObject && _dch.displayObject();
         if (!_dobj) continue;
-        if (_dch._baseDimAlpha === undefined) _dch._baseDimAlpha = _dobj.alpha !== undefined ? _dobj.alpha : 1;
-        var _before = _dobj.alpha;
-        _dobj.alpha = _dch._baseDimAlpha * dimAlpha;
-        // _threeObj: Three.js 메시, _material: 재질 직접 접근
-        var _tobj = _dobj._threeObj;
-        var _mat  = _dobj._material || (_tobj && _tobj.material);
-        console.log('[DIM2] child=' + _dch._id +
-          ' alpha: ' + _before + ' → ' + _dobj.alpha +
-          ' | _threeObj=' + (_tobj ? _tobj.type || 'YES' : 'NO') +
-          ' | _material=' + (_mat ? 'YES opacity=' + _mat.opacity : 'NO') +
-          ' | worldAlpha=' + (_dobj.worldAlpha !== undefined ? _dobj.worldAlpha : '?') +
-          ' | syncTransform=' + (typeof _dobj.syncTransform));
+        if (typeof _dobj.syncTransform === 'function') {
+          // ThreeSprite: _forcedOpacity로 worldAlpha cascade 우회하여 직접 opacity 제어
+          _dobj._forcedOpacity = (dimAlpha < 1.0) ? dimAlpha : undefined;
+        } else {
+          // PIXI Sprite
+          if (_dch._baseDimAlpha === undefined) _dch._baseDimAlpha = _dobj.alpha || 1;
+          _dobj.alpha = _dch._baseDimAlpha * dimAlpha;
+        }
       }
     }
   };

@@ -464,7 +464,8 @@ ThreeSprite.prototype.syncTransform = function() {
     }
 
     // Alpha: update material opacity
-    this._material.opacity = this.worldAlpha;
+    // _forcedOpacity: Widget_Panel dim 등 외부에서 강제 설정 시 worldAlpha cascade 무시
+    this._material.opacity = (this._forcedOpacity !== undefined) ? this._forcedOpacity : this.worldAlpha;
     if (!this._material.transparent) {
         this._material.transparent = true;
         this._material.needsUpdate = true;  // 첫 프레임: opaque → transparent 쉐이더 재컴파일
