@@ -2023,11 +2023,19 @@ Spriteset_Map.prototype.update = function() {
 // Scene_Map 종료 시 광원을 명시적으로 제거 (메뉴/전투 씬에서 광원 잔류 방지)
 var _Scene_Map_terminate_shadowLight = Scene_Map.prototype.terminate;
 Scene_Map.prototype.terminate = function() {
+    // 원본 terminate를 먼저 실행한다.
+    // 원본 내부에서 _spriteset.update()가 호출되며, 이 update() 안에서
+    // _updateShadowLight()가 ShadowLight를 재활성화하거나
+    // _updateObjectShader()가 _applyObjectShaderPasses를 재실행하여 RT를 다시 생성할 수 있다.
+    // dispose를 먼저 하면 이 재생성된 RT들이 누수되므로, 원본 실행 이후에 dispose해야 한다.
+    _Scene_Map_terminate_shadowLight.call(this);
+
+    // 원본 terminate(update 포함) 이후: 조명 비활성화 및 GPU 리소스 해제
     if (ShadowLight._active && this._spriteset) {
         this._spriteset._deactivateShadowLight();
         ShadowLight._active = false;
     }
-    // shadow mesh PlaneGeometry GPU 누수 수정: terminate 시 geometry dispose
+    // shadow mesh PlaneGeometry GPU 누수 수정
     // (shadow mesh는 PIXI 자식 계층이 아니므로 Spriteset_Map.destroy()에서 해제되지 않음)
     if (this._spriteset && this._spriteset._shadowMeshes) {
         var shadowMeshes = this._spriteset._shadowMeshes;
@@ -2036,7 +2044,7 @@ Scene_Map.prototype.terminate = function() {
         }
         this._spriteset._shadowMeshes = null;
     }
-    // object shader RT GPU 누수 수정: terminate 시 각 오브젝트 스프라이트의 RT dispose
+    // object shader RT GPU 누수 수정
     if (this._spriteset && this._spriteset._objectSprites) {
         var objectSprites = this._spriteset._objectSprites;
         for (var oi = 0; oi < objectSprites.length; oi++) {
@@ -2054,7 +2062,6 @@ Scene_Map.prototype.terminate = function() {
         this._spriteset._objRTScene = null;
         this._spriteset._objRTCamera = null;
     }
-    _Scene_Map_terminate_shadowLight.call(this);
 };
 
 Spriteset_Map.prototype._updateShadowLight = function() {
