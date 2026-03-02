@@ -4071,9 +4071,54 @@
   window.Scene_CustomUI = Scene_CustomUI;
 
   //===========================================================================
+  // BattleWindowProxy — 배틀 원본 창 ↔ 커스텀 위젯 스위칭
+  //   battle.json에 widgetId가 정의되어 있으면 → 원본 창을 화면 밖으로, 위젯으로 위임
+  //   정의되어 있지 않으면 → 원본 창 그대로 표시
+  //===========================================================================
+  // widgetId(battle.json) → Scene 멤버 변수명 매핑
+  var BATTLE_WIN_PROXY_MAP = [
+    { widgetId: 'logWindow',    winProp: '_logWindow'    },
+    { widgetId: 'statusWindow', winProp: '_statusWindow' },
+    { widgetId: 'helpWindow',   winProp: '_helpWindow'   },
+    { widgetId: 'skillWindow',  winProp: '_skillWindow'  },
+    { widgetId: 'itemWindow',   winProp: '_itemWindow'   },
+    { widgetId: 'actorWindow',  winProp: '_actorWindow'  },
+    { widgetId: 'enemyWindow',  winProp: '_enemyWindow'  },
+  ];
+
+  function installBattleWindowProxy(win, widget) {
+    if (!win || !widget) return;
+
+    // 원본 창 화면 밖으로 (기능/상태는 유지)
+    win._csProxied = true;
+    if (win.move) win.move(-9999, win.y); else win.x = -9999;
+
+    // 위임 메서드: 원본 내부 상태 업데이트 후 커스텀 위젯에 위임
+    var DELEGATE = ['show', 'hide', 'open', 'close', 'activate', 'deactivate',
+                    'refresh', 'select', 'deselect', 'setActor', 'setStypeId', 'setItem'];
+    DELEGATE.forEach(function(method) {
+      if (!win[method]) return;
+      var orig = win[method].bind(win);
+      win[method] = function() {
+        orig.apply(win, arguments);        // 원본 내부 상태 업데이트
+        if (method === 'activate') win.active = false;  // 원본 입력 차단
+        win.x = -9999;                                  // 계속 화면 밖 유지
+        if (widget[method]) widget[method].apply(widget, arguments);
+      };
+    });
+
+    // setHandler: 원본 + 위젯 양쪽에 등록
+    if (win.setHandler) {
+      var origSH = win.setHandler.bind(win);
+      win.setHandler = function(symbol, fn) {
+        origSH(symbol, fn);
+        if (widget.setHandler) widget.setHandler(symbol, fn);
+      };
+    }
+  }
+
+  //===========================================================================
   // applyBattleOverrides — extends: "Scene_Battle" 씬에 배틀 UI 위젯 override 주입
-  //   partyCommand / actorCommand 위젯을 씬 JSON 정의에서 생성,
-  //   나머지 배틀 로직(BattleLog, BattleStatus 등)은 원본 Scene_Battle 유지
   //===========================================================================
   function applyBattleOverrides(Klass, sceneId) {
     // Scene_CustomUI의 위젯 관련 메서드들을 주입 (Scene_Battle에 없는 것만)
@@ -4099,17 +4144,37 @@
       return (_scenesData.scenes || {})[sceneId] || null;
     };
 
-    // createAllWindows: 위젯 트리 먼저 생성 → 원본 창 생성
-    // (createPartyCommandWindow/createActorCommandWindow가 _widgetMap 위젯 재사용)
+    // createAllWindows:
+    //   1) 위젯 트리 생성 (battle.json root)
+    //   2) 원본 createAllWindows (모든 배틀 창 생성)
+    //   3) BATTLE_WIN_PROXY_MAP 기반 프록시 설치 (위젯이 있는 창만)
     var origCreateAllWindows = Klass.prototype.createAllWindows;
     Klass.prototype.createAllWindows = function() {
       var sceneDef = this._getSceneDef();
-      console.log('[CSE:battle] createAllWindows — sceneDef=' + !!sceneDef + ' hasRoot=' + !!(sceneDef && sceneDef.root));
       if (sceneDef && sceneDef.root) {
         this._createWidgetTree(sceneDef);
-        console.log('[CSE:battle] _createWidgetTree done — widgetMap:', Object.keys(this._widgetMap || {}));
       }
       origCreateAllWindows.call(this);
+
+      // 프록시 설치: 위젯 정의된 창 → 원본 숨김 + 위젯으로 위임
+      var wmap = this._widgetMap || {};
+      for (var i = 0; i < BATTLE_WIN_PROXY_MAP.length; i++) {
+        var entry = BATTLE_WIN_PROXY_MAP[i];
+        var win = this[entry.winProp];
+        var widget = wmap[entry.widgetId] || null;
+        installBattleWindowProxy(win, widget);
+        if (win && !widget) {
+          console.log('[CSE:battle] ' + entry.widgetId + ' → 원본 창 사용');
+        } else if (win && widget) {
+          console.log('[CSE:battle] ' + entry.widgetId + ' → 커스텀 위젯 사용');
+        }
+      }
+
+      // 비-Window root 위젯(Panel 등)을 windowLayer 위로 재배치
+      var rootObj = this._rootWidget && this._rootWidget.displayObject();
+      if (rootObj && !(rootObj instanceof Window_Base)) {
+        this.addChild(rootObj);
+      }
     };
 
     // createPartyCommandWindow: _widgetMap['partyCommand'] 재사용 (없으면 원본 폴백)
