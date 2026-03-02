@@ -354,6 +354,10 @@ ShadowLight._convertMaterial = function(sprite) {
     sprite._threeObj.material = newMat;
     sprite._material = newMat;
 
+    // GPU 셰이더 프로그램 누수 방지: 교체된 original MeshBasicMaterial dispose
+    // (texture는 newMat.map으로 공유되므로 dispose해도 안전)
+    oldMat.dispose();
+
     // Shadow Map: 캐릭터가 그림자를 드리우도록 설정
     sprite._threeObj.castShadow = true;
     // customDepthMaterial: alpha-tested shadow silhouette (스프라이트 모양대로 그림자)
@@ -1209,6 +1213,7 @@ ShadowLight._revertMaterial = function(sprite) {
     if (!sprite._material.isMeshPhongMaterial) return;
 
     var oldMat = sprite._material;
+    var oldDepthMat = sprite._threeObj.customDepthMaterial;
     var newMat = new THREE.MeshBasicMaterial({
         map: oldMat.map,
         transparent: oldMat.transparent,
@@ -1225,6 +1230,10 @@ ShadowLight._revertMaterial = function(sprite) {
     sprite._material = newMat;
     sprite._threeObj.castShadow = false;
     sprite._threeObj.customDepthMaterial = null;
+
+    // GPU 셰이더 프로그램 누수 방지: 교체된 material dispose
+    oldMat.dispose();
+    if (oldDepthMat) oldDepthMat.dispose();
 };
 
 //=============================================================================
@@ -2024,6 +2033,15 @@ Scene_Map.prototype.terminate = function() {
     if (ShadowLight._active && this._spriteset) {
         this._spriteset._deactivateShadowLight();
         ShadowLight._active = false;
+    }
+    // shadow mesh PlaneGeometry GPU 누수 수정: terminate 시 geometry dispose
+    // (shadow mesh는 PIXI 자식 계층이 아니므로 Spriteset_Map.destroy()에서 해제되지 않음)
+    if (this._spriteset && this._spriteset._shadowMeshes) {
+        var shadowMeshes = this._spriteset._shadowMeshes;
+        for (var i = 0; i < shadowMeshes.length; i++) {
+            if (shadowMeshes[i].geometry) shadowMeshes[i].geometry.dispose();
+        }
+        this._spriteset._shadowMeshes = null;
     }
     _Scene_Map_terminate_shadowLight.call(this);
 };
