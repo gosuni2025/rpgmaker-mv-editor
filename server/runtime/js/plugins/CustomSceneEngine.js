@@ -3312,49 +3312,51 @@
     function traverse(widget) {
       if (widget instanceof Widget_TextList) {
         var handlersDef = widget._handlersDef || {};
-        for (var symbol in handlersDef) {
-          (function(sym, handler, w) {
-            if (sym === 'ok') {
-              w.setHandler('ok', function() {
-                // formation 모드 (list 기반)
-                if (self._ctx && self._ctx._formationMode) {
-                  var idx = w._window ? w._window.index() : -1;
-                  if (idx < 0) return;
-                  if (self._ctx._formationPending < 0) {
-                    self._ctx._formationPending = idx;
-                    if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
-                    if (w._window) w._window.activate();
-                  } else {
-                    $gameParty.swapOrder(idx, self._ctx._formationPending);
-                    self._ctx._formationPending = -1;
-                    if (typeof SoundManager !== 'undefined') SoundManager.playOk();
-                    if (w._rebuildFromScript) w._rebuildFromScript();
-                    if (w._window) w._window.activate();
-                  }
-                  return;
-                }
-                // selectActor 모드 (_pendingPersonalAction)
-                if (self._pendingPersonalAction) {
-                  var actorIdx = w._window ? w._window.index() : 0;
-                  var actor = typeof $gameParty !== 'undefined' ? $gameParty.members()[actorIdx] : null;
-                  if (actor) $gameParty.setMenuActor(actor);
-                  var pendingAction = self._pendingPersonalAction;
-                  self._pendingPersonalAction = null;
-                  self._personalOriginWidget = null;
-                  if (w.deactivate) w.deactivate();
-                  if (w.displayObject()) w.displayObject().visible = false;
-                  self._pendingActorWidgetId = null;
-                  self._executeWidgetHandler(pendingAction, w);
-                  return;
-                }
-                // 일반 ok 핸들러
-                self._executeWidgetHandler(handler, w);
-              });
-            } else {
-              w.setHandler(sym, function() {
-                self._executeWidgetHandler(handler, w);
-              });
+        // ok 핸들러: formation/selectActor 모드 처리를 위해 항상 등록
+        (function(okHandler, w) {
+          w.setHandler('ok', function() {
+            // formation 모드 (list 기반)
+            if (self._ctx && self._ctx._formationMode) {
+              var idx = w._window ? w._window.index() : -1;
+              if (idx < 0) return;
+              if (self._ctx._formationPending < 0) {
+                self._ctx._formationPending = idx;
+                if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
+                if (w._window) w._window.activate();
+              } else {
+                $gameParty.swapOrder(idx, self._ctx._formationPending);
+                self._ctx._formationPending = -1;
+                if (typeof SoundManager !== 'undefined') SoundManager.playOk();
+                if (w._rebuildFromScript) w._rebuildFromScript();
+                if (w._window) w._window.activate();
+              }
+              return;
             }
+            // selectActor 모드 (_pendingPersonalAction)
+            if (self._pendingPersonalAction) {
+              var actorIdx = w._window ? w._window.index() : 0;
+              var actor = typeof $gameParty !== 'undefined' ? $gameParty.members()[actorIdx] : null;
+              if (actor) $gameParty.setMenuActor(actor);
+              var pendingAction = self._pendingPersonalAction;
+              self._pendingPersonalAction = null;
+              self._personalOriginWidget = null;
+              if (w.deactivate) w.deactivate();
+              if (w.displayObject()) w.displayObject().visible = false;
+              self._pendingActorWidgetId = null;
+              self._executeWidgetHandler(pendingAction, w);
+              return;
+            }
+            // 일반 ok 핸들러
+            if (okHandler) self._executeWidgetHandler(okHandler, w);
+          });
+        })(handlersDef['ok'] || null, widget);
+        // ok 제외 나머지 핸들러
+        for (var symbol in handlersDef) {
+          if (symbol === 'ok') continue;
+          (function(sym, handler, w) {
+            w.setHandler(sym, function() {
+              self._executeWidgetHandler(handler, w);
+            });
           })(symbol, handlersDef[symbol], widget);
         }
         // cancel이 handlersDef에 없을 때만 기본 핸들러 설정
