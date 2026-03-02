@@ -2664,6 +2664,9 @@
           if (dobj && !(dobj instanceof Window_Base)) {
             rowContainer.addChild(dobj);
           }
+          // itemScene 루트에 button이 있으면 action 핸들러 wiring
+          // (_setupWidgetHandlers는 Scene_CustomUI.create에서만 호출되므로 여기서 보완)
+          if (scene._setupWidgetHandlers) scene._setupWidgetHandlers(built);
         }
       });
 
