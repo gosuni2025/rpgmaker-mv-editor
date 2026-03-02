@@ -200,6 +200,8 @@ export interface WidgetDefBase {
   id: string;
   /** 에디터 표시용 이름 (런타임 무관). 비어있으면 id를 표시 */
   displayName?: string;
+  /** true: rowOverlay / windowLayer 위에 직접 addChild (팝업, 전체화면 등) */
+  topLayer?: boolean;
   type: WidgetType;
   x: number;
   y: number;

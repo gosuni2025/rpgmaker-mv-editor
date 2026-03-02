@@ -1129,6 +1129,15 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
                 '배경(background) 위젯처럼 클릭을 통해 실수로 선택될 경우에 유용합니다.'
               } />
             </label>
+            <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <input type="checkbox" checked={!!widget.topLayer}
+                onChange={(e) => update({ topLayer: e.target.checked || undefined } as any)} />
+              최상단(topLayer)
+              <HelpButton text={
+                'rowOverlay / windowLayer 위에 직접 렌더링합니다.\n\n' +
+                '팝업, 전체화면 오버레이 등 항상 다른 위젯 위에 표시되어야 하는 위젯에 사용합니다.'
+              } />
+            </label>
           </div>
         </div>
       </details>

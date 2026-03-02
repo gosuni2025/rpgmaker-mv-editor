@@ -1494,22 +1494,63 @@
     this._fontSize = def.fontSize || 20;
     this._color = def.color || '#dddddd';
     this._lineHeight = def.lineHeight || (this._fontSize + 8);
-    var sprite = new Sprite();
-    sprite.x = this._x;
-    sprite.y = this._y;
-    var bitmap = new Bitmap(this._width, this._height);
-    bitmap.fontSize = this._fontSize;
-    sprite.bitmap = bitmap;
-    this._sprite = sprite;
-    this._bitmap = bitmap;
-    this._displayObject = sprite;
+    this._useTextEx = def.useTextEx === true;
+    if (this._useTextEx) {
+      // Widget_Label.useTextEx と同様: Window_Base で drawTextEx を使用
+      var win = new Window_Base(this._x, this._y, this._width, this._height);
+      win._padding = 0;
+      win.standardPadding = function() { return 0; };
+      win.opacity = 0;
+      win.backOpacity = 0;
+      win.createContents();
+      if (def.fontSize) win.contents.fontSize = def.fontSize;
+      this._win = win;
+      this._displayObject = win;
+    } else {
+      var sprite = new Sprite();
+      sprite.x = this._x;
+      sprite.y = this._y;
+      var bitmap = new Bitmap(this._width, this._height);
+      bitmap.fontSize = this._fontSize;
+      sprite.bitmap = bitmap;
+      this._sprite = sprite;
+      this._bitmap = bitmap;
+      this._displayObject = sprite;
+    }
     this.refresh();
   };
   Widget_TextArea.prototype.refresh = function() {
-    if (!this._bitmap) return;
     var rawText = resolveTemplate(this._template);
     var isPlaceholder = !rawText && !!window._uiEditorPreview && !!this._template;
     var text = isPlaceholder ? this._template : rawText;
+
+    if (this._useTextEx) {
+      if (!this._win) return;
+      if (text === this._lastText) return;
+      this._lastText = text;
+      this._win.contents.clear();
+      if (this._fontSize) this._win.contents.fontSize = this._fontSize;
+      var lh = this._win.lineHeight();
+      var lines = text ? text.split('\n') : [];
+      var totalH = lines.length * lh;
+      var startY;
+      if (this._vAlign === 'middle') {
+        startY = Math.floor((this._height - totalH) / 2);
+      } else if (this._vAlign === 'bottom') {
+        startY = this._height - totalH;
+      } else {
+        startY = 0;
+      }
+      for (var j = 0; j < lines.length; j++) {
+        var ty = startY + j * lh;
+        if (ty + lh > this._height) break;
+        this._win.drawTextEx(lines[j], 0, ty);
+      }
+      Widget_Base.prototype.refresh.call(this);
+      return;
+    }
+
+    if (!this._bitmap) return;
     if (text === this._lastText && this._align === this._lastAlign && this._vAlign === this._lastVAlign) return;
     this._lastText = text;
     this._lastAlign = this._align;
@@ -3223,11 +3264,11 @@
         this.addChild(w._decoSprite);
       }
     }
-    // Window_Base 타입 위젯은 addWindow
+    // Window_Base 타입 위젯은 addWindow (topLayer 위젯 제외 — 나중에 별도 처리)
     for (var id2 in this._widgetMap) {
       var w2 = this._widgetMap[id2];
       var obj = w2.displayObject();
-      if (obj && obj instanceof Window_Base) {
+      if (obj && obj instanceof Window_Base && !w2._topLayer) {
         this.addWindow(obj);
       }
     }
@@ -3248,6 +3289,18 @@
         // 초기 행 생성 (dataScript가 있으면 _rebuildFromScript에서 처리)
         if (!w3._dataScript) w3._rebuildRows();
       }
+    }
+
+    // topLayer 위젯들을 rowOverlay 이후에 Scene에 직접 addChild (팝업, 전체화면 등)
+    // — addWindow (windowLayer)보다 위, rowOverlay보다도 위에 렌더링됨
+    for (var idT in this._widgetMap) {
+      var wT = this._widgetMap[idT];
+      if (!wT._topLayer) continue;
+      var tObj = wT.displayObject();
+      if (!tObj) continue;
+      // 기존 부모(root panel 등)에서 분리 후 씬에 직접 추가
+      if (tObj.parent) tObj.parent.removeChild(tObj);
+      this.addChild(tObj);
     }
 
     // 핸들러 설정
@@ -3303,6 +3356,9 @@
       }
     }
     widget.initialize(def, parentWidget);
+
+    // topLayer: true — 씬에 직접 addChild하여 rowOverlay 위에 표시
+    if (def.topLayer) widget._topLayer = true;
 
     // visible: false 처리 — 초기 숨김 위젯
     if (def.visible === false) {
