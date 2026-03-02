@@ -4153,6 +4153,12 @@
       var sceneDef = scenes[sceneId];
       var className = 'Scene_CS_' + sceneId;
 
+      // nativeClass: 이미 외부에서 정의된 씬 클래스를 그대로 사용
+      if (sceneDef.nativeClass && window[sceneDef.nativeClass]) {
+        window[className] = window[sceneDef.nativeClass];
+        continue;
+      }
+
       // 이미 등록된 경우 스킵하지 않음 (재로드 시 갱신을 위해 덮어씀)
       var SceneCtor = (function (sid) {
         function CustomScene() {
