@@ -276,9 +276,20 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                 </fieldset>
                 <fieldset className="event-editor-fieldset event-editor-fieldset-half">
                   <legend>{t('eventDetail.priority', '우선권')}</legend>
-                  <select value={page.priorityType} onChange={e => updatePage(activePage, { priorityType: Number(e.target.value) })} className="event-editor-select" style={{ width: '100%' }}>
-                    {PRIORITY_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
-                  </select>
+                  <div className="event-editor-trigger-radios">
+                    {PRIORITY_TYPES.map((label, i) => (
+                      <label key={i} className="event-editor-radio-label">
+                        <input
+                          type="radio"
+                          name={`priorityType-${activePage}`}
+                          value={i}
+                          checked={page.priorityType === i}
+                          onChange={() => updatePage(activePage, { priorityType: i })}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
                 </fieldset>
               </div>
 
