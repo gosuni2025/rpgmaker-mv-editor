@@ -2255,7 +2255,7 @@
     bmp.textColor = color;
     var textH = fontSize + 8;
     var ty = Math.max(0, Math.floor((h - textH) / 2));
-    bmp.drawText(this._label, 0, ty, w, textH, align);
+    bmp.drawText(resolveTemplate(this._label), 0, ty, w, textH, align);
   };
   // Transition 스프라이트 생성 (colorTint: 오버레이, spriteSwap: 이미지 스프라이트)
   Widget_Button.prototype._createTransitionSprite = function(def) {
