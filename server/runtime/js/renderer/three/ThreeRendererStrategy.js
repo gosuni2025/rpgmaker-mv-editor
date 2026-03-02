@@ -382,12 +382,12 @@
                     // (이전 프레임에서 visibility management가 false로 설정했을 수 있음)
                     if (child._threeObj) child._threeObj.visible = true;
                     this._syncHierarchy(rendererObj, child, worldAlpha, childForceOrder);
-                } else if (child._threeObj) {
-                    child._threeObj.visible = false;
                 } else {
-                    // invisible이지만 _threeObj가 없는 노드 (예: Window_Base, ThreeContainer)
-                    // → 자손의 Three.js 객체도 강제로 숨겨야 함
-                    // (예: id_popup.visible=false 시 id_popup_img의 Mesh가 ghost로 남는 문제)
+                    // invisible 노드: _threeObj가 있으면 숨기고, 자손도 재귀적으로 숨김.
+                    // updateTransform()이 _syncHierarchy()보다 먼저 실행되어
+                    // 자손의 _threeObj.visible=true가 세팅될 수 있으므로,
+                    // _threeObj 여부와 관계없이 항상 _syncHierarchyHide로 자손을 정리.
+                    if (child._threeObj) child._threeObj.visible = false;
                     ThreeRendererStrategy._syncHierarchyHide(child);
                 }
             }
