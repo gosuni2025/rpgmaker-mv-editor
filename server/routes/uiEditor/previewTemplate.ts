@@ -435,6 +435,32 @@ export function buildPreviewHTML(useWebp: boolean): string {
           }
         }
         traverse(scene);
+
+        // 커스텀 씬 위젯(_widgetMap) 처리: Window_ 아닌 위젯도 강제 표시 대상에 포함
+        if (scene._widgetMap) {
+          for (var wid in scene._widgetMap) {
+            var widget = scene._widgetMap[wid];
+            if (!widget) continue;
+            var dobj = (widget.displayObject ? widget.displayObject() : null) || widget._displayObject;
+            if (!dobj) continue;
+            var isWTarget = targetId && wid === targetId;
+            if (widget._uiViewOrigVisible === undefined) {
+              widget._uiViewOrigVisible = dobj.visible;
+            }
+            var wOrigVis = widget._uiViewOrigVisible;
+            if (!targetId && !exclusive) {
+              dobj.visible = wOrigVis;
+              delete widget._uiViewOrigVisible;
+            } else if (exclusive && targetId) {
+              dobj.visible = isWTarget ? (forceShow ? true : wOrigVis) : false;
+            } else if (forceShow && isWTarget) {
+              dobj.visible = true;
+            } else {
+              dobj.visible = wOrigVis;
+              if (!exclusive) delete widget._uiViewOrigVisible;
+            }
+          }
+        }
       }
 
       function reportWindows(type) {

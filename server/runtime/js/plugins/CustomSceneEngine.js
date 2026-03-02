@@ -4290,13 +4290,31 @@
       else if (last === 'item') { this._itemWindow.show(); this._itemWindow.activate(); }
     };
 
+    // start: 에디터 미리보기 모드에서 배틀 초기화 건너뜀
+    // (배틀 데이터 없이 씬이 시작되면 gameTroop._enemies=[] → 즉시 전투 종료 → 씬 이탈)
+    var origStart = SCB.start;
+    Klass.prototype.start = function() {
+      if (window._uiEditorPreview) {
+        this._isEditorPreview = true;
+        Scene_Base.prototype.start.call(this);
+      } else {
+        this._isEditorPreview = false;
+        origStart.call(this);
+      }
+    };
+
     // update: _widgetMap의 모든 위젯 업데이트
+    // 에디터 미리보기 모드에서 배틀 로직 건너뜀 (씬 종료/전환 방지)
     var origUpdate = Klass.prototype.update;
     Klass.prototype.update = function() {
-      origUpdate.call(this);
-      // battleLog 동기화 (Window_BattleLog._lines → _ctx.battleLog)
-      if (this._logWindow && this._logWindow._lines) {
-        this._ctx.battleLog = this._logWindow._lines.join('\n');
+      if (this._isEditorPreview) {
+        Scene_Base.prototype.update.call(this);
+      } else {
+        origUpdate.call(this);
+        // battleLog 동기화 (Window_BattleLog._lines → _ctx.battleLog)
+        if (this._logWindow && this._logWindow._lines) {
+          this._ctx.battleLog = this._logWindow._lines.join('\n');
+        }
       }
       if (this._widgetMap) {
         for (var id in this._widgetMap) {
