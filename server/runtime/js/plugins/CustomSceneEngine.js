@@ -4086,23 +4086,35 @@
     { widgetId: 'enemyWindow',  winProp: '_enemyWindow'  },
   ];
 
-  function installBattleWindowProxy(win, widget) {
-    if (!win || !widget) return;
+  function installBattleWindowProxy(win, widget, widgetId) {
+    if (!win) return;
 
-    // 원본 창 화면 밖으로 (기능/상태는 유지)
+    // 원본 창은 항상 화면 밖으로 (위젯 유무와 무관)
     win._csProxied = true;
     if (win.move) win.move(-9999, win.y); else win.x = -9999;
 
-    // 위임 메서드: 원본 내부 상태 업데이트 후 커스텀 위젯에 위임
+    if (!widget) {
+      // 위젯 없음 → 에러 출력 + show/activate 차단
+      console.error('[CSE:battle] 위젯 누락: id="' + widgetId + '" — battle.json에 해당 id의 위젯을 추가하세요.');
+      ['show', 'open', 'activate'].forEach(function(m) {
+        if (!win[m]) return;
+        win[m] = function() {
+          console.warn('[CSE:battle] ' + widgetId + '.' + m + '() — 위젯 없음');
+        };
+      });
+      return;
+    }
+
+    // 위젯 있음: 원본 내부 상태 업데이트 후 커스텀 위젯에 위임
     var DELEGATE = ['show', 'hide', 'open', 'close', 'activate', 'deactivate',
                     'refresh', 'select', 'deselect', 'setActor', 'setStypeId', 'setItem'];
     DELEGATE.forEach(function(method) {
       if (!win[method]) return;
       var orig = win[method].bind(win);
       win[method] = function() {
-        orig.apply(win, arguments);        // 원본 내부 상태 업데이트
+        orig.apply(win, arguments);
         if (method === 'activate') win.active = false;  // 원본 입력 차단
-        win.x = -9999;                                  // 계속 화면 밖 유지
+        win.x = -9999;
         if (widget[method]) widget[method].apply(widget, arguments);
       };
     });
@@ -4162,12 +4174,7 @@
         var entry = BATTLE_WIN_PROXY_MAP[i];
         var win = this[entry.winProp];
         var widget = wmap[entry.widgetId] || null;
-        installBattleWindowProxy(win, widget);
-        if (win && !widget) {
-          console.log('[CSE:battle] ' + entry.widgetId + ' → 원본 창 사용');
-        } else if (win && widget) {
-          console.log('[CSE:battle] ' + entry.widgetId + ' → 커스텀 위젯 사용');
-        }
+        installBattleWindowProxy(win, widget, entry.widgetId);
       }
 
       // 비-Window root 위젯(Panel 등)을 windowLayer 위로 재배치
