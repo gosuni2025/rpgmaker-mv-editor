@@ -2837,6 +2837,10 @@
         if (this._window) this._window.refresh();
       }
     }
+    // itemScene 모드: _rowOverlay visibility를 윈도우에 동기화
+    if (this._rowOverlay && this._window) {
+      this._rowOverlay.visible = this._window.visible;
+    }
     // itemScene 모드: 매 프레임 행 위치 갱신 (스크롤 반영)
     if (this._itemSceneId && this._rowWidgets.length > 0) {
       this._updateRowPositions();
