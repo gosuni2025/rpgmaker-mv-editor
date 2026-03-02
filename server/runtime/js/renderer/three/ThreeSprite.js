@@ -465,7 +465,10 @@ ThreeSprite.prototype.syncTransform = function() {
 
     // Alpha: update material opacity
     this._material.opacity = this.worldAlpha;
-    this._material.transparent = true;
+    if (!this._material.transparent) {
+        this._material.transparent = true;
+        this._material.needsUpdate = true;  // 첫 프레임: opaque → transparent 쉐이더 재컴파일
+    }
 
     // Visibility: hide the mesh if no frame, but keep the Three.js object
     // visible when there are children (sprite used as container, e.g. Tilemap layers)

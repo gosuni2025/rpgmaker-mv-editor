@@ -1392,6 +1392,22 @@
       }
     }
   };
+  // linkedFocus: 연결된 포커스 위젯 중 하나가 active일 때 bright, 아닐 때 dim.
+  // item.json 등에서 패널과 컨트롤 위젯의 dim 상태를 동기화하는 데 사용.
+  Widget_Panel.prototype.update = function() {
+    Widget_Base.prototype.update.call(this);
+    if (!this._windowed || !this._displayObject) return;
+    var linked = this._def && this._def.linkedFocus;
+    if (!linked || !linked.length) return;
+    var navMgr = SceneManager._scene && SceneManager._scene._navManager;
+    if (!navMgr) return;
+    var aw = navMgr._activeIndex >= 0 ? navMgr._focusables[navMgr._activeIndex] : null;
+    var aid = aw ? aw._id : null;
+    var isLinked = aid && linked.indexOf(aid) >= 0;
+    var base = (this._def.bgAlpha !== undefined ? Math.round(this._def.bgAlpha * 255) : 255);
+    var tgt = isLinked ? base : Math.round(base * 0.63);
+    if (this._displayObject.opacity !== tgt) this._displayObject.opacity = tgt;
+  };
   Widget_Panel.prototype.destroy = function() {
     // Window.prototype.destroy가 내부 bitmap + geometry 모두 처리하므로 별도 처리 불필요
     Widget_Base.prototype.destroy.call(this);
