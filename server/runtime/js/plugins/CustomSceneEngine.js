@@ -2880,16 +2880,17 @@
       var slotW = this._csCursorSlotW;
       var slotH = this._csCursorSlotH;
       var bmp = new Bitmap(slotW, slotH);
-      var p = 96, q = 48, m = 4;
-      bmp.blt(skin, p+m,   p+m,   q-m*2, q-m*2, m,       m,       slotW-m*2, slotH-m*2);
-      bmp.blt(skin, p+m,   p,     q-m*2, m,     m,       0,       slotW-m*2, m      );
-      bmp.blt(skin, p+m,   p+q-m, q-m*2, m,     m,       slotH-m, slotW-m*2, m      );
-      bmp.blt(skin, p,     p+m,   m,     q-m*2, 0,       m,       m,         slotH-m*2);
-      bmp.blt(skin, p+q-m, p+m,   m,     q-m*2, slotW-m, m,       m,         slotH-m*2);
-      bmp.blt(skin, p,     p,     m,     m,     0,       0,       m,         m      );
-      bmp.blt(skin, p+q-m, p,     m,     m,     slotW-m, 0,       m,         m      );
-      bmp.blt(skin, p,     p+q-m, m,     m,     0,       slotH-m, m,         m      );
-      bmp.blt(skin, p+q-m, p+q-m, m,     m,     slotW-m, slotH-m, m,         m      );
+      // windowskin 커서: x=96, y=64, 48x48 (rpg_core.js Window._refreshCursor 참조)
+      var px = 96, py = 64, q = 48, m = 4;
+      bmp.blt(skin, px+m,   py+m,   q-m*2, q-m*2, m,       m,       slotW-m*2, slotH-m*2);
+      bmp.blt(skin, px+m,   py,     q-m*2, m,     m,       0,       slotW-m*2, m      );
+      bmp.blt(skin, px+m,   py+q-m, q-m*2, m,     m,       slotH-m, slotW-m*2, m      );
+      bmp.blt(skin, px,     py+m,   m,     q-m*2, 0,       m,       m,         slotH-m*2);
+      bmp.blt(skin, px+q-m, py+m,   m,     q-m*2, slotW-m, m,       m,         slotH-m*2);
+      bmp.blt(skin, px,     py,     m,     m,     0,       0,       m,         m      );
+      bmp.blt(skin, px+q-m, py,     m,     m,     slotW-m, 0,       m,         m      );
+      bmp.blt(skin, px,     py+q-m, m,     m,     0,       slotH-m, m,         m      );
+      bmp.blt(skin, px+q-m, py+q-m, m,     m,     slotW-m, slotH-m, m,         m      );
       cursorSpr.bitmap = bmp;
       cursorSpr.setFrame(0, 0, slotW, slotH);
       this._csCursorBuilt = true;
