@@ -193,7 +193,7 @@ export default function UIEditorToolbar() {
             className={`draw-toolbar-btn${uiEditSubMode === 'window' ? ' active' : ''}`}
             onClick={() => setUiEditSubMode('window')}
           >
-            창 편집
+            씬 편집
           </button>
           <button
             className={`draw-toolbar-btn${uiEditSubMode === 'frame' ? ' active' : ''}`}

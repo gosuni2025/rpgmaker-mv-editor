@@ -24,7 +24,7 @@ export { WIDGET_TYPE_COLORS, WIDGET_TYPE_LABELS };
 
 export function WidgetTreeNode({
   widget, depth, sceneId, selectedId, onSelect, onRemove, onReorder,
-  initialExpanded,
+  initialExpanded, readOnly,
 }: {
   widget: WidgetDef; depth: number; sceneId: string;
   selectedId: string | null;
@@ -32,6 +32,7 @@ export function WidgetTreeNode({
   onRemove: (id: string) => void;
   onReorder: (dragId: string, targetId: string, pos: 'before' | 'inside') => void;
   initialExpanded?: boolean;
+  readOnly?: boolean;
 }) {
   const isSelected = widget.id === selectedId;
   const children: WidgetDef[] = widget.children || [];
@@ -57,7 +58,7 @@ export function WidgetTreeNode({
   }, [isSelected]);
 
   const canContain = true; // 모든 위젯이 자식을 가질 수 있음
-  const canDrag = widget.id !== 'root';
+  const canDrag = !readOnly && widget.id !== 'root';
   // onDragLeave 레이스 컨디션 방지: dropPos를 ref에도 저장하여 onDrop에서 최신값 사용
   const dropPosRef = React.useRef<'before' | 'inside' | null>(null);
 
@@ -101,6 +102,7 @@ export function WidgetTreeNode({
           setDropPosAndRef(null);
         }}
         onDragOver={(e) => {
+          if (readOnly) return;
           const did = dragState.widgetId;
           if (!did) return;
           if (did === widget.id) return;
@@ -119,6 +121,7 @@ export function WidgetTreeNode({
           setDropPosAndRef(null);
         }}
         onDrop={(e) => {
+          if (readOnly) { setDropPosAndRef(null); return; }
           const did = dragState.widgetId;
           if (!did || did === widget.id || dragState.descendantIds.has(widget.id)) {
             setDropPosAndRef(null);
@@ -162,7 +165,7 @@ export function WidgetTreeNode({
             <span style={{ color: '#888', fontSize: 10, marginLeft: 4 }}>"{(widget as any).text.slice(0, 15)}"</span>
           ) : null}
         </span>
-        {widget.id !== 'root' && (
+        {widget.id !== 'root' && !readOnly && (
           <button style={{ ...deleteBtnStyle, fontSize: 9, padding: '1px 4px' }}
             onClick={(e) => { e.stopPropagation(); onRemove(widget.id); }}>
             ×
@@ -174,7 +177,7 @@ export function WidgetTreeNode({
           key={child.id} widget={child} depth={depth + 1}
           sceneId={sceneId} selectedId={selectedId}
           onSelect={onSelect} onRemove={onRemove} onReorder={onReorder}
-          initialExpanded={initialExpanded}
+          initialExpanded={initialExpanded} readOnly={readOnly}
         />
       ))}
     </div>

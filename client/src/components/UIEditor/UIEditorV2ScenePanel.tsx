@@ -43,7 +43,7 @@ export function NavigationConfigSection({ sceneId, nav }: { sceneId: string; nav
 
 // ── V2ScenePanel ─────────────────────────────────────────────
 
-export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: CustomSceneDefV2 }) {
+export function V2ScenePanel({ sceneId, scene, readOnly }: { sceneId: string; scene: CustomSceneDefV2; readOnly?: boolean }) {
   const selectedId = useEditorStore((s) => s.customSceneSelectedWidget);
   const setSelectedId = useEditorStore((s) => s.setCustomSceneSelectedWidget);
   const removeWidget = useEditorStore((s) => s.removeWidget);
@@ -64,9 +64,10 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
   const [treeKey, setTreeKey] = React.useState(0);
   const [treeInitialExpanded, setTreeInitialExpanded] = React.useState(true);
 
-  // 위젯 선택 중 Delete/Backspace → 삭제 (입력 요소 포커스 시 무시)
+  // 위젯 선택 중 Delete/Backspace → 삭제 (입력 요소 포커스 시 무시, readOnly 시 비활성)
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (readOnly) return;
       if (!selectedId || selectedId === 'root') return;
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
       const target = e.target as HTMLElement;
@@ -77,7 +78,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, sceneId, removeWidget, pushCustomSceneUndo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [readOnly, selectedId, sceneId, removeWidget, pushCustomSceneUndo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // scene/selectedId를 ref로 관리 — useEffect 클로저에서 항상 최신값 참조
   const sceneRef = React.useRef(scene);
@@ -85,7 +86,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
   const selectedIdRef = React.useRef(selectedId);
   selectedIdRef.current = selectedId;
 
-  // Ctrl+C: 위젯 복사 / Ctrl+V: 위젯 붙여넣기
+  // Ctrl+C: 위젯 복사 / Ctrl+V: 위젯 붙여넣기 (readOnly 시 붙여넣기 비활성)
   React.useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -115,6 +116,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
       }
 
       if (e.key === 'v' && !isInput) {
+        if (readOnly) return;
         e.preventDefault();
         const curScene = sceneRef.current;
         const curSelectedId = selectedIdRef.current;
@@ -186,6 +188,12 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', position: 'relative' }}>
+      {/* readOnly 배너 */}
+      {readOnly && (
+        <div style={{ background: '#3a2a00', borderBottom: '1px solid #6a4a00', padding: '4px 10px', fontSize: 11, color: '#ffcc66', flexShrink: 0 }}>
+          읽기 전용 — 커스텀 씬을 직접 열어서 편집하세요
+        </div>
+      )}
       {/* 씬 속성 */}
       <div style={sectionStyle}>
         <label style={labelStyle}>씬 속성</label>
@@ -267,22 +275,24 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
             title="모두 접기"
             onClick={() => { setTreeInitialExpanded(false); setTreeKey(k => k + 1); }}
           >▸▸</button>
-          <button
-            ref={addBtnRef}
-            style={{ ...smallBtnStyle, background: '#2675bf' }}
-            onClick={() => {
-              if (addMenuParent) {
-                setAddMenuParent(null);
-                setAddMenuBtnRect(null);
-              } else {
-                const rect = addBtnRef.current?.getBoundingClientRect() ?? null;
-                setAddMenuBtnRect(rect);
-                setAddMenuParent(addableParentId);
-              }
-            }}
-          >
-            + 위젯
-          </button>
+          {!readOnly && (
+            <button
+              ref={addBtnRef}
+              style={{ ...smallBtnStyle, background: '#2675bf' }}
+              onClick={() => {
+                if (addMenuParent) {
+                  setAddMenuParent(null);
+                  setAddMenuBtnRect(null);
+                } else {
+                  const rect = addBtnRef.current?.getBoundingClientRect() ?? null;
+                  setAddMenuBtnRect(rect);
+                  setAddMenuParent(addableParentId);
+                }
+              }}
+            >
+              + 위젯
+            </button>
+          )}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', background: '#222', borderRadius: 3, padding: 4, minHeight: 0 }}>
           {scene.root ? (
@@ -291,6 +301,7 @@ export function V2ScenePanel({ sceneId, scene }: { sceneId: string; scene: Custo
               widget={scene.root} depth={0} sceneId={sceneId}
               selectedId={selectedId}
               initialExpanded={treeInitialExpanded}
+              readOnly={readOnly}
               onSelect={(id) => { setSelectedId(id); setAddMenuParent(null); }}
               onRemove={(id) => { pushCustomSceneUndo(); removeWidget(sceneId, id); }}
               onReorder={(dragId, targetId, pos) => { pushCustomSceneUndo(); reorderWidgetInTree(sceneId, dragId, targetId, pos); }}

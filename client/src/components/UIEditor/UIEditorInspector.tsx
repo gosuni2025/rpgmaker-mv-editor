@@ -24,6 +24,7 @@ function SceneRedirectSection({ scene }: { scene: string }) {
   const setSceneRedirects = useEditorStore((s) => s.setSceneRedirects);
   const customScenes = useEditorStore((s) => s.customScenes);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
+  const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
 
   const currentRedirect = sceneRedirects[scene] ?? '';
   const customSceneList = Object.values(customScenes.scenes);
@@ -93,6 +94,15 @@ function SceneRedirectSection({ scene }: { scene: string }) {
             게임에서 <strong style={{ color: '#ddd' }}>{scene}</strong>을 열면<br />
             <strong style={{ color: '#2675bf' }}>{currentRedirect}</strong>으로 대체됩니다.
           </div>
+        )}
+        {currentRedirect && (
+          <button
+            className="ui-canvas-toolbar-btn"
+            style={{ width: '100%', marginTop: 6 }}
+            onClick={() => setUiEditorScene(currentRedirect)}
+          >
+            설정된 커스텀 씬 열기 →
+          </button>
         )}
       </div>
     </div>

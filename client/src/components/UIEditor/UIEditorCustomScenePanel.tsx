@@ -8,7 +8,7 @@ import { LegacyScenePanel } from './UIEditorLegacyPanels';
 // Re-export for external consumers
 export { WidgetInspector } from './UIEditorWidgetInspector';
 
-export default function UIEditorCustomScenePanel({ sceneId }: { sceneId: string }) {
+export default function UIEditorCustomScenePanel({ sceneId, readOnly }: { sceneId: string; readOnly?: boolean }) {
   const customScenes = useEditorStore((s) => s.customScenes);
   const updateSceneRoot = useEditorStore((s) => s.updateSceneRoot);
   const updateNavigation = useEditorStore((s) => s.updateNavigation);
@@ -18,7 +18,7 @@ export default function UIEditorCustomScenePanel({ sceneId }: { sceneId: string 
   if (!scene) return <div style={{ padding: 12, color: '#888' }}>씬을 찾을 수 없습니다</div>;
 
   if (isV2Scene(scene)) {
-    return <V2ScenePanel sceneId={sceneId} scene={scene} />;
+    return <V2ScenePanel sceneId={sceneId} scene={scene} readOnly={readOnly} />;
   }
 
   return (

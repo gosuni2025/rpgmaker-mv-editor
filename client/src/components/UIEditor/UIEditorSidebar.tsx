@@ -113,7 +113,7 @@ function WindowList() {
       )}
 
       {(isCustomScene && customSceneId) || redirectedCustomSceneId ? (
-        <UIEditorCustomScenePanel sceneId={customSceneId ?? redirectedCustomSceneId!} />
+        <UIEditorCustomScenePanel sceneId={customSceneId ?? redirectedCustomSceneId!} readOnly={!!redirectedCustomSceneId && !isCustomScene} />
       ) : (
         <div className="ui-editor-window-list">
           {/* 씬 자체 항목 */}
