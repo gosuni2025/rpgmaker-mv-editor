@@ -179,14 +179,17 @@
         }
     }
 
-    function loop() {
-        rafId = requestAnimationFrame(loop);
+    function reattach() {
         if (!panel) return;
-        // 게임 canvas가 나중에 body에 추가되면 DOM 순서상 위로 올라오므로
-        // 패널을 항상 body의 마지막 자식으로 유지 (이미 마지막이면 no-op)
-        if (document.body.lastElementChild !== panel) {
+        // body에 없거나 마지막 자식이 아니면 맨 뒤로 이동
+        if (!document.body.contains(panel) || document.body.lastElementChild !== panel) {
             document.body.appendChild(panel);
         }
+    }
+
+    function loop() {
+        rafId = requestAnimationFrame(loop);
+        reattach();
         if (visible) updateStats();
     }
 
@@ -209,6 +212,11 @@
     // DOMContentLoaded 후 패널 생성 (defer 스크립트는 이미 DOMContentLoaded 이후이지만 안전하게 처리)
     function init() {
         createPanel();
+        // 씬 전환 등으로 패널이 body에서 제거되면 즉시 다시 붙임
+        var observer = new MutationObserver(function() {
+            reattach();
+        });
+        observer.observe(document.body, { childList: true });
         rafId = requestAnimationFrame(loop);
     }
 
