@@ -4028,6 +4028,9 @@
       if (!win[method]) return;
       var orig = win[method].bind(win);
       win[method] = function() {
+        if (method === 'activate' || method === 'deactivate') {
+          console.log('[CSE:battle] ' + widgetId + '.' + method + '()');
+        }
         try { orig.apply(win, arguments); } catch(e) { /* 원본 창 에러 무시 — widget 메서드는 계속 호출 */ }
         if (method === 'activate') win.active = false;  // 원본 입력 차단
         win.x = -9999;
