@@ -4419,6 +4419,7 @@
 
     Klass.prototype.commandAttack = function() {
       this._ctx.lastActorCommand = 'attack';
+      this._csInSubSelection = true;
       BattleManager.inputtingAction().setAttack();
       this._actorCommandWindow.deactivate();
       this.selectEnemySelection();
@@ -4432,6 +4433,7 @@
       }
       this._ctx.lastActorCommand = 'skill';
       this._ctx.currentSkillStypeId = stypeId;
+      this._csInSubSelection = true;
       this._actorCommandWindow.deactivate();
       this._skillWindow.setActor(BattleManager.actor());
       this._skillWindow.setStypeId(stypeId);
@@ -4443,6 +4445,7 @@
 
     Klass.prototype.commandItem = function() {
       this._ctx.lastActorCommand = 'item';
+      this._csInSubSelection = true;
       this._actorCommandWindow.deactivate();
       this._itemWindow.refresh();
       this._itemWindow.show();
@@ -4453,7 +4456,7 @@
     // selectEnemySelection: actorCommand 비활성화 + rowOverlay dim + enemyWindow를 Scene 최상단으로
     var origSES = SCB.selectEnemySelection || function() {};
     Klass.prototype.selectEnemySelection = function() {
-      this._csSelectingEnemy = true; // startActorCommandSelection 재진입 방지
+      this._csInSubSelection = true;
       var wmap = this._widgetMap || {};
       // actorCommand는 deactivate만 — 커서가 선택된 항목에 고정된 상태로 표시됨
       if (wmap.actorCommand && wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
@@ -4477,24 +4480,28 @@
     // selectActorSelection: actorCommand 비활성화 + actorWindow activate
     var origSAS = SCB.selectActorSelection || function() {};
     Klass.prototype.selectActorSelection = function() {
+      this._csInSubSelection = true;
       var wmap = this._widgetMap || {};
       if (wmap.actorCommand && wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
       origSAS.call(this);
     };
 
     Klass.prototype.onSkillCancel = function() {
+      this._csInSubSelection = false;
       this._skillWindow.hide();
       this._helpWindow.hide();
       this._actorCommandWindow.activate();
     };
 
     Klass.prototype.onItemCancel = function() {
+      this._csInSubSelection = false;
       this._itemWindow.hide();
       this._helpWindow.hide();
       this._actorCommandWindow.activate();
     };
 
     Klass.prototype.onActorCancel = function() {
+      this._csInSubSelection = false;
       var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
       if (actorWidget && actorWidget.deactivate) actorWidget.deactivate();
       var last = this._ctx.lastActorCommand;
@@ -4506,6 +4513,7 @@
     // startPartyCommandSelection: 파티 커맨드 단계 → actorCommand/actorWindow 비활성화 + 숨김
     var origSPCS = SCB.startPartyCommandSelection || function() {};
     Klass.prototype.startPartyCommandSelection = function() {
+      this._csInSubSelection = false; // 파티 커맨드로 돌아가면 서브 선택 상태 해제
       var wmap = this._widgetMap || {};
       if (wmap.actorCommand) {
         if (wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
@@ -4518,8 +4526,8 @@
     // startActorCommandSelection: 액터 커맨드 단계 → partyCommand 비활성화 + actorWindow 인디케이터 표시
     var origSACS = SCB.startActorCommandSelection || function() {};
     Klass.prototype.startActorCommandSelection = function() {
-      // 적 선택 중에는 changeInputWindow가 매 프레임 호출하므로 재진입 차단
-      if (this._csSelectingEnemy) return;
+      // 서브 선택(적/액터/스킬/아이템) 중에는 changeInputWindow 재진입 차단
+      if (this._csInSubSelection) return;
       var wmap = this._widgetMap || {};
       // partyCommand 비활성화 — actorCommand와 동시에 키 입력 받지 않도록
       if (wmap.partyCommand && wmap.partyCommand.deactivate) wmap.partyCommand.deactivate();
@@ -4534,7 +4542,7 @@
     };
 
     Klass.prototype.onEnemyCancel = function() {
-      this._csSelectingEnemy = false;
+      this._csInSubSelection = false;
       this._enemyWindow.hide();
       var wmap = this._widgetMap || {};
       // rowOverlay dim 복구
@@ -4560,8 +4568,14 @@
 
     var origOEO = SCB.onEnemyOk || function() {};
     Klass.prototype.onEnemyOk = function() {
-      this._csSelectingEnemy = false;
+      this._csInSubSelection = false;
       origOEO.call(this);
+    };
+
+    var origOAO = SCB.onActorOk || function() {};
+    Klass.prototype.onActorOk = function() {
+      this._csInSubSelection = false;
+      origOAO.call(this);
     };
 
     // start: 에디터 미리보기 모드에서 배틀 초기화 건너뜀
