@@ -2420,6 +2420,26 @@
       });
     }
   };
+  // 외부 스프라이트(_decoSprite/_labelSprite) 가시성을 부모 체인에 동기화
+  // Scene.update 에서 keyHandlers 실행 후 다시 호출되어 same-frame 동기화
+  Widget_Button.prototype._syncExternalVisibility = function() {
+    var parentVisible = true;
+    var p = this._parent;
+    while (p) {
+      if (p._displayObject && !p._displayObject.visible) { parentVisible = false; break; }
+      p = p._parent;
+    }
+    if (this._hideOnKeyboard) {
+      var showBtn = parentVisible && typeof TouchInput !== 'undefined' && typeof Input !== 'undefined'
+        ? TouchInput.date > Input.date : false;
+      if (this._displayObject) this._displayObject.visible = showBtn;
+      if (this._decoSprite)    this._decoSprite.visible    = showBtn;
+      if (this._labelSprite)   this._labelSprite.visible   = showBtn;
+    } else {
+      if (this._decoSprite)  this._decoSprite.visible  = parentVisible;
+      if (this._labelSprite) this._labelSprite.visible = parentVisible;
+    }
+  };
   // 매 프레임 hover/pressed 상태 감지 및 효과 갱신
   Widget_Button.prototype._updateTransitionState = function() {
     var win = this._window;
@@ -2446,26 +2466,8 @@
   };
   Widget_Button.prototype.update = function() {
     Widget_Base.prototype.update.call(this);
-    // 부모 패널 체인 visible 추적
-    // (_decoSprite/_labelSprite 는 scene에 직접 추가되어 부모 패널 visible을 자동으로 따라가지 않음)
-    var parentVisible = true;
-    var p = this._parent;
-    while (p) {
-      if (p._displayObject && !p._displayObject.visible) { parentVisible = false; break; }
-      p = p._parent;
-    }
-    // hideOnKeyboard: 터치 입력 시에만 표시 (부모 가시성도 반영)
-    if (this._hideOnKeyboard) {
-      var showBtn = parentVisible && typeof TouchInput !== 'undefined' && typeof Input !== 'undefined'
-        ? TouchInput.date > Input.date : false;
-      if (this._displayObject) this._displayObject.visible = showBtn;
-      if (this._decoSprite)    this._decoSprite.visible    = showBtn;
-      if (this._labelSprite)   this._labelSprite.visible   = showBtn;
-    } else {
-      // 일반 버튼: _decoSprite/_labelSprite를 부모 visible에 동기화
-      if (this._decoSprite)  this._decoSprite.visible  = parentVisible;
-      if (this._labelSprite) this._labelSprite.visible = parentVisible;
-    }
+    // _decoSprite/_labelSprite 가시성을 부모 체인에 동기화
+    this._syncExternalVisibility();
     if (this._transition !== 'system') {
       this._updateTransitionState();
     }
@@ -3933,6 +3935,16 @@
         if (Input.isTriggered(key)) {
           this._executeWidgetHandler(keyHandlers[key], null);
           break;
+        }
+      }
+    }
+    // keyHandlers 실행 후 버튼 외부 스프라이트 가시성 재동기화 (same-frame)
+    // rootWidget.update() 이후 keyHandlers가 패널을 숨길 수 있으므로 1-frame delay 방지용
+    if (this._widgetMap) {
+      for (var vid in this._widgetMap) {
+        var vw = this._widgetMap[vid];
+        if (typeof vw._syncExternalVisibility === 'function') {
+          vw._syncExternalVisibility();
         }
       }
     }
