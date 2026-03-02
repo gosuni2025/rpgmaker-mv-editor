@@ -628,7 +628,18 @@
             var dw = this._itemDetailWindow;
             var aw = this._itemActionWindow;
 
-            var fsOpen = !!(fs && fs.visible);  // _isOpen 대신 visible로 체크 (더 신뢰성 높음)
+            // ── 진단 로그: cancel/ok 입력 발생 시 현재 상태 출력 ──
+            var _c = TouchInput.isCancelled() || Input.isTriggered('cancel');
+            var _o = TouchInput.isTriggered() || Input.isTriggered('ok');
+            if (_c || _o) {
+                console.log('[ID] input c=' + _c + ' o=' + _o +
+                    ' | fs.vis=' + (fs ? fs.visible : 'null') +
+                    ' dw.vis=' + (dw ? dw.visible : 'null') +
+                    ' aw.vis=' + (aw ? aw.visible : 'null') +
+                    ' cooldown=' + (this._popupInputCooldown || 0));
+            }
+
+            var fsOpen = !!(fs && fs.visible);
             if (this._detailOverlay) {
                 this._detailOverlay.visible = fsOpen || !!(dw && dw.visible);
             }
@@ -657,10 +668,10 @@
                                  Input.isTriggered('ok'));
                 if (cancelNow) {
                     if (fsOpen) {
-                        // fullscreen 닫기 → 팝업으로 복귀
+                        console.log('[ID] fullscreen → cancel → close');
                         fs.close();
                     } else {
-                        // 팝업 닫기
+                        console.log('[ID] popup → cancel → hide');
                         SoundManager.playCancel();
                         dw.hide();
                         this._pendingActivateId = (this._pendingHandler && this._pendingHandler.itemListWidget) || 'item_list';
@@ -668,6 +679,7 @@
                     }
                 } else if (okNow) {
                     if (dw._detail && dw._detail.image) {
+                        console.log('[ID] popup → ok → fullscreen open');
                         SoundManager.playOk();
                         fs.open(dw._item, dw._detail);
                     } else {
