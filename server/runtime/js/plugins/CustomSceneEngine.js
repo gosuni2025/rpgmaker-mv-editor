@@ -2738,6 +2738,7 @@
   //   cursorOnly 옵션: 배경·프레임·텍스트 없이 커서만 표시하는 가로 선택 위젯
   //     - maxCols: N → 가로 커서 이동
   //     - up/down 입력 차단 (가로 이동 전용)
+  //     - 커서 비주얼은 _rowOverlay 스프라이트로 렌더링 (statusWindow rowOverlay 위에 그려짐)
   //===========================================================================
   function Widget_List() {}
   Widget_List.prototype = Object.create(Widget_TextList.prototype);
@@ -2747,20 +2748,116 @@
     Widget_TextList.prototype.initialize.call(this, def, parentWidget);
     if (def.cursorOnly) {
       var win = this._window;
-      win.setBackgroundType(2);      // 배경·프레임 제거
-      win.drawItem = function() {};  // 텍스트 렌더 생략, 커서만 표시
-      win.cursorDown = function() {}; // 가로 커서 전용: up/down 차단
-      win.cursorUp   = function() {};
+      win.setBackgroundType(2);
+      win.drawItem = function() {};
+
+      // up/down 차단 + 로그
+      win.cursorDown = function() { console.log('[CSE:' + def.id + '] cursorDown (blocked)'); };
+      win.cursorUp   = function() { console.log('[CSE:' + def.id + '] cursorUp (blocked)'); };
       this.handlesUpDown = function() { return false; };
+
+      // 내장 cursor sprite 숨김 (대신 _rowOverlay에서 렌더링)
+      win._updateCursor = function() {
+        if (this._windowCursorSprite) this._windowCursorSprite.visible = false;
+      };
+
+      // processCursorMove 디버그 래퍼
+      var _origPCM = win.processCursorMove.bind(win);
+      win.processCursorMove = function() {
+        var before = this.index();
+        var isCM = this.isCursorMovable();
+        if (!isCM) {
+          this._pcmLog = (this._pcmLog || 0) + 1;
+          if (this._pcmLog % 60 === 1)
+            console.log('[CSE:' + def.id + '] NOT movable: active=' + this.active + ' isOpen=' + this.isOpen() + ' maxItems=' + this.maxItems());
+        } else {
+          this._pcmLog = 0;
+          var inp = [];
+          if (Input.isRepeated('down'))  inp.push('↓');
+          if (Input.isRepeated('up'))    inp.push('↑');
+          if (Input.isRepeated('right')) inp.push('→');
+          if (Input.isRepeated('left'))  inp.push('←');
+          if (inp.length) console.log('[CSE:' + def.id + '] input=[' + inp + '] idx=' + before + ' max=' + this.maxItems());
+        }
+        _origPCM();
+        var after = this.index();
+        if (after !== before) console.log('[CSE:' + def.id + '] cursor ' + before + ' → ' + after);
+      };
+
+      // 커서 오버레이: windowLayer 위에 그려지도록 _rowOverlay로 등록
+      var maxCols = def.maxCols || 1;
+      var slotW = Math.floor(def.width / maxCols);
+      var slotH = def.rowHeight || def.height || 100;
+      var cursorOverlay = new Sprite();
+      cursorOverlay.x = this._x;
+      cursorOverlay.y = this._y;
+      this._rowOverlay = cursorOverlay;
+
+      var cursorSpr = new Sprite();
+      cursorSpr.visible = false;
+      cursorOverlay.addChild(cursorSpr);
+      this._csCursorSprite = cursorSpr;
+      this._csCursorSlotW  = slotW;
+      this._csCursorSlotH  = slotH;
+      this._csCursorBuilt  = false;
     }
   };
 
-  // 첫 표시 시 초기 빌드 — autoRefresh: false + focusable: false 위젯에서 activate()가 호출되지 않으므로 show()에서 1회 실행
+  // 첫 표시 시 초기 빌드
   Widget_List.prototype.show = function() {
     Widget_Base.prototype.show.call(this);
     if (!this._builtOnce && this._dataScript) {
       this._builtOnce = true;
       this._rebuildFromScript();
+    }
+  };
+
+  Widget_List.prototype.update = function() {
+    Widget_TextList.prototype.update.call(this);
+    if (this._def && this._def.cursorOnly && this._csCursorSprite) {
+      this._updateCursorOverlay();
+    }
+  };
+
+  Widget_List.prototype._updateCursorOverlay = function() {
+    var win = this._window;
+    if (!win) return;
+    var cursorSpr = this._csCursorSprite;
+
+    // 첫 프레임: windowskin으로 커서 비트맵 생성
+    if (!this._csCursorBuilt) {
+      var skin = win._windowskin;
+      if (!skin || !skin.isReady()) return;
+      var slotW = this._csCursorSlotW;
+      var slotH = this._csCursorSlotH;
+      var bmp = new Bitmap(slotW, slotH);
+      var p = 96, q = 48, m = 4;
+      bmp.blt(skin, p+m,   p+m,   q-m*2, q-m*2, m,       m,       slotW-m*2, slotH-m*2);
+      bmp.blt(skin, p+m,   p,     q-m*2, m,     m,       0,       slotW-m*2, m      );
+      bmp.blt(skin, p+m,   p+q-m, q-m*2, m,     m,       slotH-m, slotW-m*2, m      );
+      bmp.blt(skin, p,     p+m,   m,     q-m*2, 0,       m,       m,         slotH-m*2);
+      bmp.blt(skin, p+q-m, p+m,   m,     q-m*2, slotW-m, m,       m,         slotH-m*2);
+      bmp.blt(skin, p,     p,     m,     m,     0,       0,       m,         m      );
+      bmp.blt(skin, p+q-m, p,     m,     m,     slotW-m, 0,       m,         m      );
+      bmp.blt(skin, p,     p+q-m, m,     m,     0,       slotH-m, m,         m      );
+      bmp.blt(skin, p+q-m, p+q-m, m,     m,     slotW-m, slotH-m, m,         m      );
+      cursorSpr.bitmap = bmp;
+      cursorSpr.setFrame(0, 0, slotW, slotH);
+      this._csCursorBuilt = true;
+    }
+
+    var idx = win.index();
+    var visible = win.visible && win.active && idx >= 0;
+    cursorSpr.visible = visible;
+    if (visible) {
+      cursorSpr.x = idx * this._csCursorSlotW;
+      cursorSpr.y = 0;
+      // 블링크 효과
+      var blinkCount = (win._animationCount || 0) % 40;
+      var opacity = 255;
+      if (blinkCount < 20) opacity -= blinkCount * 8;
+      else                 opacity -= (40 - blinkCount) * 8;
+      cursorSpr.alpha = Math.max(0, opacity) / 255;
     }
   };
 
