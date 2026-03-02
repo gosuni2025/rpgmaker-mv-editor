@@ -4455,11 +4455,8 @@
     Klass.prototype.selectEnemySelection = function() {
       this._csSelectingEnemy = true; // startActorCommandSelection 재진입 방지
       var wmap = this._widgetMap || {};
-      if (wmap.actorCommand) {
-        if (wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
-        if (wmap.actorCommand.hide) wmap.actorCommand.hide();
-        if (wmap.actorCommand._window) wmap.actorCommand._window.deselect();
-      }
+      // actorCommand는 deactivate만 — 커서가 선택된 항목에 고정된 상태로 표시됨
+      if (wmap.actorCommand && wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
       // statusWindow _rowOverlay(서브씬 스프라이트) + actorWindow _rowOverlay(커서) dim
       ['statusWindow', 'actorWindow'].forEach(function(id) {
         var w = wmap[id];
