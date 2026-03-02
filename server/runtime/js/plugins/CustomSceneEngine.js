@@ -4340,7 +4340,20 @@
         _prevSetItem(item);
         var scene = SceneManager._scene;
         if (scene && scene._ctx) {
-          scene._ctx.helpText = (item && item.description) ? item.description : '';
+          var text = (item && item.description) ? item.description : '';
+          // 스킬인 경우 MP/TP 소비량 추가 표시
+          if (item && item.stypeId !== undefined) {
+            var actor = BattleManager.actor();
+            if (actor) {
+              var mpCost = actor.skillMpCost(item);
+              var tpCost = actor.skillTpCost(item);
+              var costs = [];
+              if (mpCost > 0) costs.push('MP ' + mpCost);
+              if (tpCost > 0) costs.push('TP ' + tpCost);
+              if (costs.length > 0) text += '\n소비: ' + costs.join(' / ');
+            }
+          }
+          scene._ctx.helpText = text;
         }
       };
     }
