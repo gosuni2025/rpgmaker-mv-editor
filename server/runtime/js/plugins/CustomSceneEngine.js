@@ -4206,6 +4206,29 @@
         if (widget.setHandler) widget.setHandler(symbol, fn);
       };
     }
+
+    // widgetId별 getter 위임
+    if (widgetId === 'helpWindow' && win.setItem) {
+      var _prevSetItem = win.setItem.bind(win);
+      win.setItem = function(item) {
+        _prevSetItem(item);
+        var scene = SceneManager._scene;
+        if (scene && scene._ctx) {
+          scene._ctx.helpText = (item && item.description) ? item.description : '';
+        }
+      };
+    }
+    if (widgetId === 'skillWindow' || widgetId === 'itemWindow') {
+      win.item = function() { return widget._window ? widget._window.currentExt() : null; };
+    }
+    if (widgetId === 'actorWindow') {
+      win.actor = function() { return widget._window ? widget._window.currentExt() : null; };
+      win.index = function() { return widget._window ? widget._window.index() : -1; };
+    }
+    if (widgetId === 'enemyWindow') {
+      win.enemy = function() { return widget._window ? widget._window.currentExt() : null; };
+      win.enemyIndex = function() { return widget._window ? widget._window.index() : -1; };
+    }
   }
 
   //===========================================================================
@@ -4254,6 +4277,13 @@
         var win = this[entry.winProp];
         var widget = wmap[entry.widgetId] || null;
         installBattleWindowProxy(win, widget, entry.widgetId);
+      }
+
+      // 초기 숨김 위젯 처리 (skillWindow, itemWindow, actorWindow, enemyWindow)
+      var _hiddenAtStart = ['skillWindow', 'itemWindow', 'actorWindow', 'enemyWindow'];
+      for (var hi = 0; hi < _hiddenAtStart.length; hi++) {
+        var hw = wmap[_hiddenAtStart[hi]];
+        if (hw && hw.hide) hw.hide();
       }
 
       // 비-Window root 위젯(Panel 등)을 windowLayer 위로 재배치
@@ -4314,6 +4344,7 @@
         if (typeof ext === 'number') stypeId = ext;
       }
       this._ctx.lastActorCommand = 'skill';
+      this._ctx.currentSkillStypeId = stypeId;
       this._skillWindow.setActor(BattleManager.actor());
       this._skillWindow.setStypeId(stypeId);
       this._skillWindow.refresh();
@@ -4348,6 +4379,10 @@
     var origUpdate = Klass.prototype.update;
     Klass.prototype.update = function() {
       origUpdate.call(this);
+      // battleLog 동기화 (Window_BattleLog._lines → _ctx.battleLog)
+      if (this._logWindow && this._logWindow._lines) {
+        this._ctx.battleLog = this._logWindow._lines.join('\n');
+      }
       if (this._widgetMap) {
         for (var id in this._widgetMap) {
           if (this._widgetMap[id].update) this._widgetMap[id].update();
