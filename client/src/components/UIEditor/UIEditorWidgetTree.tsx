@@ -95,7 +95,8 @@ export function WidgetTreeNode({
           dragState.descendantIds = new Set<string>();
           collectDescendantIds(widget, dragState.descendantIds);
           e.stopPropagation();
-          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.effectAllowed = 'copyMove';
+          e.dataTransfer.setData('text/plain', widget.id);
         }}
         onDragEnd={() => {
           dragState.widgetId = null;

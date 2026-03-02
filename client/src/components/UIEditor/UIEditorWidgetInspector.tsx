@@ -11,6 +11,7 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import { FramePickerDialog, ImagePickerDialog } from './UIEditorPickerDialogs';
 import { inputStyle, selectStyle, smallBtnStyle, deleteBtnStyle, sectionStyle, labelStyle, rowStyle } from './UIEditorSceneStyles';
 import { WIDGET_TYPE_COLORS, WIDGET_TYPE_LABELS } from './UIEditorWidgetTree';
+import { dragState } from './UIEditorSceneUtils';
 import HelpButton from '../common/HelpButton';
 import { ExpressionPickerButton } from './UIEditorExpressionPicker';
 import { ScriptEditor } from '../EventEditor/ScriptEditor';
@@ -777,6 +778,7 @@ function FocusableNavigationSection({ widget, update }: {
   const isFocusableByDefault = FOCUSABLE_BY_DEFAULT_TYPES.has(widget.type);
   const effectiveFocusable = widget.focusable !== undefined ? widget.focusable : isFocusableByDefault;
   const hasNavTargets = NAV_DIRS.some(d => !!(widget as any)[d.key]);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   return (
     <details open={effectiveFocusable || hasNavTargets}>
@@ -802,14 +804,38 @@ function FocusableNavigationSection({ widget, update }: {
         </label>
         {effectiveFocusable && (
           <div style={{ marginTop: 6 }}>
-            <div style={{ fontSize: 10, color: '#666', marginBottom: 4 }}>방향키 시 이동할 위젯 ID (비워두면 기본 동작)</div>
+            <div style={{ fontSize: 10, color: '#666', marginBottom: 4 }}>방향키 시 이동할 위젯 ID (트리에서 드래그하여 놓거나 직접 입력)</div>
             {NAV_DIRS.map(({ key, label, color }) => (
-              <div key={key} style={rowStyle}>
+              <div key={key} style={rowStyle}
+                onDragOver={(e) => {
+                  const did = dragState.widgetId;
+                  if (!did || did === widget.id) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (dragOverKey !== key) setDragOverKey(key);
+                }}
+                onDragLeave={() => setDragOverKey(null)}
+                onDrop={(e) => {
+                  const did = dragState.widgetId;
+                  if (!did || did === widget.id) { setDragOverKey(null); return; }
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDragOverKey(null);
+                  update({ [key]: did } as any);
+                }}
+              >
                 <span style={{ fontSize: 11, color, width: 58, flexShrink: 0 }}>{label}</span>
-                <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
-                  placeholder="widget-id"
+                <input style={{
+                  ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11,
+                  ...(dragOverKey === key ? { outline: `2px solid ${color}`, background: '#1a2530' } : {}),
+                }}
+                  placeholder="widget-id (또는 드래그)"
                   value={(widget as any)[key] || ''}
                   onChange={(e) => update({ [key]: e.target.value || undefined } as any)} />
+                {(widget as any)[key] && (
+                  <button style={{ ...deleteBtnStyle, fontSize: 9, padding: '1px 4px' }}
+                    onClick={() => update({ [key]: undefined } as any)}>×</button>
+                )}
               </div>
             ))}
           </div>
