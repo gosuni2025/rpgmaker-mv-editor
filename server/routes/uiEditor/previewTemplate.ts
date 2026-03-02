@@ -460,6 +460,18 @@ export function buildPreviewHTML(useWebp: boolean): string {
               if (!exclusive) delete widget._uiViewOrigVisible;
             }
           }
+          // 선택 위젯의 조상(부모~루트)도 강제 표시: 부모가 숨겨져 있으면 자식도 안 보임
+          if ((forceShow || exclusive) && targetId) {
+            var tgt = scene._widgetMap[targetId];
+            if (tgt) {
+              var anc = tgt._parent;
+              while (anc) {
+                var ancDobj = (anc.displayObject ? anc.displayObject() : null) || anc._displayObject;
+                if (ancDobj) ancDobj.visible = true;
+                anc = anc._parent;
+              }
+            }
+          }
         }
       }
 

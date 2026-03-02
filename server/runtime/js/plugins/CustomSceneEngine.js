@@ -1507,14 +1507,16 @@
   };
   Widget_TextArea.prototype.refresh = function() {
     if (!this._bitmap) return;
-    var text = resolveTemplate(this._template);
+    var rawText = resolveTemplate(this._template);
+    var isPlaceholder = !rawText && !!window._uiEditorPreview && !!this._template;
+    var text = isPlaceholder ? this._template : rawText;
     if (text === this._lastText && this._align === this._lastAlign && this._vAlign === this._lastVAlign) return;
     this._lastText = text;
     this._lastAlign = this._align;
     this._lastVAlign = this._vAlign;
     this._bitmap.clear();
     this._bitmap.fontSize = this._fontSize;
-    this._bitmap.textColor = this._color;
+    this._bitmap.textColor = isPlaceholder ? 'rgba(200,200,200,0.5)' : this._color;
     var lh = this._lineHeight;
     var lines = text ? text.split('\n') : [];
     var totalH = Math.min(lines.length, Math.floor(this._height / lh)) * lh;
