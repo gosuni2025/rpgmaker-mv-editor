@@ -2892,13 +2892,19 @@
     }
   };
 
-  // 첫 표시 시 초기 빌드
+  // 첫 표시 시 초기 빌드 + _rowOverlay(cursorOnly) visible 동기화
   Widget_List.prototype.show = function() {
     Widget_Base.prototype.show.call(this);
+    if (this._rowOverlay) this._rowOverlay.visible = true;
     if (!this._builtOnce && this._dataScript) {
       this._builtOnce = true;
       this._rebuildFromScript();
     }
+  };
+
+  Widget_List.prototype.hide = function() {
+    Widget_Base.prototype.hide.call(this);
+    if (this._rowOverlay) this._rowOverlay.visible = false;
   };
 
   Widget_List.prototype.update = function() {
@@ -4529,15 +4535,14 @@
     var origSPCS = SCB.startPartyCommandSelection || function() {};
     Klass.prototype.startPartyCommandSelection = function() {
       this._csInSubSelection = false; // 파티 커맨드로 돌아가면 서브 선택 상태 해제
+      this._csActorCursorActive = false;
       var wmap = this._widgetMap || {};
       if (wmap.actorCommand) {
         if (wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
         if (wmap.actorCommand.hide) wmap.actorCommand.hide();
       }
       if (wmap.actorWindow) {
-        if (wmap.actorWindow.hide) wmap.actorWindow.hide();
-        if (wmap.actorWindow._window && wmap.actorWindow._window.deselect)
-          wmap.actorWindow._window.deselect(); // cursorRect = 0 → 커서 비표시
+        if (wmap.actorWindow.hide) wmap.actorWindow.hide(); // _rowOverlay.visible=false 포함
       }
       origSPCS.call(this);
     };
@@ -4647,10 +4652,44 @@
         if (this._logWindow && this._logWindow._lines) {
           this._ctx.battleLog = this._logWindow._lines.join('\n');
         }
+        // 전투 진행 중(입력 단계 외) 현재 행동하는 액터에 actorWindow 커서 표시
+        this._csUpdateActorCursor();
       }
       if (this._widgetMap) {
         for (var id in this._widgetMap) {
           if (this._widgetMap[id].update) this._widgetMap[id].update();
+        }
+      }
+    };
+
+    // _csUpdateActorCursor: 입력 단계 이외에서 BattleManager._subject 감시
+    // → 액터가 행동 중이면 actorWindow 커서를 해당 액터로 이동 + 깜빡임
+    // → subject 없거나 적이면 actorWindow 숨김
+    Klass.prototype._csUpdateActorCursor = function() {
+      if (BattleManager.isInputting()) return; // 입력 단계는 changeInputWindow가 제어
+      var wmap = this._widgetMap || {};
+      var actorWidget = wmap['actorWindow'];
+      if (!actorWidget) return;
+
+      var subject = BattleManager._subject;
+      if (subject && subject.isActor && subject.isActor()) {
+        var idx = subject.index();
+        if (!this._csActorCursorActive) {
+          this._csActorCursorActive = true;
+          this._csActorCursorIdx = -1;
+          actorWidget.show();
+          if (actorWidget._window && actorWidget._window.open) actorWidget._window.open();
+          if (actorWidget._window) actorWidget._window.activate(); // 깜빡임 ON
+        }
+        if (this._csActorCursorIdx !== idx) {
+          this._csActorCursorIdx = idx;
+          actorWidget.select(idx);
+        }
+      } else {
+        if (this._csActorCursorActive) {
+          this._csActorCursorActive = false;
+          this._csActorCursorIdx = -1;
+          actorWidget.hide();
         }
       }
     };
