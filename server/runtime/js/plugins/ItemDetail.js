@@ -505,17 +505,26 @@
             return;
         }
 
-        // MV 표준 방식: window.update()를 직접 호출하여 processHandling()/processTouch() 실행
-        // (updateChildren()이 실행되지 않으므로 직접 호출 필요)
+        // NavManager가 입력을 가로채기 전에 직접 처리
         if (dw && dw.visible) {
-            this.updateFade();
-            dw.activate();
-            dw.update();
-            // update 후 dw가 닫혔으면(cancel/ok handler 실행됨) → input clear + 쿨다운
-            if (!dw.visible) {
+            if (TouchInput.isCancelled() || Input.isTriggered('cancel')) {
+                SoundManager.playCancel();
+                dw.hide();
+                this._detailOverlay.visible = false;
                 Input.clear(); TouchInput.clear();
+                this._itemWindow.activate();
                 this._popupInputCooldown = 3;
+            } else if ((TouchInput.isTriggered() && dw.isTouchedInsideFrame && dw.isTouchedInsideFrame()) ||
+                       Input.isTriggered('ok')) {
+                if (dw._detail && dw._detail.image) {
+                    SoundManager.playOk();
+                    this._itemDetailFullscreen.open(dw._item, dw._detail);
+                } else {
+                    SoundManager.playBuzzer();
+                }
+                Input.clear(); TouchInput.clear();
             }
+            this.updateFade();
             return;
         }
         if (aw && aw.visible) {
@@ -580,9 +589,6 @@
 
             this._itemDetailWindow.setHandler('cancel', function () {
                 self._itemDetailWindow.hide();
-                // ilW.activate()를 즉시 호출하면 같은 프레임 내 씬 전환이 트리거될 수 있으므로
-                // _pendingActivateId에 저장하여 쿨다운 종료 시 실행
-                self._pendingActivateId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
             });
 
             // ── 사용/살펴보기 핸들러 ──
@@ -655,18 +661,25 @@
                 return;
             }
 
-            // MV 표준 방식: window.update()를 직접 호출하여 processHandling()/processTouch() 실행
-            // (updateChildren()이 실행되지 않으므로 직접 호출 필요)
-            // NavManager 등이 dw를 deactivate할 수 있으므로 매 프레임 activate() 보장
+            // NavManager가 입력을 가로채기 전에 직접 처리
             if (dw && dw.visible) {
-                if (this.updateFade) this.updateFade();
-                dw.activate();
-                dw.update();
-                // update 후 dw가 닫혔으면(cancel/ok handler 실행됨) → input clear + 쿨다운
-                if (!dw.visible) {
+                if (TouchInput.isCancelled() || Input.isTriggered('cancel')) {
+                    SoundManager.playCancel();
+                    dw.hide();
                     Input.clear(); TouchInput.clear();
+                    self._pendingActivateId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
                     this._popupInputCooldown = 3;
+                } else if ((TouchInput.isTriggered() && dw.isTouchedInsideFrame && dw.isTouchedInsideFrame()) ||
+                           Input.isTriggered('ok')) {
+                    if (dw._detail && dw._detail.image) {
+                        SoundManager.playOk();
+                        self._itemDetailFullscreen.open(dw._item, dw._detail);
+                    } else {
+                        SoundManager.playBuzzer();
+                    }
+                    Input.clear(); TouchInput.clear();
                 }
+                if (this.updateFade) this.updateFade();
                 return;
             }
             if (aw && aw.visible) {
