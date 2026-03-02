@@ -3353,10 +3353,23 @@ Spriteset_Map.prototype._updateObjectShader = function(sprite) {
     if (typeof PictureShader === 'undefined' || typeof THREE === 'undefined') return;
 
     var shaderData = sprite._objShaderData;
-    if (!shaderData || !Array.isArray(shaderData) || shaderData.length === 0) return;
+    var passes = (shaderData && Array.isArray(shaderData))
+        ? shaderData.filter(function(s) { return s.enabled; })
+        : [];
+
+    // 활성 패스 없음: 기존 패스 정리 후 종료 (shaderData가 비워지거나 전부 비활성화된 경우)
+    if (passes.length === 0) {
+        if (sprite._objShaderPasses && sprite._objShaderPasses.length > 0) {
+            this._disposeObjectShaderPasses(sprite);
+            if (sprite._threeObj && sprite._origMaterial) {
+                sprite._threeObj.material = sprite._origMaterial;
+                sprite._material = sprite._origMaterial;
+            }
+        }
+        return;
+    }
 
     // 셰이더 키 계산 (변경 감지 - ShadowLight 상태도 포함)
-    var passes = shaderData.filter(function(s) { return s.enabled; });
     var is3D = typeof ShadowLight !== 'undefined' && ShadowLight._active;
     var key = (is3D ? '3d:' : '2d:') + passes.map(function(s) { return s.type; }).join(',');
 
@@ -3391,6 +3404,11 @@ Spriteset_Map.prototype._updateObjectShader = function(sprite) {
  */
 Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
     var is3D = typeof ShadowLight !== 'undefined' && ShadowLight._active;
+
+    // 원본 머티리얼 저장 (최초 1회 - 나중에 패스 제거 시 복원용)
+    if (sprite._origMaterial === undefined) {
+        sprite._origMaterial = (sprite._threeObj && sprite._threeObj.material) || null;
+    }
 
     // 기존 패스 정리
     this._disposeObjectShaderPasses(sprite);
