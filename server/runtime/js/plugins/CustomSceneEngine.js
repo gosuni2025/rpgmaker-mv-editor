@@ -3310,16 +3310,84 @@
         var handlersDef = widget._handlersDef || {};
         for (var symbol in handlersDef) {
           (function(sym, handler, w) {
-            w.setHandler(sym, function() {
-              self._executeWidgetHandler(handler, w);
-            });
+            if (sym === 'ok') {
+              w.setHandler('ok', function() {
+                // formation 모드 (list 기반)
+                if (self._ctx && self._ctx._formationMode) {
+                  var idx = w._window ? w._window.index() : -1;
+                  if (idx < 0) return;
+                  if (self._ctx._formationPending < 0) {
+                    self._ctx._formationPending = idx;
+                    if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
+                    if (w._window) w._window.activate();
+                  } else {
+                    $gameParty.swapOrder(idx, self._ctx._formationPending);
+                    self._ctx._formationPending = -1;
+                    if (typeof SoundManager !== 'undefined') SoundManager.playOk();
+                    if (w._rebuildFromScript) w._rebuildFromScript();
+                    if (w._window) w._window.activate();
+                  }
+                  return;
+                }
+                // selectActor 모드 (_pendingPersonalAction)
+                if (self._pendingPersonalAction) {
+                  var actorIdx = w._window ? w._window.index() : 0;
+                  var actor = typeof $gameParty !== 'undefined' ? $gameParty.members()[actorIdx] : null;
+                  if (actor) $gameParty.setMenuActor(actor);
+                  var pendingAction = self._pendingPersonalAction;
+                  self._pendingPersonalAction = null;
+                  self._personalOriginWidget = null;
+                  if (w.deactivate) w.deactivate();
+                  if (w.displayObject()) w.displayObject().visible = false;
+                  self._pendingActorWidgetId = null;
+                  self._executeWidgetHandler(pendingAction, w);
+                  return;
+                }
+                // 일반 ok 핸들러
+                self._executeWidgetHandler(handler, w);
+              });
+            } else {
+              w.setHandler(sym, function() {
+                self._executeWidgetHandler(handler, w);
+              });
+            }
           })(symbol, handlersDef[symbol], widget);
         }
         // cancel이 handlersDef에 없을 때만 기본 핸들러 설정
         if (!handlersDef['cancel']) {
-          widget.setCancelHandler(function() {
-            self._executeWidgetHandler({ action: 'cancel' }, widget);
-          });
+          (function(w) {
+            w.setCancelHandler(function() {
+              // formation 모드 취소
+              if (self._ctx && self._ctx._formationMode) {
+                if (self._ctx._formationPending >= 0) {
+                  self._ctx._formationPending = -1;
+                  if (typeof SoundManager !== 'undefined') SoundManager.playCancel();
+                  if (w._window) w._window.activate();
+                  return;
+                }
+                self._ctx._formationMode = false;
+                self._ctx._formationPending = -1;
+                if (w.deactivate) w.deactivate();
+                if (w.displayObject()) w.displayObject().visible = false;
+                var formOrigin = self._personalOriginWidget;
+                self._personalOriginWidget = null;
+                if (formOrigin && self._navManager) self._navManager.focusWidget(formOrigin._id);
+                return;
+              }
+              // selectActor 모드 취소
+              if (self._pendingPersonalAction) {
+                self._pendingPersonalAction = null;
+                if (w.deactivate) w.deactivate();
+                if (w.displayObject()) w.displayObject().visible = false;
+                self._pendingActorWidgetId = null;
+                var selOrigin = self._personalOriginWidget;
+                self._personalOriginWidget = null;
+                if (selOrigin && self._navManager) self._navManager.focusWidget(selOrigin._id);
+                return;
+              }
+              self._executeWidgetHandler({ action: 'cancel' }, w);
+            });
+          })(widget);
         }
       } else if (widget instanceof Widget_RowSelector) {
         (function(w) {
@@ -3461,7 +3529,9 @@
         if (actorWidget) {
           this._pendingPersonalAction = handler.thenAction || null;
           this._personalOriginWidget = widget;
-          actorWidget.setFormationMode(false);
+          this._pendingActorWidgetId = handler.widget;
+          if (typeof actorWidget.setFormationMode === 'function') actorWidget.setFormationMode(false);
+          if (actorWidget.displayObject()) actorWidget.displayObject().visible = true;
           if (this._navManager) this._navManager.focusWidget(handler.widget);
         }
         break;
@@ -3469,8 +3539,17 @@
       case 'formation': {
         var actorWidget2 = this._widgetMap && this._widgetMap[handler.widget];
         if (actorWidget2) {
-          actorWidget2.setFormationMode(true);
-          actorWidget2.setPendingIndex(-1);
+          if (typeof actorWidget2.setFormationMode === 'function') {
+            // rowSelector 방식
+            actorWidget2.setFormationMode(true);
+            actorWidget2.setPendingIndex(-1);
+          } else {
+            // list 방식: $ctx에 formation 상태 저장
+            this._ctx._formationMode = true;
+            this._ctx._formationPending = -1;
+            this._personalOriginWidget = widget;
+          }
+          if (actorWidget2.displayObject()) actorWidget2.displayObject().visible = true;
           if (this._navManager) this._navManager.focusWidget(handler.widget);
         }
         break;
@@ -3562,7 +3641,7 @@
             var sawUI = this._widgetMap[handler.actorWidget];
             if (sawUI) {
               if (sawUI.displayObject()) sawUI.displayObject().visible = true;
-              sawUI.setFormationMode(false);
+              if (typeof sawUI.setFormationMode === 'function') sawUI.setFormationMode(false);
               if (this._navManager) this._navManager.focusWidget(handler.actorWidget);
             }
           } else {
@@ -3619,7 +3698,7 @@
           if (awUI) {
             // 윈도우 표시 (이전에 숨겼을 수 있으므로 명시적으로 복원)
             if (awUI.displayObject()) awUI.displayObject().visible = true;
-            awUI.setFormationMode(false);
+            if (typeof awUI.setFormationMode === 'function') awUI.setFormationMode(false);
             if (this._navManager) this._navManager.focusWidget(handler.actorWidget);
           }
         } else {
