@@ -3467,7 +3467,12 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
             ShadowLight._convertedMaterials.set(outputMat, true);
         }
         // 그림자 캐스팅용 customDepthMaterial 생성
+        // 기존 customDepthMaterial이 있으면 먼저 dispose (orphan 방지)
         if (sprite._threeObj) {
+            if (sprite._threeObj.customDepthMaterial) {
+                sprite._threeObj.customDepthMaterial.dispose();
+                sprite._threeObj.customDepthMaterial = null;
+            }
             sprite._threeObj.castShadow = true;
             sprite._threeObj.customDepthMaterial = new THREE.MeshDepthMaterial({
                 depthPacking: THREE.RGBADepthPacking,
@@ -3617,6 +3622,11 @@ Spriteset_Map.prototype._disposeObjectShaderPasses = function(sprite) {
     if (sprite._objOutputMaterial) {
         sprite._objOutputMaterial.dispose();
         sprite._objOutputMaterial = null;
+    }
+    // customDepthMaterial도 정리 (3D 모드에서 _applyObjectShaderPasses가 생성한 것)
+    if (sprite._threeObj && sprite._threeObj.customDepthMaterial) {
+        sprite._threeObj.customDepthMaterial.dispose();
+        sprite._threeObj.customDepthMaterial = null;
     }
 };
 

@@ -48,6 +48,8 @@
             var _trackLabel = '';
             var _trackStartTexMax = 0;
             var _trackStartGeoMax = 0;
+            var _trackStartTexRaw = 0;
+            var _trackStartGeoRaw = 0;
 
             // 추적 중 수집한 증가 이벤트 버퍼 (최대 5000개)
             var _traceBuffer = [];
@@ -128,10 +130,13 @@
                 _trackLabel = label || '';
                 _trackStartTexMax = _texFrameMax;
                 _trackStartGeoMax = _geoFrameMax;
+                _trackStartTexRaw = _texVal;
+                _trackStartGeoRaw = _geoVal;
                 _traceBuffer = [];
                 _tracking = true;
                 console.log('[Track] 시작' + (_trackLabel ? ' [' + _trackLabel + ']' : '') +
-                    ' tex=' + _trackStartTexMax + ', geo=' + _trackStartGeoMax);
+                    ' tex=' + _trackStartTexMax + ' (raw=' + _trackStartTexRaw + ')' +
+                    ', geo=' + _trackStartGeoMax + ' (raw=' + _trackStartGeoRaw + ')');
             };
 
             // 추적 종료 및 결과 출력 (창 닫은 후 호출)
@@ -139,10 +144,16 @@
                 _tracking = false;
                 var texDelta = _texFrameMax - _trackStartTexMax;
                 var geoDelta = _geoFrameMax - _trackStartGeoMax;
+                // raw: 실제 현재 GPU 텍스처/지오메트리 수의 변화 (dispose 후 감소 반영)
+                var rawTexDelta = _texVal - _trackStartTexRaw;
+                var rawGeoDelta = _geoVal - _trackStartGeoRaw;
                 var sign = function(n) { return (n >= 0 ? '+' : '') + n; };
 
+                // max delta: 추적 구간 중 최고 증가분 (dispose 후 감소 미반영)
+                // raw delta: 실제 현재값 기준 변화 (진짜 누수 여부 판단용)
                 console.group('[Track] 결과' + (_trackLabel ? ' [' + _trackLabel + ']' : '') +
-                    '  tex' + sign(texDelta) + '  geo' + sign(geoDelta));
+                    '  tex' + sign(texDelta) + '(실제' + sign(rawTexDelta) + ')' +
+                    '  geo' + sign(geoDelta) + '(실제' + sign(rawGeoDelta) + ')');
 
                 if (geoDelta > 0) {
                     // threshold를 초과한 증가만 표시 (누수된 geometry의 스택)
@@ -182,8 +193,12 @@
                     console.groupEnd();
                 }
 
-                if (texDelta <= 0 && geoDelta <= 0) {
-                    console.log('누수 없음');
+                if (rawTexDelta <= 0 && rawGeoDelta <= 0) {
+                    if (texDelta > 0 || geoDelta > 0) {
+                        console.log('실제 누수 없음 (최대값 delta는 추적 구간 중 일시적 증가)');
+                    } else {
+                        console.log('누수 없음');
+                    }
                 }
                 console.groupEnd();
             };
