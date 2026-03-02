@@ -1062,6 +1062,16 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>기본 속성</summary>
         <div style={sectionStyle}>
           <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 50 }}>표시이름</span>
+            <input
+              style={{ ...inputStyle, flex: 1 }}
+              value={(widget as any).displayName || ''}
+              placeholder="(id 사용)"
+              onChange={(e) => update({ displayName: e.target.value || undefined } as any)}
+              title="에디터 트리에 표시할 이름. 비우면 id가 표시됩니다."
+            />
+          </div>
+          <div style={rowStyle}>
             <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
             <input
               style={{ ...inputStyle, flex: 1, outline: idDraft !== widget.id ? '1px solid #f84' : undefined }}

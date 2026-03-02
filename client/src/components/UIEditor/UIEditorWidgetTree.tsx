@@ -160,10 +160,19 @@ export function WidgetTreeNode({
           {WIDGET_TYPE_LABELS[widget.type]}
         </span>
         <span style={{ flex: 1, fontSize: 12, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {widget.id}
-          {'text' in widget && (widget as any).text ? (
-            <span style={{ color: '#888', fontSize: 10, marginLeft: 4 }}>"{(widget as any).text.slice(0, 15)}"</span>
-          ) : null}
+          {widget.displayName ? (
+            <>
+              <span>{widget.displayName}</span>
+              <span style={{ color: '#555', fontSize: 10, marginLeft: 4 }}>#{widget.id}</span>
+            </>
+          ) : (
+            <>
+              {widget.id}
+              {'text' in widget && (widget as any).text ? (
+                <span style={{ color: '#888', fontSize: 10, marginLeft: 4 }}>"{(widget as any).text.slice(0, 15)}"</span>
+              ) : null}
+            </>
+          )}
         </span>
         {widget.id !== 'root' && !readOnly && (
           <button style={{ ...deleteBtnStyle, fontSize: 9, padding: '1px 4px' }}

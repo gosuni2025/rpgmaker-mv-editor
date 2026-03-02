@@ -198,6 +198,8 @@ export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image'
 
 export interface WidgetDefBase {
   id: string;
+  /** 에디터 표시용 이름 (런타임 무관). 비어있으면 id를 표시 */
+  displayName?: string;
   type: WidgetType;
   x: number;
   y: number;
