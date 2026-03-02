@@ -1291,6 +1291,20 @@
   // 기본 activate/deactivate — 인터랙티브 위젯이 override. 비인터랙티브 위젯이 focusable=true일 때 crash 방지
   Widget_Base.prototype.activate = function() {};
   Widget_Base.prototype.deactivate = function() {};
+  // hide/show/close/open — displayObject 가시성 제어
+  // installBattleWindowProxy의 DELEGATE 배열을 통해 win.hide() → widget.hide() 전달받음
+  Widget_Base.prototype.hide = function() {
+    var dObj = this._displayObject;
+    if (dObj) dObj.visible = false;
+    if (this._decoSprite) this._decoSprite.visible = false;
+  };
+  Widget_Base.prototype.show = function() {
+    var dObj = this._displayObject;
+    if (dObj) dObj.visible = true;
+    if (this._decoSprite) this._decoSprite.visible = true;
+  };
+  Widget_Base.prototype.close = function() { this.hide(); };
+  Widget_Base.prototype.open  = function() { this.show(); };
   Widget_Base.prototype.destroy = function() {
     if (this._scripts) this._runScript('onDestroy');
     if (this._bitmap && this._bitmap.destroy) this._bitmap.destroy();
@@ -4116,8 +4130,10 @@
         }
       }
 
-      // 4. 초기 숨김 위젯 처리 (skillWindow, itemWindow, actorWindow, enemyWindow)
-      var _hiddenAtStart = ['skillWindow', 'itemWindow', 'actorWindow', 'enemyWindow'];
+      // 4. 초기 숨김 위젯 처리
+      // - helpWindow: 스킬/아이템 선택 시에만 보임
+      // - actorCommand: fight 선택 후 액터 입력 단계에서만 보임 (startPartyCommandSelection→close로 숨겨짐)
+      var _hiddenAtStart = ['skillWindow', 'itemWindow', 'actorWindow', 'enemyWindow', 'helpWindow', 'actorCommand'];
       for (var hi = 0; hi < _hiddenAtStart.length; hi++) {
         var hw = wmap[_hiddenAtStart[hi]];
         if (hw && hw.hide) hw.hide();
@@ -4187,6 +4203,7 @@
       this._skillWindow.refresh();
       this._skillWindow.show();
       this._skillWindow.activate();
+      this._helpWindow.show();
     };
 
     Klass.prototype.commandItem = function() {
@@ -4194,6 +4211,19 @@
       this._itemWindow.refresh();
       this._itemWindow.show();
       this._itemWindow.activate();
+      this._helpWindow.show();
+    };
+
+    Klass.prototype.onSkillCancel = function() {
+      this._skillWindow.hide();
+      this._helpWindow.hide();
+      this._actorCommandWindow.activate();
+    };
+
+    Klass.prototype.onItemCancel = function() {
+      this._itemWindow.hide();
+      this._helpWindow.hide();
+      this._actorCommandWindow.activate();
     };
 
     Klass.prototype.onActorCancel = function() {
