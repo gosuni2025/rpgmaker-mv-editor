@@ -4469,10 +4469,25 @@
       // enemyWindow를 WindowLayer에서 꺼내 Scene 최상단에 addChild
       // → statusWindow _rowOverlay보다 위에 그려짐
       var enemyWidget = wmap['enemyWindow'];
-      if (enemyWidget && enemyWidget._window && !enemyWidget._window._csBattleLifted) {
-        if (enemyWidget._window.parent) enemyWidget._window.parent.removeChild(enemyWidget._window);
-        SceneManager._scene.addChild(enemyWidget._window);
-        enemyWidget._window._csBattleLifted = true;
+      if (enemyWidget && enemyWidget._window) {
+        if (!enemyWidget._window._csBattleLifted) {
+          if (enemyWidget._window.parent) enemyWidget._window.parent.removeChild(enemyWidget._window);
+          SceneManager._scene.addChild(enemyWidget._window);
+          enemyWidget._window._csBattleLifted = true;
+        }
+        // 위젯 창 select()를 proxy Window_BattleEnemy.select()와 동기화
+        // → Window_BattleEnemy.select(i)가 $gameTroop.members()[i].select()를 호출 → Sprite_Enemy 반짝임
+        if (!enemyWidget._window._csBattleBlinkHooked) {
+          enemyWidget._window._csBattleBlinkHooked = true;
+          var self = this;
+          var origWinSel = enemyWidget._window.select.bind(enemyWidget._window);
+          enemyWidget._window.select = function(index) {
+            origWinSel(index);
+            if (self._enemyWindow && typeof self._enemyWindow.select === 'function') {
+              self._enemyWindow.select(index);
+            }
+          };
+        }
       }
       origSES.call(this);
     };
@@ -4541,6 +4556,8 @@
       var actor = BattleManager.actor();
       if (actorWidget) {
         actorWidget.show();
+        // open()을 명시적으로 호출 — openness=255가 돼야 _updateCursor에서 isOpen()=true → 커서 visible
+        if (actorWidget._window && actorWidget._window.open) actorWidget._window.open();
         if (actor) actorWidget.select(actor.index());
         // activate하지 않음 — 인터랙티브 아닌 인디케이터 전용
       }
@@ -4548,6 +4565,10 @@
 
     Klass.prototype.onEnemyCancel = function() {
       this._csInSubSelection = false;
+      // 적 선택 해제 → Sprite_Enemy 반짝임 중단
+      if (this._enemyWindow && typeof this._enemyWindow.select === 'function') {
+        this._enemyWindow.select(-1);
+      }
       this._enemyWindow.hide();
       var wmap = this._widgetMap || {};
       // rowOverlay dim 복구
