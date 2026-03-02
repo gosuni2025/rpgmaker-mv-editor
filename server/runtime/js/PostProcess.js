@@ -2441,7 +2441,10 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     }
 };
 
-UIRenderPass.prototype.dispose = function() {};
+UIRenderPass.prototype.dispose = function() {
+    if (this._copyMaterial) this._copyMaterial.dispose();
+    if (this._copyQuad) this._copyQuad.dispose();
+};
 
 // --- Simple2DRenderPass (2D 모드용: UI를 숨기고 맵만 writeBuffer에 렌더) ---
 function Simple2DRenderPass(prevRender, strategy) {
