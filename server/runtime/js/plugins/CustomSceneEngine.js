@@ -2446,13 +2446,25 @@
   };
   Widget_Button.prototype.update = function() {
     Widget_Base.prototype.update.call(this);
-    // hideOnKeyboard: 터치 입력 시에만 표시
+    // 부모 패널 체인 visible 추적
+    // (_decoSprite/_labelSprite 는 scene에 직접 추가되어 부모 패널 visible을 자동으로 따라가지 않음)
+    var parentVisible = true;
+    var p = this._parent;
+    while (p) {
+      if (p._displayObject && !p._displayObject.visible) { parentVisible = false; break; }
+      p = p._parent;
+    }
+    // hideOnKeyboard: 터치 입력 시에만 표시 (부모 가시성도 반영)
     if (this._hideOnKeyboard) {
-      var showBtn = typeof TouchInput !== 'undefined' && typeof Input !== 'undefined'
+      var showBtn = parentVisible && typeof TouchInput !== 'undefined' && typeof Input !== 'undefined'
         ? TouchInput.date > Input.date : false;
       if (this._displayObject) this._displayObject.visible = showBtn;
       if (this._decoSprite)    this._decoSprite.visible    = showBtn;
       if (this._labelSprite)   this._labelSprite.visible   = showBtn;
+    } else {
+      // 일반 버튼: _decoSprite/_labelSprite를 부모 visible에 동기화
+      if (this._decoSprite)  this._decoSprite.visible  = parentVisible;
+      if (this._labelSprite) this._labelSprite.visible = parentVisible;
     }
     if (this._transition !== 'system') {
       this._updateTransitionState();
