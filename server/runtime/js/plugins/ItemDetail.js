@@ -4,7 +4,7 @@
 //=============================================================================
 
 /*:
- * @plugindesc v1.3 아이템 결정 키/터치 시 중앙 팝업으로 상세 이미지와 텍스트를 표시합니다.
+ * @plugindesc v1.4 아이템 결정 키/터치 시 중앙 팝업으로 상세 이미지와 텍스트를 표시합니다.
  * @author Claude
  *
  * @param defaultImgHAlign
@@ -81,7 +81,6 @@
     var DEF_IMG_VALIGN  = p['defaultImgVAlign']  || 'middle';
     var DEF_TXT_HALIGN  = p['defaultTextHAlign'] || 'left';
     var DEF_TXT_VALIGN  = p['defaultTextVAlign'] || 'bottom';
-    var TEXT_BG         = p['textBackground'] !== 'false';
 
     //-------------------------------------------------------------------------
     // 노트 태그 파싱
@@ -138,27 +137,38 @@
 
     //=========================================================================
     // Window_ItemDetail — 중앙 상세 팝업 창
+    // Window_Selectable 기반으로 RPG MV 표준 ok/cancel 핸들러 패턴 사용
     //=========================================================================
     function Window_ItemDetail() {
         this.initialize.apply(this, arguments);
     }
 
-    Window_ItemDetail.prototype = Object.create(Window_Base.prototype);
+    Window_ItemDetail.prototype = Object.create(Window_Selectable.prototype);
     Window_ItemDetail.prototype.constructor = Window_ItemDetail;
 
     Window_ItemDetail.prototype.initialize = function (x, y, width, height) {
-        Window_Base.prototype.initialize.call(this, x, y, width, height);
+        Window_Selectable.prototype.initialize.call(this, x, y, width, height);
         this._item   = null;
         this._detail = null;
         this.hide();
+        this.deactivate();
     };
 
-    // 아이템 설정 후 창 표시 (항상 fresh 렌더링)
+    // 선택 항목 없음 (커서 없음)
+    Window_ItemDetail.prototype.maxItems = function () { return 0; };
+
+    // 이미지가 있을 때만 ok(전체화면) 활성화
+    Window_ItemDetail.prototype.isCurrentItemEnabled = function () {
+        return !!(this._detail && this._detail.image);
+    };
+
+    // 아이템 설정 후 창 표시 + 활성화
     Window_ItemDetail.prototype.open = function (item) {
         this._item   = null;
         this._detail = null;
         this.setItem(item);
         this.show();
+        this.activate();
     };
 
     Window_ItemDetail.prototype.setItem = function (item) {
@@ -176,7 +186,7 @@
         var cw = this.contentsWidth();
         var ch = this.contentsHeight();
         var hintH = this.lineHeight();
-        var drawCh = ch - hintH - 4;  // 하단 도움말 영역 확보
+        var drawCh = ch - hintH - 4;
 
         // 이미지+텍스트 모두 있으면 왼쪽 이미지 / 오른쪽 텍스트 2패널 레이아웃
         var splitLayout = !!(detail.image && detail.text);
@@ -192,7 +202,7 @@
                 self.contents.clear();
                 self._drawImageInArea(bmp, detail, 0, 0, imgW, drawCh);
                 self._drawSeparator(sepX, drawCh);
-                self._drawTextInArea(detail, txtX, 0, txtW, drawCh, false);
+                self._drawTextInArea(detail, txtX, 0, txtW, drawCh);
                 self._drawHint(detail, cw, ch, hintH);
             }
             if (bmp.isReady()) { drawSplit(); }
@@ -207,12 +217,11 @@
             if (bmp.isReady()) { drawImg(); }
             else { bmp.addLoadListener(drawImg); }
         } else {
-            this._drawTextInArea(detail, 0, 0, cw, drawCh, false);
+            this._drawTextInArea(detail, 0, 0, cw, drawCh);
             this._drawHint(detail, cw, ch, hintH);
         }
     };
 
-    // 하단 키 조작 도움말
     Window_ItemDetail.prototype._drawHint = function (detail, cw, ch, hintH) {
         var prevFs = this.contents.fontSize;
         this.contents.fontSize = 16;
@@ -251,7 +260,7 @@
         return this.contents.measureTextWidth(plain);
     };
 
-    Window_ItemDetail.prototype._drawTextInArea = function (detail, ax, ay, aw, ah, showBg) {
+    Window_ItemDetail.prototype._drawTextInArea = function (detail, ax, ay, aw, ah) {
         if (!detail.text) return;
 
         var lines  = detail.text.split('\n');
@@ -262,10 +271,6 @@
         var startY = ay + pad;
         if (detail.textVAlign === 'middle') startY = ay + Math.max(pad, Math.floor((ah - total) / 2));
         else if (detail.textVAlign === 'bottom') startY = ay + Math.max(pad, ah - total - pad);
-
-        if (showBg) {
-            this.contents.fillRect(ax, startY - 2, aw, total + 4, 'rgba(0,0,0,0.55)');
-        }
 
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i];
@@ -280,8 +285,6 @@
 
     //=========================================================================
     // ItemDetailFullscreen — 전체화면 이미지 뷰어
-    // Sprite 기반으로 RPG MV 렌더링 파이프라인 활용 (shaderData 지원 가능)
-    // DOM 이벤트 리스너로 입력 신뢰성 확보
     //=========================================================================
     function ItemDetailFullscreen() {
         this.initialize.apply(this, arguments);
@@ -296,22 +299,18 @@
         this._closeRequested = false;
         this._cancelListener = null;
 
-        // 검은 배경 스프라이트
         var bgBmp = new Bitmap(Graphics.boxWidth, Graphics.boxHeight);
         bgBmp.fillAll('#000000');
         this._bgSprite = new Sprite(bgBmp);
         this.addChild(this._bgSprite);
 
-        // 이미지 스프라이트
         this._imgSprite = new Sprite();
         this.addChild(this._imgSprite);
 
         this.visible = false;
     };
 
-    ItemDetailFullscreen.prototype.isOpen = function () {
-        return this._isOpen;
-    };
+    ItemDetailFullscreen.prototype.isOpen = function () { return this._isOpen; };
 
     ItemDetailFullscreen.prototype.open = function (item, detail) {
         detail = detail || parseDetail(item);
@@ -332,13 +331,10 @@
             self._imgSprite.x = Math.floor((Graphics.boxWidth  - bmp.width  * scale) / 2);
             self._imgSprite.y = Math.floor((Graphics.boxHeight - bmp.height * scale) / 2);
         }
-        if (bmp.isReady()) {
-            applyBitmap();
-        } else {
-            bmp.addLoadListener(applyBitmap);
-        }
+        if (bmp.isReady()) { applyBitmap(); }
+        else { bmp.addLoadListener(applyBitmap); }
 
-        // 200ms 후 닫기 허용 (여는 입력이 즉시 닫히는 것 방지)
+        // 200ms 후 닫기 허용
         clearTimeout(this._openTimer);
         this._openTimer = setTimeout(function () {
             if (!self._isOpen) return;
@@ -366,9 +362,7 @@
             document.removeEventListener('touchstart', this._cancelListener, true);
             this._cancelListener = null;
         }
-        if (this._imgSprite) {
-            this._imgSprite.bitmap = null;
-        }
+        if (this._imgSprite) this._imgSprite.bitmap = null;
     };
 
     //=========================================================================
@@ -397,28 +391,10 @@
         this.addCommand('살펴보기', 'inspect');
     };
 
-    //-------------------------------------------------------------------------
-    // 액션 창 터치 히트 테스트 헬퍼
-    //-------------------------------------------------------------------------
-    function actionWindowTouchRow(aw) {
-        if (!TouchInput.isTriggered()) return -1;
-        var tx = TouchInput.x, ty = TouchInput.y;
-        var pad = aw.standardPadding ? aw.standardPadding() : 18;
-        var lh  = aw.lineHeight();
-        var innerX = aw.x + pad;
-        var innerY = aw.y + pad;
-        if (tx >= innerX && tx < aw.x + aw.width - pad &&
-            ty >= innerY && ty < innerY + lh * aw.maxItems()) {
-            return Math.floor((ty - innerY) / lh);
-        }
-        return -1;
-    }
-
     //=========================================================================
     // Scene_Item — 기본 MV 씬
     //=========================================================================
 
-    // 아이템 목록창 전체 너비
     Scene_Item.prototype.createItemWindow = function () {
         var wy = this._categoryWindow.y + this._categoryWindow.height;
         var wh = Graphics.boxHeight - wy;
@@ -430,7 +406,6 @@
         this.addWindow(this._itemWindow);
     };
 
-    // 팝업 창들 생성 (모두 addChild로 window layer 위에)
     Scene_Item.prototype.createDetailWindow = function () {
         var bw = Graphics.boxWidth, bh = Graphics.boxHeight;
 
@@ -454,6 +429,30 @@
 
         this._itemDetailFullscreen = new ItemDetailFullscreen();
         this.addChild(this._itemDetailFullscreen);
+
+        // ── 상세 팝업 핸들러 ──
+        this._detailWindow.setHandler('ok', function () {
+            var dw = this._detailWindow;
+            this._itemDetailFullscreen.open(dw._item, dw._detail);
+        }.bind(this));
+
+        this._detailWindow.setHandler('cancel', function () {
+            this._detailWindow.hide();
+            this._itemWindow.activate();
+        }.bind(this));
+
+        // ── 사용/살펴보기 핸들러 ──
+        this._itemActionWindow.setHandler('use', function () {
+            _Scene_Item_onItemOk_orig.call(this);
+        }.bind(this));
+
+        this._itemActionWindow.setHandler('inspect', function () {
+            this._detailWindow.open(this._pendingItem);
+        }.bind(this));
+
+        this._itemActionWindow.setHandler('cancel', function () {
+            this._itemWindow.activate();
+        }.bind(this));
     };
 
     var _Scene_Item_onItemOk_orig = Scene_Item.prototype.onItemOk;
@@ -479,62 +478,16 @@
     Scene_Item.prototype.update = function () {
         var fs = this._itemDetailFullscreen;
         var dw = this._detailWindow;
-        var aw = this._itemActionWindow;
-        var popupOpen = (fs && fs.isOpen()) || (dw && dw.visible);
 
-        // 오버레이 동기화
-        if (this._detailOverlay) this._detailOverlay.visible = !!popupOpen;
+        if (this._detailOverlay) {
+            this._detailOverlay.visible = !!(fs && fs.isOpen()) || !!(dw && dw.visible);
+        }
 
-        // 전체화면 (DOM 오버레이 닫기 요청 체크)
+        // 전체화면: DOM 이벤트로 닫기 감지 후 상세 팝업으로 복귀
         if (fs && fs.isOpen()) {
-            if (fs._closeRequested) { fs.close(); }
-            Input.clear(); TouchInput.clear();
-            return;
-        }
-
-        // 상세 팝업
-        if (dw && dw.visible) {
-            if (Input.isTriggered('ok') || TouchInput.isTriggered()) {
-                var detail = dw._detail;
-                if (detail && detail.image) {
-                    fs.open(dw._item, detail);
-                } else {
-                    SoundManager.playBuzzer();
-                }
-            } else if (Input.isTriggered('cancel') || TouchInput.isCancelled()) {
-                SoundManager.playCancel();
-                dw.hide();
-                this._itemWindow.activate();
-            }
-            Input.clear(); TouchInput.clear();
-            return;
-        }
-
-        // 사용/살펴보기 팝업
-        if (aw && aw.visible) {
-            if (Input.isRepeated('down')) { SoundManager.playCursor(); aw.cursorDown(Input.isTriggered('down')); }
-            else if (Input.isRepeated('up')) { SoundManager.playCursor(); aw.cursorUp(Input.isTriggered('up')); }
-
-            var awOk = Input.isTriggered('ok');
-            if (!awOk) {
-                var tRow = actionWindowTouchRow(aw);
-                if (tRow >= 0) { aw.select(tRow); awOk = true; }
-            }
-
-            if (awOk) {
-                SoundManager.playOk();
-                var symbol = aw.currentSymbol();
-                aw.hide(); aw.deactivate();
-                if (symbol === 'use') {
-                    this._itemWindow.activate();
-                    _Scene_Item_onItemOk_orig.call(this);
-                } else {
-                    this._detailWindow.open(this._pendingItem);
-                }
-            } else if (Input.isTriggered('cancel') || TouchInput.isCancelled()) {
-                SoundManager.playCancel();
-                aw.hide(); aw.deactivate();
-                this._itemWindow.activate();
+            if (fs._closeRequested) {
+                fs.close();
+                if (dw && dw.visible) dw.activate();
             }
             Input.clear(); TouchInput.clear();
             return;
@@ -549,17 +502,6 @@
         this.createDetailWindow();
     };
 
-    var _Scene_Item_terminate = Scene_Item.prototype.terminate;
-    Scene_Item.prototype.terminate = function () {
-        _Scene_Item_terminate.call(this);
-        var keys = ['_detailOverlay', '_detailWindow', '_itemActionWindow', '_itemDetailFullscreen'];
-        for (var i = 0; i < keys.length; i++) {
-            var obj = this[keys[i]];
-            if (obj && obj.destroy) { obj.destroy(); }
-            this[keys[i]] = null;
-        }
-    };
-
     //=========================================================================
     // Scene_CustomUI (CustomSceneEngine) — item 씬 연동
     //=========================================================================
@@ -569,29 +511,65 @@
         var _CustomUI_create = Scene_CustomUI.prototype.create;
         Scene_CustomUI.prototype.create = function () {
             _CustomUI_create.call(this);
-            if (this._sceneId === 'item') {
-                var bw = Graphics.boxWidth, bh = Graphics.boxHeight;
+            if (this._sceneId !== 'item') return;
 
-                var ovBmp = new Bitmap(bw, bh);
-                ovBmp.fillAll('#000000');
-                this._detailOverlay = new Sprite(ovBmp);
-                this._detailOverlay.opacity = 200;
-                this._detailOverlay.visible = false;
-                this.addChild(this._detailOverlay);
+            var bw = Graphics.boxWidth, bh = Graphics.boxHeight;
+            var self = this;
 
-                var pw = Math.floor(bw * 0.92);
-                var ph = Math.floor(bh * 0.90);
-                var px = Math.floor((bw - pw) / 2);
-                var py = Math.floor((bh - ph) / 2);
-                this._itemDetailWindow = new Window_ItemDetail(px, py, pw, ph);
-                this.addChild(this._itemDetailWindow);
+            var ovBmp = new Bitmap(bw, bh);
+            ovBmp.fillAll('#000000');
+            this._detailOverlay = new Sprite(ovBmp);
+            this._detailOverlay.opacity = 200;
+            this._detailOverlay.visible = false;
+            this.addChild(this._detailOverlay);
 
-                this._itemActionWindow = new Window_ItemAction();
-                this.addChild(this._itemActionWindow);
+            var pw = Math.floor(bw * 0.92);
+            var ph = Math.floor(bh * 0.90);
+            var px = Math.floor((bw - pw) / 2);
+            var py = Math.floor((bh - ph) / 2);
+            this._itemDetailWindow = new Window_ItemDetail(px, py, pw, ph);
+            this.addChild(this._itemDetailWindow);
 
-                this._itemDetailFullscreen = new ItemDetailFullscreen();
-                this.addChild(this._itemDetailFullscreen);
-            }
+            this._itemActionWindow = new Window_ItemAction();
+            this.addChild(this._itemActionWindow);
+
+            this._itemDetailFullscreen = new ItemDetailFullscreen();
+            this.addChild(this._itemDetailFullscreen);
+
+            // ── 상세 팝업 핸들러 ──
+            this._itemDetailWindow.setHandler('ok', function () {
+                var dw = self._itemDetailWindow;
+                self._itemDetailFullscreen.open(dw._item, dw._detail);
+            });
+
+            this._itemDetailWindow.setHandler('cancel', function () {
+                self._itemDetailWindow.hide();
+                var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
+                var ilW  = self._widgetMap && self._widgetMap[ilId];
+                if (ilW && ilW.activate) ilW.activate();
+            });
+
+            // ── 사용/살펴보기 핸들러 ──
+            this._itemActionWindow.setHandler('use', function () {
+                var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
+                var ilW  = self._widgetMap && self._widgetMap[ilId];
+                if (ilW && ilW.activate) ilW.activate();
+                if (_exec) _exec.call(self, self._pendingHandler, self._pendingWidget);
+            });
+
+            this._itemActionWindow.setHandler('inspect', function () {
+                var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
+                var ilW  = self._widgetMap && self._widgetMap[ilId];
+                var item = (ilW && ilW._window) ? ilW._window.item() : null;
+                if (!item) item = self._ctx && self._ctx.selectedItem;
+                self._itemDetailWindow.open(item);
+            });
+
+            this._itemActionWindow.setHandler('cancel', function () {
+                var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
+                var ilW  = self._widgetMap && self._widgetMap[ilId];
+                if (ilW && ilW.activate) ilW.activate();
+            });
         };
 
         var _CustomUI_update = Scene_CustomUI.prototype.update;
@@ -603,70 +581,16 @@
 
             var fs = this._itemDetailFullscreen;
             var dw = this._itemDetailWindow;
-            var aw = this._itemActionWindow;
-            var popupOpen = (fs && fs.isOpen()) || (dw && dw.visible);
 
-            // 오버레이 동기화
-            if (this._detailOverlay) this._detailOverlay.visible = !!popupOpen;
+            if (this._detailOverlay) {
+                this._detailOverlay.visible = !!(fs && fs.isOpen()) || !!(dw && dw.visible);
+            }
 
-            // 전체화면 상태
+            // 전체화면: DOM 이벤트로 닫기 감지 후 상세 팝업으로 복귀
             if (fs && fs.isOpen()) {
-                if (fs._closeRequested) { fs.close(); }
-                Input.clear(); TouchInput.clear();
-                return;
-            }
-
-            // 상세 팝업 상태
-            if (dw && dw.visible) {
-                if (Input.isTriggered('ok') || TouchInput.isTriggered()) {
-                    var detail = dw._detail;
-                    if (detail && detail.image) {
-                        fs.open(dw._item, detail);
-                    } else {
-                        SoundManager.playBuzzer();
-                    }
-                } else if (Input.isTriggered('cancel') || TouchInput.isCancelled()) {
-                    SoundManager.playCancel();
-                    dw.hide();
-                    var ilId2 = (this._pendingHandler && this._pendingHandler.itemListWidget) || 'item_list';
-                    var ilW2  = this._widgetMap && this._widgetMap[ilId2];
-                    if (ilW2 && ilW2.activate) ilW2.activate();
-                }
-                Input.clear(); TouchInput.clear();
-                return;
-            }
-
-            // 사용/살펴보기 팝업 상태
-            if (aw && aw.visible) {
-                if (Input.isRepeated('down')) { SoundManager.playCursor(); aw.cursorDown(Input.isTriggered('down')); }
-                else if (Input.isRepeated('up')) { SoundManager.playCursor(); aw.cursorUp(Input.isTriggered('up')); }
-
-                var awOk = Input.isTriggered('ok');
-                if (!awOk) {
-                    var tRow = actionWindowTouchRow(aw);
-                    if (tRow >= 0) { aw.select(tRow); awOk = true; }
-                }
-
-                var ilId = (this._pendingHandler && this._pendingHandler.itemListWidget) || 'item_list';
-                var ilW  = this._widgetMap && this._widgetMap[ilId];
-
-                if (awOk) {
-                    SoundManager.playOk();
-                    var symbol = aw.currentSymbol();
-                    aw.hide(); aw.deactivate();
-                    if (symbol === 'use') {
-                        if (ilW && ilW.activate) ilW.activate();
-                        if (_exec) _exec.call(this, this._pendingHandler, this._pendingWidget);
-                    } else {
-                        // 살펴보기: 위젯 창에서 직접 item 가져오기
-                        var item = (ilW && ilW._window) ? ilW._window.item() : null;
-                        if (!item) item = this._ctx && this._ctx.selectedItem;
-                        dw.open(item);
-                    }
-                } else if (Input.isTriggered('cancel') || TouchInput.isCancelled()) {
-                    SoundManager.playCancel();
-                    aw.hide(); aw.deactivate();
-                    if (ilW && ilW.activate) ilW.activate();
+                if (fs._closeRequested) {
+                    fs.close();
+                    if (dw && dw.visible) dw.activate();
                 }
                 Input.clear(); TouchInput.clear();
                 return;
@@ -675,32 +599,17 @@
             _CustomUI_update.call(this);
         };
 
-        var _CustomUI_terminate = Scene_CustomUI.prototype.terminate || function () {};
-        Scene_CustomUI.prototype.terminate = function () {
-            _CustomUI_terminate.call(this);
-            if (this._sceneId === 'item') {
-                var keys = ['_detailOverlay', '_itemDetailWindow', '_itemActionWindow', '_itemDetailFullscreen'];
-                for (var i = 0; i < keys.length; i++) {
-                    var obj = this[keys[i]];
-                    if (obj && obj.destroy) { obj.destroy(); }
-                    this[keys[i]] = null;
-                }
-            }
-        };
-
         // useItem 인터셉트
         if (_exec) {
             Scene_CustomUI.prototype._executeWidgetHandler = function (handler, widget) {
                 if (this._sceneId === 'item') {
-                    // 팝업이 열려있으면 핸들러 차단
                     if ((this._itemDetailFullscreen && this._itemDetailFullscreen.isOpen()) ||
-                        (this._itemDetailWindow    && this._itemDetailWindow.visible)     ||
+                        (this._itemDetailWindow    && this._itemDetailWindow.visible)      ||
                         (this._itemActionWindow    && this._itemActionWindow.visible)) {
                         return;
                     }
 
                     if (handler && handler.action === 'useItem') {
-                        // _ctx.selectedItem 대신 위젯 창에서 직접 item 가져오기 (터치 시 selectedItem이 null일 수 있음)
                         var ilId = handler.itemListWidget || 'item_list';
                         var ilW  = this._widgetMap && this._widgetMap[ilId];
                         var item = (ilW && ilW._window) ? ilW._window.item() : null;
@@ -709,14 +618,12 @@
 
                         if (detail) {
                             if ($gameParty.canUse(item)) {
-                                // 사용 가능: 사용/살펴보기 선택
                                 this._pendingHandler = handler;
                                 this._pendingWidget  = widget;
                                 this._itemActionWindow.show();
                                 this._itemActionWindow.activate();
                                 this._itemActionWindow.select(0);
                             } else {
-                                // 사용 불가: 상세 팝업 바로 표시
                                 this._itemDetailWindow.open(item);
                             }
                             return;
