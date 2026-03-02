@@ -142,7 +142,6 @@ if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
             var orig = 'float faceDirection = gl_FrontFacing ? 1.0 : - 1.0;';
             if (chunk.indexOf(orig) >= 0) {
                 THREE.ShaderChunk[key] = chunk.replace(orig, 'float faceDirection = 1.0;');
-                console.log('[ShadowLight] ShaderChunk patched: normal_fragment_begin (faceDirection=1.0)');
             }
         }
     })();
@@ -157,7 +156,6 @@ if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
             var patched = 'float dotNL = saturate( abs( dot( geometryNormal, directLight.direction ) ) );';
             if (chunk.indexOf(orig) >= 0) {
                 THREE.ShaderChunk[key] = chunk.replace(orig, patched);
-                console.log('[ShadowLight] ShaderChunk patched: lights_lambert_pars_fragment (abs dotNL)');
             }
         }
     })();
@@ -172,7 +170,6 @@ if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
             var patched = 'float dotNL = saturate( abs( dot( geometryNormal, directLight.direction ) ) );';
             if (chunk.indexOf(orig) >= 0) {
                 THREE.ShaderChunk[key] = chunk.replace(orig, patched);
-                console.log('[ShadowLight] ShaderChunk patched: lights_phong_pars_fragment (abs dotNL)');
             }
         }
     })();
@@ -1816,10 +1813,6 @@ ShadowLight._showLightArrows = function() {
         scene.add(labelMesh);
         this._debugLightLabels.push(labelMesh);
 
-        console.log('[ShadowLight] Arrow #' + i + ':', label,
-            '| visible:', light.visible,
-            '| intensity:', light.intensity,
-            '| pos:', lPos.toArray().map(function(v){return Math.round(v)}));
     }
 };
 

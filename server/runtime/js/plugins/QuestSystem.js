@@ -733,7 +733,6 @@
   Scene_Map.prototype.stop = function () {
     _Scene_Map_stop.call(this);
     if (window.OverlayManager) {
-      console.log('[QS] Scene_Map.stop → hide questTracker');
       OverlayManager.hide('questTracker');
     }
   };
@@ -747,22 +746,17 @@
   };
 
   // OverlayManager.show/hide 훅 — 다른 오버레이(메뉴 등) 등장 시 트래커 숨김
-  console.log('[QS] showTracker=' + showTracker + ', OverlayManager=' + !!window.OverlayManager);
   if (showTracker && window.OverlayManager) {
-    console.log('[QS] OverlayManager show/hide 훅 설치 완료');
     var _OM_show_qs = OverlayManager.show;
     OverlayManager.show = function (sceneId, args) {
-      console.log('[QS] OverlayManager.show called:', sceneId);
       _OM_show_qs.call(this, sceneId, args);
       if (sceneId !== 'questTracker') {
         var trackerInst = this._instances['questTracker'];
-        console.log('[QS] hiding tracker, trackerInst exists:', !!trackerInst);
         if (trackerInst) trackerInst.scene.visible = false;
       }
     };
     var _OM_hide_qs = OverlayManager.hide;
     OverlayManager.hide = function (sceneId) {
-      console.log('[QS] OverlayManager.hide called:', sceneId);
       _OM_hide_qs.call(this, sceneId);
       if (sceneId !== 'questTracker') {
         var anyOtherVisible = false;
@@ -772,7 +766,6 @@
             break;
           }
         }
-        console.log('[QS] anyOtherVisible=' + anyOtherVisible + ', Scene_Map=' + (SceneManager._scene instanceof Scene_Map));
         if (!anyOtherVisible && SceneManager._scene instanceof Scene_Map) {
           var trackerInst = this._instances['questTracker'];
           if (trackerInst) trackerInst.scene.visible = true;
