@@ -107,40 +107,11 @@
                 configurable: true
             });
 
-            // THREE.PlaneGeometry 생성자 래핑 (게임 코드에서 new THREE.PlaneGeometry(...) 호출 캡처)
-            // Three.js 내부 클래스 체계는 원본 참조를 사용하므로 영향 없음
-            // rpg_sprites.js, ShadowAndLight.js 등 게임 코드만 캡처됨
-            if (THREE.PlaneGeometry) {
-                var _OrigPlaneGeo = THREE.PlaneGeometry;
-                var _planeGeoLog = [];
-                THREE.PlaneGeometry = function() {
-                    _OrigPlaneGeo.apply(this, arguments);
-                    if (_tracking) {
-                        _planeGeoLog.push(new Error().stack.split('\n').slice(2, 7).join('\n'));
-                    }
-                };
-                THREE.PlaneGeometry.prototype = _OrigPlaneGeo.prototype;
-                Object.keys(_OrigPlaneGeo).forEach(function(k) {
-                    try { THREE.PlaneGeometry[k] = _OrigPlaneGeo[k]; } catch(e) {}
-                });
-                // _startTrack 시 로그 초기화
-                var _origStartTrack = window._startTrack;
-                window._startTrack = function(label) {
-                    _planeGeoLog = [];
-                    _origStartTrack(label);
-                };
-                // _endTrack 시 PlaneGeometry 생성 목록 추가 출력
-                var _origEndTrack = window._endTrack;
-                window._endTrack = function() {
-                    _origEndTrack();
-                    if (_planeGeoLog.length > 0) {
-                        console.group('PlaneGeometry 생성 x' + _planeGeoLog.length + ' (게임 코드)');
-                        _planeGeoLog.forEach(function(s) { console.log(s); });
-                        console.groupEnd();
-                    }
-                    _planeGeoLog = [];
-                };
-            }
+            // 추적용 로그 배열 (생성자 래핑에서 채워짐)
+            var _planeGeoLog = [];
+            var _canvasTexLog = []; // { tex, stack, disposed }
+            var _rtLog = [];        // { rt, w, h, stack, disposed }
+            var _texLogSnapshot = null; // createBaseTexture 카운터 스냅샷
 
             // 추적 시작 (창 열기 전에 호출)
             window._startTrack = function(label) {
@@ -150,6 +121,10 @@
                 _trackStartTexRaw = _texVal;
                 _trackStartGeoRaw = _geoVal;
                 _traceBuffer = [];
+                _planeGeoLog = [];
+                _canvasTexLog = [];
+                _rtLog = [];
+                _texLogSnapshot = window._texLog ? JSON.parse(JSON.stringify(window._texLog)) : null;
                 _tracking = true;
                 console.log('[Track] 시작' + (_trackLabel ? ' [' + _trackLabel + ']' : '') +
                     ' tex=' + _trackStartTexMax + ' (raw=' + _trackStartTexRaw + ')' +
@@ -230,6 +205,59 @@
                     console.log('Dispose 이벤트 없음 (추적 구간 중 dispose 미발생!)');
                 }
 
+                // CanvasTexture 생성 중 미해제 목록 (생성 시점 스택 — 실제 애플리케이션 코드 확인용)
+                var leakedTex = _canvasTexLog.filter(function(e) { return !e.disposed; });
+                var allTex = _canvasTexLog;
+                if (allTex.length > 0) {
+                    var dedupeTex = {};
+                    allTex.forEach(function(e) {
+                        var key = e.stack;
+                        if (!dedupeTex[key]) dedupeTex[key] = { count: 0, disposed: 0, stack: e.stack };
+                        dedupeTex[key].count++;
+                        if (e.disposed) dedupeTex[key].disposed++;
+                    });
+                    console.group('CanvasTexture 생성 ' + allTex.length + '개 (추적 구간, 미해제=' + leakedTex.length + ')');
+                    Object.values(dedupeTex).forEach(function(e) {
+                        var tag = (e.count - e.disposed) > 0 ? ' ★미해제' : '';
+                        console.log('x' + e.count + ' (해제=' + e.disposed + ')' + tag + '\n' + e.stack);
+                    });
+                    console.groupEnd();
+                }
+
+                // WebGLRenderTarget 생성 중 미해제 목록
+                var leakedRT = _rtLog.filter(function(e) { return !e.disposed; });
+                var allRT = _rtLog;
+                if (allRT.length > 0) {
+                    console.group('WebGLRenderTarget 생성 ' + allRT.length + '개 (미해제=' + leakedRT.length + ')');
+                    allRT.forEach(function(e) {
+                        var tag = !e.disposed ? ' ★미해제' : '';
+                        console.log(e.w + 'x' + e.h + tag + '\n' + e.stack);
+                    });
+                    console.groupEnd();
+                }
+
+                // PlaneGeometry 생성 목록
+                if (_planeGeoLog.length > 0) {
+                    console.group('PlaneGeometry 생성 x' + _planeGeoLog.length + ' (게임 코드)');
+                    _planeGeoLog.forEach(function(s) { console.log(s); });
+                    console.groupEnd();
+                }
+
+                // createBaseTexture(_texLog) 차이 출력
+                if (_texLogSnapshot && window._texLog) {
+                    var texLogDiff = {};
+                    Object.keys(window._texLog).forEach(function(k) {
+                        var prev = _texLogSnapshot[k] || 0;
+                        var curr = window._texLog[k];
+                        if (curr > prev) texLogDiff[k] = '+' + (curr - prev);
+                    });
+                    if (Object.keys(texLogDiff).length > 0) {
+                        console.group('Bitmap 텍스처 생성 diff (createBaseTexture):');
+                        Object.keys(texLogDiff).forEach(function(k) { console.log(texLogDiff[k] + '  ' + k); });
+                        console.groupEnd();
+                    }
+                }
+
                 if (rawTexDelta <= 0 && rawGeoDelta <= 0) {
                     if (texDelta > 0 || geoDelta > 0) {
                         console.log('실제 누수 없음 (최대값 delta는 추적 구간 중 일시적 증가)');
@@ -245,6 +273,84 @@
                 console.log('[MemInfo] tex=' + _texFrameMax + ', geo=' + _geoFrameMax +
                     ' (raw: tex=' + _texVal + ', geo=' + _geoVal + ')');
             };
+
+            // THREE.PlaneGeometry 생성자 래핑 (게임 코드에서 new THREE.PlaneGeometry(...) 호출 캡처)
+            // Three.js 내부 클래스 체계는 원본 참조를 사용하므로 영향 없음
+            // rpg_sprites.js, ShadowAndLight.js 등 게임 코드만 캡처됨
+            if (THREE.PlaneGeometry) {
+                var _OrigPlaneGeo = THREE.PlaneGeometry;
+                THREE.PlaneGeometry = function() {
+                    _OrigPlaneGeo.apply(this, arguments);
+                    if (_tracking) {
+                        _planeGeoLog.push(new Error().stack.split('\n').slice(2, 7).join('\n'));
+                    }
+                };
+                THREE.PlaneGeometry.prototype = _OrigPlaneGeo.prototype;
+                Object.keys(_OrigPlaneGeo).forEach(function(k) {
+                    try { THREE.PlaneGeometry[k] = _OrigPlaneGeo[k]; } catch(e) {}
+                });
+            }
+
+            // THREE.CanvasTexture 생성자 래핑 (생성 시점 스택 캡처 — GPU 업로드 스택은 Three.js 내부라 무의미)
+            // 게임 코드에서 new THREE.CanvasTexture(...) 호출만 캡처 (Three.js 내부는 로컬 참조 사용)
+            if (THREE.CanvasTexture) {
+                var _OrigCanvasTex = THREE.CanvasTexture;
+                THREE.CanvasTexture = function() {
+                    _OrigCanvasTex.apply(this, arguments);
+                    if (_tracking) {
+                        var entry = {
+                            tex: this,
+                            stack: new Error().stack.split('\n').slice(2, 8).join('\n'),
+                            disposed: false
+                        };
+                        _canvasTexLog.push(entry);
+                        this._leakEntry = entry;
+                    }
+                };
+                THREE.CanvasTexture.prototype = _OrigCanvasTex.prototype;
+                Object.keys(_OrigCanvasTex).forEach(function(k) {
+                    try { THREE.CanvasTexture[k] = _OrigCanvasTex[k]; } catch(e) {}
+                });
+            }
+
+            // THREE.WebGLRenderTarget 생성자 래핑
+            if (THREE.WebGLRenderTarget) {
+                var _OrigRT = THREE.WebGLRenderTarget;
+                THREE.WebGLRenderTarget = function(w, h, options) {
+                    _OrigRT.call(this, w, h, options);
+                    if (_tracking) {
+                        var entry = {
+                            rt: this,
+                            w: w, h: h,
+                            stack: new Error().stack.split('\n').slice(2, 8).join('\n'),
+                            disposed: false
+                        };
+                        _rtLog.push(entry);
+                        this._leakEntry = entry;
+                    }
+                };
+                THREE.WebGLRenderTarget.prototype = _OrigRT.prototype;
+                Object.keys(_OrigRT).forEach(function(k) {
+                    try { THREE.WebGLRenderTarget[k] = _OrigRT[k]; } catch(e) {}
+                });
+            }
+
+            // dispose 추적: THREE.Texture + THREE.WebGLRenderTarget
+            // prototype에 직접 설정하므로 생성자 후킹 전에 만들어진 객체도 포함
+            if (THREE.Texture && THREE.Texture.prototype.dispose) {
+                var _origTexDispose = THREE.Texture.prototype.dispose;
+                THREE.Texture.prototype.dispose = function() {
+                    _origTexDispose.call(this);
+                    if (this._leakEntry) this._leakEntry.disposed = true;
+                };
+            }
+            if (THREE.WebGLRenderTarget && THREE.WebGLRenderTarget.prototype.dispose) {
+                var _origRTDispose = THREE.WebGLRenderTarget.prototype.dispose;
+                THREE.WebGLRenderTarget.prototype.dispose = function() {
+                    _origRTDispose.call(this);
+                    if (this._leakEntry) this._leakEntry.disposed = true;
+                };
+            }
 
             console.log('[LeakTracker] 준비 완료 (tex=' + _texFrameMax + ', geo=' + _geoFrameMax + ')\n' +
                 '  _startTrack()  → 창 열기 전 호출\n' +
