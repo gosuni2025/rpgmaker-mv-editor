@@ -152,11 +152,16 @@
             var pad = 18;
 
             // 팝업 크기/위치
-            var pw = Math.floor(bw * 0.92), ph = Math.floor(bh * 0.90);
-            var px = Math.floor((bw - pw) / 2), py = Math.floor((bh - ph) / 2);
+            // id_popup (이미지/텍스트) + id_popup_ctrl (자세히 보기/닫기) 를 합산해 화면 중앙 배치
+            var pw     = Math.floor(bw * 0.92);
+            var ctrlH  = 36 * 2 + pad * 2;                        // fittingHeight(2)
+            var maxTH  = Math.floor(bh * 0.92);
+            var ph     = maxTH - ctrlH;
+            var totalH = ph + ctrlH;
+            var px     = Math.floor((bw - pw) / 2);
+            var py     = Math.floor((bh - totalH) / 2);
             var innerW = pw - pad * 2;
-            var hintH  = 36;
-            var imgH   = ph - pad * 2 - hintH - 6;
+            var imgH   = ph - pad * 2;
             var imgW   = Math.floor(innerW / 2);
 
             // 액션 위젯 (사용/살펴보기)
@@ -212,36 +217,33 @@
                         x: pad + imgW + 4, y: pad,
                         width: innerW - imgW - 4, height: imgH,
                         text: '{$ctx._detailD&&$ctx._detailD.text||""}'
-                    },
-                    // 힌트 라벨 (하단)
-                    {
-                        type: 'label', id: 'id_popup_hint',
-                        x: pad, y: ph - hintH - pad,
-                        width: innerW, height: hintH,
-                        text: '{$ctx._detailD&&$ctx._detailD.image?"결정: 이미지 보기  취소: 닫기":"취소: 닫기"}',
-                        align: 'center', fontSize: 16,
-                        color: '#aaaaaa'
                     }
                 ]
             };
 
-            // 팝업 컨트롤 위젯 (ok/cancel 수신용 — 투명 창, 팝업 하단에 오버레이)
+            // 팝업 버튼 (자세히 보기 / 닫기) — 팝업 패널 바로 아래
             var popupCtrlDef = {
                 type: 'textList', id: 'id_popup_ctrl', visible: false,
-                x: px + pad, y: py + ph - hintH - pad,
-                width: pw - pad * 2, height: hintH,
-                items: [{ text: ' ' }], // ok 트리거용 더미 (텍스트 표시는 id_popup_hint 담당)
-                bgAlpha: 0,             // 완전 투명 (id_popup_hint 라벨이 힌트를 대신 표시)
+                x: px, y: py + ph,
+                width: pw, height: ctrlH,
+                items: [
+                    { text: '자세히 보기', symbol: 'view'  },
+                    { text: '닫기',        symbol: 'close' }
+                ],
                 handlers: {
                     ok: {
                         action: 'script',
                         code: [
-                            'var d=this._ctx._detailD;',
-                            'if(d&&d.image){',
-                            '  SoundManager.playOk();',
-                            '  this._showFullscreen();',
-                            '  if(this._navManager)this._navManager.focusWidget("id_full_ctrl");',
-                            '}else SoundManager.playBuzzer();'
+                            'var w=this._widgetMap["id_popup_ctrl"];',
+                            'var sym=w&&w._window?w._window.currentSymbol():null;',
+                            'if(sym==="view"){',
+                            '  var d=this._ctx._detailD;',
+                            '  if(d&&d.image){SoundManager.playOk();this._showFullscreen();if(this._navManager)this._navManager.focusWidget("id_full_ctrl");}',
+                            '  else SoundManager.playBuzzer();',
+                            '}else{',
+                            '  this._hideDetailPopup();',
+                            '  if(this._navManager)this._navManager.focusWidget("item_list");',
+                            '}'
                         ].join('')
                     },
                     cancel: {
