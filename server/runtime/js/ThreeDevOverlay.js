@@ -11,119 +11,69 @@
 
     //=========================================================================
     // GPU 리소스 누수 추적 훅
-    // window._texTrack / window._geoTrack 으로 현재 살아있는 객체 확인
-    // window._texLeaks() / window._geoLeaks() 로 소멸되지 않은 항목 출력
+    // renderer.info.memory.textures/geometries setter를 후킹하여
+    // 실제 GPU 업로드/해제 시점의 call stack을 console.trace()로 출력
+    //
+    // 이전 방식(Three.js 생성자 래핑)은 Three.js 내부가 원본 생성자 참조를
+    // 클로저로 갖고 있어 PlaneGeometry 등 내부 객체를 추적할 수 없었음.
+    // 이 방식은 renderer.info.memory 카운터가 변할 때마다 후킹되므로
+    // 모든 경로를 100% 캡처함.
     //=========================================================================
     (function installLeakTracker() {
-        if (typeof THREE === 'undefined') {
-            // THREE 로드 후 재시도
-            setTimeout(installLeakTracker, 500);
-            return;
-        }
-
-        // ---- Texture 추적 ----
-        var _texMap = {};  // uuid → { label, stack, time }
-        window._texTrack = _texMap;
-
-        var _origTexDispatch = THREE.Texture.prototype.dispatchEvent;
-        THREE.Texture.prototype.dispatchEvent = function(event) {
-            if (event.type === 'dispose') {
-                delete _texMap[this.uuid];
+        function tryInstall() {
+            var renderer = null;
+            if (typeof Graphics !== 'undefined') {
+                if (Graphics._renderer && Graphics._renderer.renderer) {
+                    renderer = Graphics._renderer.renderer;
+                }
             }
-            return _origTexDispatch.call(this, event);
-        };
+            if (!renderer || !renderer.info || !renderer.info.memory) {
+                setTimeout(tryInstall, 1000);
+                return;
+            }
 
-        // 생성 추적: Object.defineProperty로 uuid 할당 시점 포착은 복잡하므로
-        // 대신 needsUpdate setter를 이용 (텍스처가 처음 GPU에 올라가기 직전 needsUpdate=true가 됨)
-        // → 더 간단한 방법: 생성자 wrap
-        var _OrigTexture = THREE.Texture;
-        function TrackedTexture() {
-            _OrigTexture.apply(this, arguments);
-            var stack = new Error().stack || '';
-            _texMap[this.uuid] = {
-                label: this.name || this.uuid.slice(0,8),
-                stack: stack.split('\n').slice(2, 6).join(' | '),
-                time: Date.now()
+            var memory = renderer.info.memory;
+
+            // textures 카운터 후킹
+            var _texVal = memory.textures;
+            Object.defineProperty(memory, 'textures', {
+                get: function() { return _texVal; },
+                set: function(v) {
+                    if (v > _texVal) {
+                        console.trace('[TexTrack+' + (v - _texVal) + '] ' + _texVal + ' → ' + v);
+                    } else if (v < _texVal) {
+                        console.log('[TexTrack-' + (_texVal - v) + '] ' + _texVal + ' → ' + v);
+                    }
+                    _texVal = v;
+                },
+                configurable: true
+            });
+
+            // geometries 카운터 후킹
+            var _geoVal = memory.geometries;
+            Object.defineProperty(memory, 'geometries', {
+                get: function() { return _geoVal; },
+                set: function(v) {
+                    if (v > _geoVal) {
+                        console.trace('[GeoTrack+' + (v - _geoVal) + '] ' + _geoVal + ' → ' + v);
+                    } else if (v < _geoVal) {
+                        console.log('[GeoTrack-' + (_geoVal - v) + '] ' + _geoVal + ' → ' + v);
+                    }
+                    _geoVal = v;
+                },
+                configurable: true
+            });
+
+            // 편의 함수
+            window._memInfo = function() {
+                console.log('[MemInfo] textures:', _texVal, ', geometries:', _geoVal);
             };
+
+            console.log('[LeakTracker] renderer.info.memory 후킹 완료 (tex=' + _texVal + ', geo=' + _geoVal + ')\n  GPU 업로드 시 console.trace로 call stack 출력됨');
         }
-        TrackedTexture.prototype = _OrigTexture.prototype;
-        TrackedTexture.DEFAULT_IMAGE = _OrigTexture.DEFAULT_IMAGE;
-        TrackedTexture.DEFAULT_MAPPING = _OrigTexture.DEFAULT_MAPPING;
-        // Static 속성 복사
-        Object.keys(_OrigTexture).forEach(function(k) {
-            try { TrackedTexture[k] = _OrigTexture[k]; } catch(e) {}
-        });
-        THREE.Texture = TrackedTexture;
 
-        // CanvasTexture, DataTexture 등 서브클래스도 추적
-        ['CanvasTexture', 'DataTexture', 'DepthTexture'].forEach(function(cls) {
-            if (!THREE[cls]) return;
-            var _Orig = THREE[cls];
-            function Tracked() {
-                _Orig.apply(this, arguments);
-                var stack = new Error().stack || '';
-                _texMap[this.uuid] = {
-                    label: cls + (this.name ? ':' + this.name : ''),
-                    stack: stack.split('\n').slice(2, 6).join(' | '),
-                    time: Date.now()
-                };
-            }
-            Tracked.prototype = _Orig.prototype;
-            Object.keys(_Orig).forEach(function(k) {
-                try { Tracked[k] = _Orig[k]; } catch(e) {}
-            });
-            THREE[cls] = Tracked;
-        });
-
-        // ---- Geometry 추적 ----
-        var _geoMap = {};
-        window._geoTrack = _geoMap;
-
-        var _origGeoDispatch = THREE.BufferGeometry.prototype.dispatchEvent;
-        THREE.BufferGeometry.prototype.dispatchEvent = function(event) {
-            if (event.type === 'dispose') {
-                delete _geoMap[this.uuid];
-            }
-            return _origGeoDispatch.call(this, event);
-        };
-
-        var _OrigGeo = THREE.BufferGeometry;
-        function TrackedGeo() {
-            _OrigGeo.apply(this, arguments);
-            var stack = new Error().stack || '';
-            _geoMap[this.uuid] = {
-                label: this.type || 'BufferGeometry',
-                stack: stack.split('\n').slice(2, 5).join(' | '),
-                time: Date.now()
-            };
-        }
-        TrackedGeo.prototype = _OrigGeo.prototype;
-        Object.keys(_OrigGeo).forEach(function(k) {
-            try { TrackedGeo[k] = _OrigGeo[k]; } catch(e) {}
-        });
-        THREE.BufferGeometry = TrackedGeo;
-
-        // ---- 편의 함수 ----
-        window._texLeaks = function() {
-            var entries = Object.values(_texMap);
-            console.group('Live Textures (' + entries.length + ')');
-            entries.sort(function(a,b){ return a.time - b.time; });
-            entries.forEach(function(e) {
-                console.log('[' + new Date(e.time).toISOString().slice(11,23) + '] ' + e.label + '\n  ' + e.stack);
-            });
-            console.groupEnd();
-        };
-        window._geoLeaks = function() {
-            var entries = Object.values(_geoMap);
-            console.group('Live Geometries (' + entries.length + ')');
-            entries.sort(function(a,b){ return a.time - b.time; });
-            entries.forEach(function(e) {
-                console.log('[' + new Date(e.time).toISOString().slice(11,23) + '] ' + e.label + '\n  ' + e.stack);
-            });
-            console.groupEnd();
-        };
-
-        console.log('[LeakTracker] Texture/Geometry 추적 활성화. 사용법:\n  window._texLeaks() - 살아있는 텍스처 목록\n  window._geoLeaks() - 살아있는 지오메트리 목록');
+        // 렌더러 초기화 후 후킹 (게임 시작 2초 후 시도)
+        setTimeout(tryInstall, 2000);
     })();
 
     var PANEL_ID = 'threeDevOverlay';
@@ -378,17 +328,7 @@
             fpsText += '  DC:' + rInfo.calls + ' Tri:' + rInfo.triangles;
             fpsText += '  <span style="color:' + texColor + '">Tex:' + rInfo.textures + '</span>';
             fpsText += '  <span style="color:' + geoColor + '">Geo:' + rInfo.geometries + '</span>';
-            // 증가 감지 시 콘솔에 추적 정보 출력 (0.5초 디바운스)
-            if (rInfo.textures > _prevTex) {
-                var delta = rInfo.textures - _prevTex;
-                console.warn('[LeakTracker] Tex +' + delta + ' (' + _prevTex + ' → ' + rInfo.textures + ')');
-                if (window._texLeaks) window._texLeaks();
-            }
-            if (rInfo.geometries > _prevGeo) {
-                var gdelta = rInfo.geometries - _prevGeo;
-                console.warn('[LeakTracker] Geo +' + gdelta + ' (' + _prevGeo + ' → ' + rInfo.geometries + ')');
-                if (window._geoLeaks) window._geoLeaks();
-            }
+            // 증가 감지 시 FPS 바에 빨간색으로 강조 (콘솔 trace는 setter 훅에서 자동 출력)
             _prevTex = rInfo.textures;
             _prevGeo = rInfo.geometries;
         }
