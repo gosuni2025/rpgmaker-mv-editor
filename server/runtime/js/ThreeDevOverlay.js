@@ -88,6 +88,41 @@
                 configurable: true
             });
 
+            // THREE.PlaneGeometry 생성자 래핑 (게임 코드에서 new THREE.PlaneGeometry(...) 호출 캡처)
+            // Three.js 내부 클래스 체계는 원본 참조를 사용하므로 영향 없음
+            // rpg_sprites.js, ShadowAndLight.js 등 게임 코드만 캡처됨
+            if (THREE.PlaneGeometry) {
+                var _OrigPlaneGeo = THREE.PlaneGeometry;
+                var _planeGeoLog = [];
+                THREE.PlaneGeometry = function() {
+                    _OrigPlaneGeo.apply(this, arguments);
+                    if (_tracking) {
+                        _planeGeoLog.push(new Error().stack.split('\n').slice(2, 7).join('\n'));
+                    }
+                };
+                THREE.PlaneGeometry.prototype = _OrigPlaneGeo.prototype;
+                Object.keys(_OrigPlaneGeo).forEach(function(k) {
+                    try { THREE.PlaneGeometry[k] = _OrigPlaneGeo[k]; } catch(e) {}
+                });
+                // _startTrack 시 로그 초기화
+                var _origStartTrack = window._startTrack;
+                window._startTrack = function(label) {
+                    _planeGeoLog = [];
+                    _origStartTrack(label);
+                };
+                // _endTrack 시 PlaneGeometry 생성 목록 추가 출력
+                var _origEndTrack = window._endTrack;
+                window._endTrack = function() {
+                    _origEndTrack();
+                    if (_planeGeoLog.length > 0) {
+                        console.group('PlaneGeometry 생성 x' + _planeGeoLog.length + ' (게임 코드)');
+                        _planeGeoLog.forEach(function(s) { console.log(s); });
+                        console.groupEnd();
+                    }
+                    _planeGeoLog = [];
+                };
+            }
+
             // 추적 시작 (창 열기 전에 호출)
             window._startTrack = function(label) {
                 _trackLabel = label || '';
