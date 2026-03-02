@@ -1988,7 +1988,6 @@
   Widget_PartyStatus.prototype.initialize = function(def, parentWidget) {
     Widget_Base.prototype.initialize.call(this, def, parentWidget);
     this._focusable    = !!def.focusable;
-    this._transparent  = !!def.transparent; // true면 커서만 표시 (슬롯 배경/얼굴/게이지 없음)
     this._showTp       = def.showTp !== false;
     this._maxSlots     = def.maxSlots || 4;
     this._active    = false;
@@ -2038,31 +2037,27 @@
       slotSpr.y = 0;
       slotSpr.visible = false;
 
-      var faceBmp = null, faceSpr = null, infoBmp = null, infoSpr = null;
+      // ── 얼굴 이미지 (Bitmap blt로 잘라냄)
+      var faceBmp = new Bitmap(faceW, faceH);
+      var faceSpr = new Sprite(faceBmp);
+      faceSpr.x = faceX;
+      faceSpr.y = 0;
+      slotSpr.addChild(faceSpr);
 
-      if (!this._transparent) {
-        // ── 얼굴 이미지 (Bitmap blt로 잘라냄)
-        faceBmp = new Bitmap(faceW, faceH);
-        faceSpr = new Sprite(faceBmp);
-        faceSpr.x = faceX;
-        faceSpr.y = 0;
-        slotSpr.addChild(faceSpr);
+      // ── 게이지 오버레이 배경 (반투명 검정)
+      var bgBmp = new Bitmap(slotW, overlayH);
+      bgBmp.fillRect(0, 0, slotW, overlayH, 'rgba(0,0,0,0.62)');
+      var bgSpr = new Sprite(bgBmp);
+      bgSpr.x = 0;
+      bgSpr.y = overlayY;
+      slotSpr.addChild(bgSpr);
 
-        // ── 게이지 오버레이 배경 (반투명 검정)
-        var bgBmp = new Bitmap(slotW, overlayH);
-        bgBmp.fillRect(0, 0, slotW, overlayH, 'rgba(0,0,0,0.62)');
-        var bgSpr = new Sprite(bgBmp);
-        bgSpr.x = 0;
-        bgSpr.y = overlayY;
-        slotSpr.addChild(bgSpr);
-
-        // ── 이름 + 게이지 텍스트 레이어 (매 프레임 갱신)
-        infoBmp = new Bitmap(slotW, overlayH);
-        infoSpr = new Sprite(infoBmp);
-        infoSpr.x = 0;
-        infoSpr.y = overlayY;
-        slotSpr.addChild(infoSpr);
-      }
+      // ── 이름 + 게이지 텍스트 레이어 (매 프레임 갱신)
+      var infoBmp = new Bitmap(slotW, overlayH);
+      var infoSpr = new Sprite(infoBmp);
+      infoSpr.x = 0;
+      infoSpr.y = overlayY;
+      slotSpr.addChild(infoSpr);
 
       this._displayObject.addChild(slotSpr);
       this._slots.push({
@@ -2195,15 +2190,13 @@
       var actor = members[i];
       if (!actor) { slot.container.visible = false; continue; }
       slot.container.visible = true;
-      if (!this._transparent) {
-        // 얼굴 (faceName/faceIndex 바뀐 경우만 재렌더)
-        if (actor.faceName() !== slot.lastFaceName || actor.faceIndex() !== slot.lastFaceIdx) {
-          this._refreshFace(slot, actor);
-          slot.lastFaceName = actor.faceName();
-          slot.lastFaceIdx  = actor.faceIndex();
-        }
-        this._refreshInfo(slot, actor);
+      // 얼굴 (faceName/faceIndex 바뀐 경우만 재렌더)
+      if (actor.faceName() !== slot.lastFaceName || actor.faceIndex() !== slot.lastFaceIdx) {
+        this._refreshFace(slot, actor);
+        slot.lastFaceName = actor.faceName();
+        slot.lastFaceIdx  = actor.faceIndex();
       }
+      this._refreshInfo(slot, actor);
     }
     this._updateCursor();
     Widget_Base.prototype.refresh.call(this);
@@ -3051,10 +3044,30 @@
   //===========================================================================
   // Widget_List — Sprite 기반 씬 렌더링 리스트 (itemScene 사용, focusable)
   //   Widget_TextList를 상속. itemScene 없이 사용하면 Widget_TextList와 동일 동작.
+  //
+  //   cursorOnly 옵션: 배경·프레임·텍스트 없이 커서만 표시하는 가로 선택 위젯
+  //     - maxCols: N → 가로 커서 이동
+  //     - up/down 입력 차단 (가로 이동 전용)
   //===========================================================================
   function Widget_List() {}
   Widget_List.prototype = Object.create(Widget_TextList.prototype);
   Widget_List.prototype.constructor = Widget_List;
+
+  Widget_List.prototype.initialize = function(def, parentWidget) {
+    Widget_TextList.prototype.initialize.call(this, def, parentWidget);
+    if (def.cursorOnly) {
+      var win = this._window;
+      win.setBackgroundType(2);      // 배경·프레임 제거
+      win.drawItem = function() {};  // 텍스트 렌더 생략, 커서만 표시
+      win.cursorDown = function() {}; // 가로 커서 전용: up/down 차단
+      win.cursorUp   = function() {};
+      this.handlesUpDown = function() { return false; };
+    }
+  };
+
+  // DELEGATE 호환: select/deselect 를 _window에 위임
+  Widget_List.prototype.select   = function(i) { if (this._window) this._window.select(i); };
+  Widget_List.prototype.deselect = function()  { if (this._window) this._window.deselect(); };
 
   window.Widget_List = Widget_List;
 
