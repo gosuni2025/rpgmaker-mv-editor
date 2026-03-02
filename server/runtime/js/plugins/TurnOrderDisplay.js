@@ -152,20 +152,24 @@
  * @default true
  *
  * @param curveAttack
- * @text 공격 선 색
- * @default rgba(255,90,90,0.85)
+ * @text 물리공격 선 색
+ * @default rgba(255,70,40,0.9)
  *
  * @param curveMagic
  * @text 마법 선 색
- * @default rgba(100,160,255,0.85)
+ * @default rgba(140,80,255,0.9)
  *
  * @param curveHeal
- * @text 회복 선 색
- * @default rgba(100,220,100,0.85)
+ * @text 회복/아군 선 색
+ * @default rgba(60,210,120,0.9)
+ *
+ * @param curveItem
+ * @text 아이템 선 색
+ * @default rgba(255,200,50,0.9)
  *
  * @param curveOther
  * @text 기타 선 색
- * @default rgba(210,210,210,0.85)
+ * @default rgba(180,180,220,0.85)
  *
  * @param curveWidth
  * @text 선 두께 (px)
@@ -245,10 +249,11 @@
         indicatorStyle: String(_p['indicatorStyle'] || 'triangle'),
         indicatorColor: String(_p['indicatorColor'] || '#ffdd44'),
         showCurves:     String(_p['showCurves']     || 'true') !== 'false',
-        curveAttack:    String(_p['curveAttack']    || 'rgba(255,90,90,0.85)'),
-        curveMagic:     String(_p['curveMagic']     || 'rgba(100,160,255,0.85)'),
-        curveHeal:      String(_p['curveHeal']      || 'rgba(100,220,100,0.85)'),
-        curveOther:     String(_p['curveOther']     || 'rgba(210,210,210,0.85)'),
+        curveAttack:    String(_p['curveAttack']    || 'rgba(255,70,40,0.9)'),
+        curveMagic:     String(_p['curveMagic']     || 'rgba(140,80,255,0.9)'),
+        curveHeal:      String(_p['curveHeal']      || 'rgba(60,210,120,0.9)'),
+        curveItem:      String(_p['curveItem']      || 'rgba(255,200,50,0.9)'),
+        curveOther:     String(_p['curveOther']     || 'rgba(180,180,220,0.85)'),
         curveWidth:     parseInt(_p['curveWidth']    || 2),
         showTentacle:   String(_p['showTentacle']   || 'true') !== 'false',
         tentacleCount:  parseInt(_p['tentacleCount'] || 12),
@@ -619,19 +624,24 @@
 
         if (phase === 'turn' || phase === 'action') {
             // done(반투명 유지) + subject(active) + pending
-            // pending 순서 변경(SPD UP 등)도 즉시 반영
+            // SPD UP 등으로 pending 순서 변경 시 즉시 반영
             var done = allAlive.filter(function (b) {
                 return pending.indexOf(b) < 0 && b !== subject;
             });
             curOrder   = done.concat(subject ? [subject] : []).concat(pending);
             curSubject = subject;
             curPending = pending;
-        } else {
-            // turnEnd / input / 기타:
-            // curOrder를 비워서 _syncIcons가 모든 cur 아이콘을 퇴장시키도록 함
+        } else if (phase === 'turnEnd') {
+            // 턴 종료: curOrder 비움 → 모든 cur 아이콘 일괄 퇴장
             curOrder   = [];
             curSubject = null;
             curPending = [];
+        } else {
+            // input / 기타: AGI 기반 예측 순서 표시 (커맨드 선택 중 참고용)
+            // 실제 턴 시작 시 makeActionOrders 결과로 재정렬될 수 있음
+            curOrder   = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
+            curSubject = null;
+            curPending = curOrder.slice();
         }
 
         // 다음 턴 예측: AGI 정렬 (버프/디버프 반영)
@@ -1037,10 +1047,11 @@
         var subEntry = this._findEntry(subject, 'cur');
         if (!subEntry || subEntry.ic._exiting) return;
 
-        var action = subject.currentAction ? subject.currentAction() : null;
-        var color  = this._curveColor(action);
-        var isH    = Config.direction === 'horizontal';
-        var half   = Math.round(Config.iconSize / 2);
+        var action    = subject.currentAction ? subject.currentAction() : null;
+        var color     = this._curveColor(action);
+        var iconIndex = (action && action.item()) ? action.item().iconIndex : -1;
+        var isH       = Config.direction === 'horizontal';
+        var half      = Math.round(Config.iconSize / 2);
 
         targets.forEach(function (target) {
             var tEntry = this._findEntry(target, 'cur') || this._findEntry(target, 'next');
@@ -1056,7 +1067,7 @@
                 this._strokeBezier(ctx, p1x, p1y,
                     p1x + (p2x-p1x)*0.25, p1y + drop,
                     p1x + (p2x-p1x)*0.75, p2y + drop,
-                    p2x, p2y, color);
+                    p2x, p2y, color, iconIndex);
             } else {
                 var p1x = sx + half + 4, p1y = sy;
                 var p2x = tx + half + 4, p2y = ty;
@@ -1064,19 +1075,22 @@
                 this._strokeBezier(ctx, p1x, p1y,
                     p1x + drift, p1y + (p2y-p1y)*0.25,
                     p2x + drift, p1y + (p2y-p1y)*0.75,
-                    p2x, p2y, color);
+                    p2x, p2y, color, iconIndex);
             }
         }, this);
     };
 
-    Sprite_TurnOrderBar.prototype._strokeBezier = function (ctx, x0, y0, cp1x, cp1y, cp2x, cp2y, x1, y1, color) {
+    Sprite_TurnOrderBar.prototype._strokeBezier = function (ctx, x0, y0, cp1x, cp1y, cp2x, cp2y, x1, y1, color, iconIndex) {
         var lw = Config.curveWidth;
+
+        // 배경(두꺼운) + 전경(본선)
+        ctx.save();
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x1, y1);
         ctx.strokeStyle = withAlpha(color, 0.25);
         ctx.lineWidth   = lw * 3.5;
-        ctx.lineCap     = 'round';
         ctx.stroke();
 
         ctx.beginPath();
@@ -1085,24 +1099,62 @@
         ctx.strokeStyle = color;
         ctx.lineWidth   = lw;
         ctx.stroke();
+        ctx.restore();
 
+        // 시작점 원형 도트
         ctx.beginPath();
         ctx.arc(x0, y0, lw + 1.5, 0, Math.PI * 2);
         ctx.fillStyle = color; ctx.fill();
 
+        // 끝점 화살표 (베지어 접선 방향)
+        var arrowAngle = Math.atan2(y1 - cp2y, x1 - cp2x);
+        var aLen = lw * 4 + 8;
+        ctx.save();
+        ctx.translate(x1, y1);
+        ctx.rotate(arrowAngle);
         ctx.beginPath();
-        ctx.arc(x1, y1, lw + 2, 0, Math.PI * 2);
-        ctx.fillStyle = color; ctx.fill();
+        ctx.moveTo(aLen, 0);
+        ctx.lineTo(-aLen * 0.55, aLen * 0.48);
+        ctx.lineTo(-aLen * 0.3,  0);
+        ctx.lineTo(-aLen * 0.55, -aLen * 0.48);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
 
-        ctx.beginPath();
-        ctx.arc(x1, y1, lw + 4, 0, Math.PI * 2);
-        ctx.strokeStyle = withAlpha(color, 0.5);
-        ctx.lineWidth   = 1.5; ctx.stroke();
+        // 베지어 중점(t=0.5)에 액션 아이콘
+        if (iconIndex != null && iconIndex >= 0) {
+            var mx = 0.125*x0 + 0.375*cp1x + 0.375*cp2x + 0.125*x1;
+            var my = 0.125*y0 + 0.375*cp1y + 0.375*cp2y + 0.125*y1;
+            var iconR  = lw * 3 + 11;
+            var iconSz = 32;
+            var srcX   = (iconIndex % 16) * iconSz;
+            var srcY   = Math.floor(iconIndex / 16) * iconSz;
+            var iconBmp = ImageManager.loadSystem('IconSet');
+            if (iconBmp && iconBmp.isReady()) {
+                ctx.save();
+                // 원형 배경
+                ctx.beginPath();
+                ctx.arc(mx, my, iconR, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fill();
+                ctx.strokeStyle = withAlpha(color, 0.85);
+                ctx.lineWidth = 1.5; ctx.stroke();
+                // 아이콘 클리핑 후 그리기
+                ctx.beginPath();
+                ctx.arc(mx, my, iconR - 1, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(iconBmp._canvas,
+                    srcX, srcY, iconSz, iconSz,
+                    mx - iconR, my - iconR, iconR * 2, iconR * 2);
+                ctx.restore();
+            }
+        }
     };
 
     Sprite_TurnOrderBar.prototype._curveColor = function (action) {
         if (!action || !action.item()) return Config.curveOther;
         if (action.isAttack && action.isAttack()) return Config.curveAttack;
+        if (action.isItem  && action.isItem())   return Config.curveItem;
         var item = action.item();
         if (item.hitType === 2) return Config.curveMagic;
         if (action.isMagicSkill && action.isMagicSkill()) return Config.curveMagic;
