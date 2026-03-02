@@ -578,111 +578,6 @@
   window.Window_CustomDisplay = Window_CustomDisplay;
 
   //===========================================================================
-  // Window_RowSelector — Window_Selectable 상속, 범용 N행 선택 창
-  //===========================================================================
-  function Window_RowSelector() {
-    this.initialize.apply(this, arguments);
-  }
-
-  Window_RowSelector.prototype = Object.create(Window_Selectable.prototype);
-  Window_RowSelector.prototype.constructor = Window_RowSelector;
-
-  // padding 커스터마이징 지원 (transparent 모드에서 padding:0 으로 커서 정렬)
-  Window_RowSelector.prototype.standardPadding = function() {
-    if (this._winDef && this._winDef.padding !== undefined) return this._winDef.padding;
-    return Window_Selectable.prototype.standardPadding.call(this);
-  };
-
-  Window_RowSelector.prototype.initialize = function(x, y, winDef) {
-    this._winDef = winDef || {};
-    this._customClassName = 'Window_CS_' + (winDef && winDef.id ? winDef.id : 'rowSelector');
-    this._formationMode = false;
-    this._pendingIndex = -1;
-    this._numRows = this._winDef.numRows;  // number | 'party' | undefined
-    var w = this._winDef.width || 576;
-    var h = this._winDef.height || 624;
-    Window_Selectable.prototype.initialize.call(this, x, y, w, h);
-    if (this._winDef.transparent) this.setBackgroundType(2);
-    this.refresh();
-  };
-
-  Window_RowSelector.prototype.maxItems = function() {
-    var nr = this._numRows;
-    if (nr === 'party') return typeof $gameParty !== 'undefined' ? $gameParty.size() : 0;
-    return (typeof nr === 'number' && nr > 0) ? nr : (typeof $gameParty !== 'undefined' ? $gameParty.size() : 0);
-  };
-
-  Window_RowSelector.prototype.numVisibleRows = function() {
-    return this.maxItems() || 1;
-  };
-
-  Window_RowSelector.prototype.itemHeight = function() {
-    var clientHeight = this.height - this.padding * 2;
-    return Math.floor(clientHeight / this.numVisibleRows());
-  };
-
-  Window_RowSelector.prototype.drawItem = function(index) {
-    // pendingIndex 배경만 표시 (얼굴/상태 표시 없음 — 개별 위젯으로 구성)
-    if (index === this._pendingIndex) {
-      var rect = this.itemRect(index);
-      var color = this.pendingColor();
-      this.changePaintOpacity(false);
-      this.contents.fillRect(rect.x, rect.y, rect.width, rect.height, color);
-      this.changePaintOpacity(true);
-    }
-  };
-
-  Window_RowSelector.prototype.processOk = function() {
-    Window_Selectable.prototype.processOk.call(this);
-  };
-
-  Window_RowSelector.prototype.isCurrentItemEnabled = function() {
-    if (this._formationMode) {
-      if (typeof $gameParty === 'undefined') return false;
-      var actor = $gameParty.members()[this.index()];
-      return !!(actor && actor.isFormationChangeOk());
-    }
-    return true;
-  };
-
-  Window_RowSelector.prototype.selectLast = function() {
-    var nr = this._numRows;
-    if (nr === 'party' || nr === undefined) {
-      // 파티 모드: menuActor 기반 선택
-      if (typeof $gameParty !== 'undefined') {
-        var actor = $gameParty.menuActor ? $gameParty.menuActor() : null;
-        if (actor) { this.select(actor.index()); return; }
-      }
-    }
-    this.select(0);
-  };
-
-  Window_RowSelector.prototype.formationMode = function() {
-    return this._formationMode;
-  };
-
-  Window_RowSelector.prototype.setFormationMode = function(mode) {
-    this._formationMode = mode;
-  };
-
-  Window_RowSelector.prototype.pendingIndex = function() {
-    return this._pendingIndex;
-  };
-
-  Window_RowSelector.prototype.setPendingIndex = function(index) {
-    var last = this._pendingIndex;
-    this._pendingIndex = index;
-    if (this._pendingIndex !== last) {
-      this.redrawItem(this._pendingIndex);
-      this.redrawItem(last);
-    }
-  };
-
-  // backward compat alias
-  window.Window_CustomActorList = Window_RowSelector;
-  window.Window_RowSelector = Window_RowSelector;
-
-  //===========================================================================
   // Widget_Scene — 씬을 위젯으로 포함 (씬 안에 씬)
   //  sceneId:      UIScenes에 등록된 씬 ID
   //  instanceCtx:  씬 _ctx에 임시 주입할 키-값 오브젝트
@@ -2179,65 +2074,6 @@
   window.Widget_Icons = Widget_Icons;
 
   //===========================================================================
-  // Widget_RowSelector — 범용 N행 선택 위젯 (focusable)
-  //===========================================================================
-  function Widget_RowSelector() {}
-  Widget_RowSelector.prototype = Object.create(Widget_Base.prototype);
-  Widget_RowSelector.prototype.constructor = Widget_RowSelector;
-  Widget_RowSelector.prototype.initialize = function(def, parentWidget) {
-    Widget_Base.prototype.initialize.call(this, def, parentWidget);
-    this._handlersDef = def.handlers || {};
-    var win = new Window_RowSelector(this._x, this._y, def);
-    win._customClassName = 'Widget_CS_' + this._id;
-    win.deactivate();
-    this._applyWindowStyle(win, def);
-    if (def.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
-    this._window = win;
-    this._displayObject = win;
-    this._createDecoSprite(def, this._width, this._height || 400);
-  };
-  Widget_RowSelector.prototype.collectFocusable = function(out) {
-    out.push(this);
-  };
-  Widget_RowSelector.prototype.activate = function() {
-    if (this._window) {
-      this._window.activate();
-      this._window.selectLast();
-    }
-  };
-  Widget_RowSelector.prototype.deactivate = function() {
-    if (this._window) {
-      this._window.deactivate();
-      this._window.deselect();
-    }
-  };
-  Widget_RowSelector.prototype.setHandler = function(symbol, fn) {
-    if (this._window) this._window.setHandler(symbol, fn);
-  };
-  Widget_RowSelector.prototype.setCancelHandler = function(fn) {
-    if (this._window) this._window.setHandler('cancel', fn);
-  };
-  Widget_RowSelector.prototype.setFormationMode = function(mode) {
-    if (this._window) this._window.setFormationMode(mode);
-  };
-  Widget_RowSelector.prototype.setPendingIndex = function(index) {
-    if (this._window) this._window.setPendingIndex(index);
-  };
-  Widget_RowSelector.prototype.pendingIndex = function() {
-    return this._window ? this._window.pendingIndex() : -1;
-  };
-  Widget_RowSelector.prototype.index = function() {
-    return this._window ? this._window.index() : -1;
-  };
-  Widget_RowSelector.prototype.refresh = function() {
-    if (this._window) this._window.refresh();
-  };
-  Widget_RowSelector.prototype.handlesUpDown = function() { return true; };
-  // backward compat alias
-  window.Widget_ActorList = Widget_RowSelector;
-  window.Widget_RowSelector = Widget_RowSelector;
-
-  //===========================================================================
   // Widget_Options — 옵션 설정 위젯 (focusable)
   //===========================================================================
   function Widget_Options() {}
@@ -3284,8 +3120,6 @@
         case 'button':      widget = new Widget_Button();      break;
         case 'list':        widget = new Widget_List();        break;
         case 'textList':    widget = new Widget_TextList();    break;
-        case 'rowSelector':
-        case 'actorList':   widget = new Widget_RowSelector(); break;
         case 'scene':       widget = new Widget_Scene();       break;
         case 'options':     widget = new Widget_Options();     break;
         case 'background':  widget = new Widget_Background();  break;
@@ -3399,15 +3233,6 @@
             });
           })(widget);
         }
-      } else if (widget instanceof Widget_RowSelector) {
-        (function(w) {
-          w.setHandler('ok', function() {
-            self._onRowSelectorOk(w);
-          });
-          w.setCancelHandler(function() {
-            self._onRowSelectorCancel(w);
-          });
-        })(widget);
       } else if (widget instanceof Widget_Options) {
         (function(w) {
           w.setCancelHandler(function() { self._onOptionsCancel(w); });
@@ -3720,7 +3545,6 @@
         break;
       }
       case 'applyItemToActor': {
-        // _onRowSelectorOk → _pendingPersonalAction 으로 호출됨
         var pendingItem = this._ctx._pendingUseItem;
         if (!pendingItem) break;
         var pendingUser = this._ctx._pendingUseItemUser || null;
@@ -3809,42 +3633,6 @@
       SceneManager.goto(Scene_Map);
     }
   };
-
-  Scene_CustomUI.prototype._onRowSelectorOk = function(widget) {
-    var win = widget._window;
-    var index = win.index();
-    if (win.formationMode()) {
-      var pendingIndex = win.pendingIndex();
-      if (pendingIndex >= 0) {
-        $gameParty.swapOrder(index, pendingIndex);
-        win.setPendingIndex(-1);
-        win.redrawItem(index);
-        win.activate();
-      } else {
-        win.setPendingIndex(index);
-        win.activate();
-      }
-    } else {
-      var handlersDef = widget._handlersDef || {};
-      if (handlersDef['ok']) {
-        this._executeWidgetHandler(handlersDef['ok'], widget);
-        return;
-      }
-      // source==='party' (numRows==='party' or undefined) 일 때 menuActor 설정
-      var nr = win._numRows;
-      if ((nr === 'party' || nr === undefined) && typeof $gameParty !== 'undefined') {
-        var actor = $gameParty.members()[index];
-        if (actor) $gameParty.setMenuActor(actor);
-      }
-      var action = this._pendingPersonalAction;
-      if (action) {
-        this._pendingPersonalAction = null;
-        this._executeWidgetHandler(action, widget);
-      }
-    }
-  };
-  // backward compat
-  Scene_CustomUI.prototype._onActorListOk = Scene_CustomUI.prototype._onRowSelectorOk;
 
   /**
    * 퇴장 애니메이션이 있는 위젯들의 애니메이션을 모두 완료한 후 씬을 전환합니다.
@@ -3942,54 +3730,6 @@
     }
     this.popScene();
   };
-
-  Scene_CustomUI.prototype._onRowSelectorCancel = function(widget) {
-    var win = widget._window;
-    if (win.formationMode() && win.pendingIndex() >= 0) {
-      win.setPendingIndex(-1);
-      win.activate();
-    } else {
-      var handlersDef = widget._handlersDef || {};
-      if (handlersDef['cancel']) {
-        win.deselect();
-        this._executeWidgetHandler(handlersDef['cancel'], widget);
-        return;
-      }
-      win.deselect();
-      // actorWidget 윈도우 숨기기
-      if (this._pendingActorWidgetId) {
-        var awCancel = this._widgetMap[this._pendingActorWidgetId];
-        if (awCancel) {
-          if (awCancel.deactivate) awCancel.deactivate();
-          if (awCancel.displayObject()) awCancel.displayObject().visible = false;
-        }
-        this._pendingActorWidgetId = null;
-      }
-      // actorPanelsWidget 숨기기 + itemListWidget 복원
-      if (this._pendingActorPanelsWidgetId) {
-        var apwCancel = this._widgetMap[this._pendingActorPanelsWidgetId];
-        if (apwCancel && apwCancel.displayObject()) apwCancel.displayObject().visible = false;
-        this._pendingActorPanelsWidgetId = null;
-      }
-      if (this._pendingItemListWidgetId) {
-        var ilCancel = this._widgetMap[this._pendingItemListWidgetId];
-        if (ilCancel && ilCancel.displayObject()) ilCancel.displayObject().visible = true;
-        if (ilCancel && ilCancel._rowOverlay) ilCancel._rowOverlay.visible = true;
-        this._pendingItemListWidgetId = null;
-      }
-      var originId = this._personalOriginWidget ? this._personalOriginWidget._id : null;
-      if (!originId && this._navManager && this._navManager._cancelWidgetId) {
-        originId = this._navManager._cancelWidgetId;
-      }
-      if (originId && this._navManager) {
-        this._navManager.focusWidget(originId);
-      } else {
-        this.popScene();
-      }
-    }
-  };
-  // backward compat
-  Scene_CustomUI.prototype._onActorListCancel = Scene_CustomUI.prototype._onRowSelectorCancel;
 
   Scene_CustomUI.prototype.start = function () {
     Scene_Base.prototype.start.call(this);

@@ -194,7 +194,7 @@ export type UiSkinUndoEntry = {
 
 // ── 위젯 트리 타입 (formatVersion 2) ─────────────────────────
 
-export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'textList' | 'rowSelector' | 'options' | 'minimap' | 'scene';
+export type WidgetType = 'background' | 'panel' | 'label' | 'textArea' | 'image' | 'gauge' | 'separator' | 'button' | 'list' | 'textList' | 'options' | 'minimap' | 'scene';
 
 export interface WidgetDefBase {
   id: string;
@@ -206,7 +206,7 @@ export interface WidgetDefBase {
   visible?: boolean;
   /** false로 설정하면 preview에서 클릭 선택 불가 (로직 위젯 등) */
   previewSelectable?: boolean;
-  /** 포커스 가능 여부. button/list/textList/rowSelector/options는 기본 true, 나머지는 기본 false */
+  /** 포커스 가능 여부. button/list/textList/options는 기본 true, 나머지는 기본 false */
   focusable?: boolean;
   /** 위쪽 방향키 시 이동할 위젯 ID */
   navUp?: string;
@@ -227,7 +227,7 @@ export interface WidgetDefBase {
   borderColor?: string;
   /** 테두리 모서리 곡률 (px, default 0 = 직각) */
   borderRadius?: number;
-  /** 창 배경 표시 여부. panel/button/list/rowSelector/options 모두 기본 true (프레임 표시). false로 설정 시 투명 */
+  /** 창 배경 표시 여부. panel/button/list/options 모두 기본 true (프레임 표시). false로 설정 시 투명 */
   windowed?: boolean;
   /** 창 스타일 (default: 기본 윈도우스킨, frame: 커스텀 프레임, image: 이미지) */
   windowStyle?: 'default' | 'frame' | 'image';
@@ -237,7 +237,7 @@ export interface WidgetDefBase {
   imageFile?: string;
   imageRenderMode?: ImageRenderMode;
   colorTone?: [number, number, number];
-  /** Window 내부 패딩 (px). RowSelector transparent 모드에서는 커서 정렬에 영향 */
+  /** Window 내부 패딩 (px) */
   padding?: number;
   /** 창 배경 불투명도 0~255 */
   backOpacity?: number;
@@ -394,16 +394,6 @@ export interface WidgetDef_TextList extends WidgetDefBase {
   autoRefresh?: boolean;
 }
 
-export interface WidgetDef_RowSelector extends WidgetDefBase {
-  type: 'rowSelector';
-  /** 행 수. 'party'면 $gameParty.size() 동적 */
-  numRows?: number | 'party';
-  /** true: 프레임/배경 없는 투명 선택 커서만 표시 (display는 개별 위젯으로 구성) */
-  transparent?: boolean;
-  /** ok/cancel 핸들러 직접 정의. 미정의 시 selectActor/기본 네비게이션 동작 */
-  handlers?: Record<string, CustomCommandHandler>;
-}
-
 export interface OptionItemDef {
   name: string;
   symbol: string;
@@ -437,7 +427,6 @@ export type WidgetDef =
   | WidgetDef_Button
   | WidgetDef_List
   | WidgetDef_TextList
-  | WidgetDef_RowSelector
   | WidgetDef_Options
   | WidgetDef_Minimap
   | WidgetDef_Scene;

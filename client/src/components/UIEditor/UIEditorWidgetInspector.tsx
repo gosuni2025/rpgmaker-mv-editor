@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type {
   CustomCommandDef, CustomCommandHandler, CommandActionType, WidgetDef, WidgetType, ImageSource,
   WidgetDef_Label, WidgetDef_TextArea, WidgetDef_Image, WidgetDef_Gauge,
-  WidgetDef_List, WidgetDef_TextList, WidgetDef_RowSelector, WidgetDef_Options, OptionItemDef,
+  WidgetDef_List, WidgetDef_TextList, WidgetDef_Options, OptionItemDef,
   WidgetDef_Button, WidgetDef_Scene, ImageRenderMode,
   ButtonTransitionType, ButtonTransitionConfig, TransitionColor,
 } from '../../store/uiEditorTypes';
@@ -121,7 +121,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
       )}
       {(action === 'selectActor' || action === 'formation') && (
         <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>rowSelector ID:</span>
+          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>위젯 ID:</span>
           <input style={{ ...inputStyle, flex: 1 }}
             placeholder="actor_select"
             value={handler.widget || ''}
@@ -183,7 +183,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
 
 // ── WindowStyleSection — 모든 window-based 위젯 공통 창 스타일 UI ─────────────
 
-const WINDOW_BASED_TYPES: WidgetType[] = ['panel', 'button', 'list', 'textList', 'rowSelector', 'options'];
+const WINDOW_BASED_TYPES: WidgetType[] = ['panel', 'button', 'list', 'textList', 'options'];
 
 function LabelTypeSection({ widget, update }: { widget: WidgetDef_Label; update: (u: Partial<WidgetDef>) => void }) {
   const labelTextRef = useRef<HTMLTextAreaElement>(null);
@@ -314,7 +314,7 @@ function WindowStyleSection({ widget, update }: {
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
-  // button은 기본 off, 나머지(panel/list/rowSelector/options)는 기본 on
+  // button은 기본 off, 나머지(panel/list/options)는 기본 on
   const defaultWindowed = widget.type === 'button' ? false : true;
   const windowed = widget.windowed !== undefined ? widget.windowed : defaultWindowed;
   const windowStyle = widget.windowStyle ?? 'default';
@@ -431,20 +431,6 @@ function WindowStyleSection({ widget, update }: {
             <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0~255</span>
           </div>
         </>
-      )}
-      {/* RowSelector transparent 모드: windowed=false여도 패딩 설정 가능 */}
-      {!windowed && widget.type === 'rowSelector' && (
-        <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', width: 70 }}>패딩</span>
-          <input style={{ ...inputStyle, width: 60 }} type="number"
-            value={widget.padding ?? ''}
-            placeholder="18"
-            onChange={(e) => {
-              const v = e.target.value.trim();
-              update({ padding: v === '' ? undefined : (parseInt(v) || 0) } as any);
-            }} />
-          <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>0 = 커서 정렬</span>
-        </div>
       )}
     </div>
   );
@@ -776,7 +762,7 @@ function ListCommonSection({ widget, update }: {
 
 // ── FocusableNavigationSection — 모든 위젯 공통 네비게이션 설정 ──────────────
 
-const FOCUSABLE_BY_DEFAULT_TYPES = new Set<WidgetType>(['button', 'list', 'textList', 'rowSelector', 'options']);
+const FOCUSABLE_BY_DEFAULT_TYPES = new Set<WidgetType>(['button', 'list', 'textList', 'options']);
 
 const NAV_DIRS = [
   { key: 'navUp',    label: '↑ 위',    color: '#4af' },
@@ -810,7 +796,7 @@ function FocusableNavigationSection({ widget, update }: {
           <HelpButton text={
             '이 위젯이 키보드 포커스를 받을 수 있는지 여부입니다.\n' +
             '방향키 네비게이션에 포함됩니다.\n\n' +
-            'button / list / textList / rowSelector / options: 기본 true\n' +
+            'button / list / textList / options: 기본 true\n' +
             '그 외 위젯: 기본 false'
           } />
         </label>
@@ -840,7 +826,7 @@ const LIFECYCLE_EVENTS = [
   { key: 'onUpdate',  label: 'onUpdate',  help: '매 프레임 실행. Unity Update() / Godot _process()에 대응.\n성능에 주의할 것.' },
   { key: 'onRefresh', label: 'onRefresh', help: 'refresh() 호출 시 실행.\n콘텐츠 갱신 타이밍에 추가 로직을 삽입할 때 사용.' },
   { key: 'onDestroy', label: 'onDestroy', help: 'destroy() 호출 시 실행. Unity OnDestroy() / Godot _exit_tree()에 대응.' },
-  { key: 'onFocus',   label: 'onFocus',   help: 'NavigationManager에 의해 이 위젯이 포커스를 얻을 때 실행.\nbutton / list / rowSelector 등 focusable 위젯에서 사용.' },
+  { key: 'onFocus',   label: 'onFocus',   help: 'NavigationManager에 의해 이 위젯이 포커스를 얻을 때 실행.\nbutton / list 등 focusable 위젯에서 사용.' },
   { key: 'onBlur',    label: 'onBlur',    help: 'NavigationManager에 의해 이 위젯이 포커스를 잃을 때 실행.' },
 ] as const;
 
@@ -1365,77 +1351,6 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
             {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
             {isListLike && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
             {widget.type === 'scene' && <SceneWidgetInspector widget={widget as WidgetDef_Scene} update={update} />}
-            {widget.type === 'rowSelector' && (
-              <>
-                <div style={rowStyle}>
-                  <span style={{ fontSize: 11, color: '#888', width: 80 }}>행 수</span>
-                  <select style={{ ...selectStyle, width: 80 }}
-                    value={(widget as WidgetDef_RowSelector).numRows === 'party' ? 'party' : 'number'}
-                    onChange={(e) => update({ numRows: e.target.value === 'party' ? 'party' : 4 } as any)}>
-                    <option value="party">파티 크기</option>
-                    <option value="number">고정</option>
-                  </select>
-                  {(widget as WidgetDef_RowSelector).numRows !== 'party' && (
-                    <input style={{ ...inputStyle, width: 50, marginLeft: 4 }} type="number"
-                      value={(widget as WidgetDef_RowSelector).numRows as number ?? 4}
-                      onChange={(e) => update({ numRows: parseInt(e.target.value) || 4 } as any)} />
-                  )}
-                </div>
-                <div style={rowStyle}>
-                  <span style={{ fontSize: 11, color: '#888', width: 80 }}>투명 선택기</span>
-                  <input type="checkbox"
-                    checked={(widget as WidgetDef_RowSelector).transparent ?? false}
-                    onChange={(e) => update({ transparent: e.target.checked } as any)} />
-                  <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>커서만 표시</span>
-                </div>
-                <label style={{ ...labelStyle, marginTop: 6 }}>OK 핸들러 <span style={{ color: '#666', fontWeight: 'normal' }}>(비워두면 selectActor 동작)</span></label>
-                {(widget as WidgetDef_RowSelector).handlers?.['ok'] ? (
-                  <>
-                    <ActionHandlerEditor
-                      handler={(widget as WidgetDef_RowSelector).handlers!['ok']}
-                      onChange={(updates) => {
-                        const h = (widget as WidgetDef_RowSelector).handlers || {};
-                        update({ handlers: { ...h, ok: { ...h['ok']!, ...updates } } } as any);
-                      }}
-                    />
-                    <button style={{ ...smallBtnStyle, color: '#c66', marginTop: 2 }}
-                      onClick={() => {
-                        const { ok: _ok, ...rest } = (widget as WidgetDef_RowSelector).handlers || {};
-                        update({ handlers: Object.keys(rest).length ? rest : undefined } as any);
-                      }}>OK 핸들러 제거</button>
-                  </>
-                ) : (
-                  <button style={{ ...smallBtnStyle, marginTop: 2 }}
-                    onClick={() => {
-                      const h = (widget as WidgetDef_RowSelector).handlers || {};
-                      update({ handlers: { ...h, ok: { action: 'popScene' as CommandActionType } } } as any);
-                    }}>+ OK 핸들러 추가</button>
-                )}
-                <label style={{ ...labelStyle, marginTop: 6 }}>Cancel 핸들러 <span style={{ color: '#666', fontWeight: 'normal' }}>(비워두면 기본 네비게이션)</span></label>
-                {(widget as WidgetDef_RowSelector).handlers?.['cancel'] ? (
-                  <>
-                    <ActionHandlerEditor
-                      handler={(widget as WidgetDef_RowSelector).handlers!['cancel']}
-                      onChange={(updates) => {
-                        const h = (widget as WidgetDef_RowSelector).handlers || {};
-                        update({ handlers: { ...h, cancel: { ...h['cancel']!, ...updates } } } as any);
-                      }}
-                    />
-                    <button style={{ ...smallBtnStyle, color: '#c66', marginTop: 2 }}
-                      onClick={() => {
-                        const { cancel: _cancel, ...rest } = (widget as WidgetDef_RowSelector).handlers || {};
-                        update({ handlers: Object.keys(rest).length ? rest : undefined } as any);
-                      }}>Cancel 핸들러 제거</button>
-                  </>
-                ) : (
-                  <button style={{ ...smallBtnStyle, marginTop: 2 }}
-                    onClick={() => {
-                      const h = (widget as WidgetDef_RowSelector).handlers || {};
-                      update({ handlers: { ...h, cancel: { action: 'popScene' as CommandActionType } } } as any);
-                    }}>+ Cancel 핸들러 추가</button>
-                )}
-              </>
-            )}
             {widget.type === 'options' && <OptionsWidgetInspector widget={widget as WidgetDef_Options} update={update} />}
           </div>
         </details>
