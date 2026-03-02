@@ -443,14 +443,17 @@
 
         // ── 사용/살펴보기 핸들러 ──
         this._itemActionWindow.setHandler('use', function () {
+            this._itemActionWindow.hide();
             _Scene_Item_onItemOk_orig.call(this);
         }.bind(this));
 
         this._itemActionWindow.setHandler('inspect', function () {
+            this._itemActionWindow.hide();
             this._detailWindow.open(this._pendingItem);
         }.bind(this));
 
         this._itemActionWindow.setHandler('cancel', function () {
+            this._itemActionWindow.hide();
             this._itemWindow.activate();
         }.bind(this));
     };
@@ -502,35 +505,16 @@
             return;
         }
 
-        // isPressed+prev 추적 + TouchInput으로 input 처리
-        // (마우스 클릭은 Input이 아닌 TouchInput으로 들어옴)
+        // MV 표준 방식: window.update()를 직접 호출하여 processHandling()/processTouch() 실행
+        // (updateChildren()이 실행되지 않으므로 직접 호출 필요)
         if (dw && dw.visible) {
             this.updateFade();
-            var cancelNow    = Input.isPressed('cancel');
-            var okNow        = Input.isPressed('ok');
-            var touchCancel  = TouchInput.isCancelled();
-            var touchOk      = TouchInput.isTriggered() && !TouchInput.isCancelled();
-            if ((cancelNow && !this._dwPrevCancel) || touchCancel) {
-                Input.clear(); TouchInput.clear();
-                this._popupInputCooldown = 3;
-                dw.callHandler('cancel');
-            } else if ((okNow && !this._dwPrevOk) || touchOk) {
-                Input.clear(); TouchInput.clear();
-                this._popupInputCooldown = 3;
-                dw.callHandler('ok');
-            }
-            this._dwPrevCancel = cancelNow;
-            this._dwPrevOk     = okNow;
+            dw.update();
             return;
         }
         if (aw && aw.visible) {
             this.updateFade();
-            var c2 = Input.isPressed('cancel'), o2 = Input.isPressed('ok');
-            var tc2 = TouchInput.isCancelled(), to2 = TouchInput.isTriggered() && !TouchInput.isCancelled();
-            if ((c2 && !this._awPrevCancel) || tc2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('cancel'); }
-            else if ((o2 && !this._awPrevOk) || to2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('ok'); }
-            this._awPrevCancel = c2;
-            this._awPrevOk     = o2;
+            aw.update();
             return;
         }
 
@@ -592,6 +576,7 @@
 
             // ── 사용/살펴보기 핸들러 ──
             this._itemActionWindow.setHandler('use', function () {
+                self._itemActionWindow.hide();
                 var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
                 var ilW  = self._widgetMap && self._widgetMap[ilId];
                 if (ilW && ilW.activate) ilW.activate();
@@ -599,6 +584,7 @@
             });
 
             this._itemActionWindow.setHandler('inspect', function () {
+                self._itemActionWindow.hide();
                 var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
                 var ilW  = self._widgetMap && self._widgetMap[ilId];
                 var item = (ilW && ilW._window) ? ilW._window.item() : null;
@@ -607,6 +593,7 @@
             });
 
             this._itemActionWindow.setHandler('cancel', function () {
+                self._itemActionWindow.hide();
                 var ilId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
                 var ilW  = self._widgetMap && self._widgetMap[ilId];
                 if (ilW && ilW.activate) ilW.activate();
@@ -646,37 +633,16 @@
                 return;
             }
 
-            // 팝업이 열린 동안: isPressed+prev 추적 + TouchInput으로 input 처리
-            // (Input.update()가 processHandling보다 먼저 실행되어 _pressedTime이 항상 >=1이므로
-            //  isTriggered는 사용 불가 — isPressed로 첫 pressed 프레임을 직접 감지)
-            // (마우스 클릭은 Input이 아닌 TouchInput으로 들어오므로 TouchInput도 체크)
+            // MV 표준 방식: window.update()를 직접 호출하여 processHandling()/processTouch() 실행
+            // (updateChildren()이 실행되지 않으므로 직접 호출 필요)
             if (dw && dw.visible) {
                 if (this.updateFade) this.updateFade();
-                var cancelNow   = Input.isPressed('cancel');
-                var okNow       = Input.isPressed('ok');
-                var touchCancel = TouchInput.isCancelled();
-                var touchOk     = TouchInput.isTriggered() && !TouchInput.isCancelled();
-                if ((cancelNow && !this._dwPrevCancel) || touchCancel) {
-                    Input.clear(); TouchInput.clear();
-                    this._popupInputCooldown = 3;
-                    dw.callHandler('cancel');
-                } else if ((okNow && !this._dwPrevOk) || touchOk) {
-                    Input.clear(); TouchInput.clear();
-                    this._popupInputCooldown = 3;
-                    dw.callHandler('ok');
-                }
-                this._dwPrevCancel = cancelNow;
-                this._dwPrevOk     = okNow;
+                dw.update();
                 return;
             }
             if (aw && aw.visible) {
                 if (this.updateFade) this.updateFade();
-                var c2 = Input.isPressed('cancel'), o2 = Input.isPressed('ok');
-                var tc2 = TouchInput.isCancelled(), to2 = TouchInput.isTriggered() && !TouchInput.isCancelled();
-                if ((c2 && !this._awPrevCancel) || tc2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('cancel'); }
-                else if ((o2 && !this._awPrevOk) || to2) { Input.clear(); TouchInput.clear(); this._popupInputCooldown = 3; aw.callHandler('ok'); }
-                this._awPrevCancel = c2;
-                this._awPrevOk     = o2;
+                aw.update();
                 return;
             }
 
