@@ -2916,8 +2916,7 @@
     config = config || {};
     this._defaultFocusId = config.defaultFocus || null;
     this._cancelWidgetId = config.cancelWidget || null;
-    this._focusOrderIds = config.focusOrder || [];
-    this._upDownNavigation = config.upDownNavigation || false;
+
     this._focusables = [];
     this._activeIndex = -1;
     this._scene = null;
@@ -2946,21 +2945,7 @@
   NavigationManager.prototype.buildFocusList = function(rootWidget) {
     var all = [];
     rootWidget.collectFocusable(all);
-    var self = this;
-    if (self._focusOrderIds.length > 0) {
-      var ordered = [];
-      self._focusOrderIds.forEach(function(id) {
-        for (var i = 0; i < all.length; i++) {
-          if (all[i]._id === id) { ordered.push(all[i]); break; }
-        }
-      });
-      all.forEach(function(w) {
-        if (ordered.indexOf(w) === -1) ordered.push(w);
-      });
-      self._focusables = ordered;
-    } else {
-      self._focusables = all;
-    }
+    this._focusables = all;
   };
   NavigationManager.prototype.start = function() {
     if (this._focusables.length === 0) return;
@@ -3065,16 +3050,8 @@
     }
 
     if (this._focusables.length <= 1) return;
-    if (this._upDownNavigation) {
-      var delegated = activeWidget && typeof activeWidget.handlesUpDown === 'function' && activeWidget.handlesUpDown();
-      if (!delegated) {
-        if (Input.isRepeated('down')) this.focusNext();
-        else if (Input.isRepeated('up')) this.focusPrev();
-      }
-    } else {
-      if (Input.isTriggered('pagedown')) this.focusNext();
-      else if (Input.isTriggered('pageup')) this.focusPrev();
-    }
+    if (Input.isTriggered('pagedown')) this.focusNext();
+    else if (Input.isTriggered('pageup')) this.focusPrev();
   };
   window.NavigationManager = NavigationManager;
 
