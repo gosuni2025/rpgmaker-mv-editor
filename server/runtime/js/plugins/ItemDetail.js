@@ -628,6 +628,26 @@
             var dw = this._itemDetailWindow;
             var aw = this._itemActionWindow;
 
+            // 팝업 닫힘 직후 입력 차단 (Graphics.frameCount 기반 — 동일 프레임 내 다중 호출에도 안전)
+            if (this._popupDismissedFrame != null) {
+                var elapsed = Graphics.frameCount - this._popupDismissedFrame;
+                if (elapsed < 10) {
+                    Input.clear(); TouchInput.clear();
+                    if (this.updateFade) this.updateFade();
+                    if (this.updateChildren) this.updateChildren();
+                    if (elapsed >= 9 && this._pendingActivateId) {
+                        var pendingId = this._pendingActivateId;
+                        this._pendingActivateId = null;
+                        var pendingW = this._widgetMap && this._widgetMap[pendingId];
+                        if (pendingW && pendingW._window && pendingW._window.activate) {
+                            pendingW._window.activate();
+                        }
+                    }
+                    return;
+                }
+                this._popupDismissedFrame = null;
+            }
+
             // ── 진단 로그: cancel/ok 입력 발생 시 현재 상태 출력 ──
             var _c = TouchInput.isCancelled() || Input.isTriggered('cancel');
             var _o = TouchInput.isTriggered() || Input.isTriggered('ok');
@@ -635,29 +655,12 @@
                 console.log('[ID] input c=' + _c + ' o=' + _o +
                     ' | fs.vis=' + (fs ? fs.visible : 'null') +
                     ' dw.vis=' + (dw ? dw.visible : 'null') +
-                    ' aw.vis=' + (aw ? aw.visible : 'null') +
-                    ' cooldown=' + (this._popupInputCooldown || 0));
+                    ' aw.vis=' + (aw ? aw.visible : 'null'));
             }
 
             var fsOpen = !!(fs && fs.visible);
             if (this._detailOverlay) {
                 this._detailOverlay.visible = fsOpen || !!(dw && dw.visible);
-            }
-
-            // 팝업 닫힘 직후 input 쿨다운 (repeat 방지)
-            if (this._popupInputCooldown > 0) {
-                this._popupInputCooldown--;
-                Input.clear(); TouchInput.clear();
-                if (this.updateFade) this.updateFade();
-                if (this._popupInputCooldown === 0 && this._pendingActivateId) {
-                    var ilId = this._pendingActivateId;
-                    this._pendingActivateId = null;
-                    var ilW = this._widgetMap && this._widgetMap[ilId];
-                    if (ilW && ilW._window && ilW._window.activate) {
-                        ilW._window.activate();
-                    }
-                }
-                return;
             }
 
             // fullscreen 또는 팝업이 열려있으면 NavManager 이전에 직접 처리
@@ -675,7 +678,7 @@
                         SoundManager.playCancel();
                         dw.hide();
                         this._pendingActivateId = (this._pendingHandler && this._pendingHandler.itemListWidget) || 'item_list';
-                        this._popupInputCooldown = 3;
+                        this._popupDismissedFrame = Graphics.frameCount;
                     }
                 } else if (okNow) {
                     if (dw._detail && dw._detail.image) {
@@ -696,7 +699,7 @@
                 aw.update();
                 if (!aw.visible) {
                     Input.clear(); TouchInput.clear();
-                    this._popupInputCooldown = 3;
+                    this._popupDismissedFrame = Graphics.frameCount;
                 }
                 return;
             }
@@ -732,7 +735,7 @@
                             } else {
                                 this._itemDetailWindow.open(item);
                                 Input.clear(); TouchInput.clear();
-                                this._popupInputCooldown = 3;
+                                this._popupDismissedFrame = Graphics.frameCount;
                             }
                             return;
                         }
