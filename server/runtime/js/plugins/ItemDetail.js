@@ -154,7 +154,7 @@
             // 팝업 크기/위치
             // id_popup (이미지/텍스트) + id_popup_ctrl (자세히 보기/닫기) 를 합산해 화면 중앙 배치
             var pw     = Math.floor(bw * 0.92);
-            var ctrlH  = 36 * 2 + pad * 2;                        // fittingHeight(2)
+            var ctrlH  = 36 + pad * 2;                             // fittingHeight(1) — 1행 2열
             var maxTH  = Math.floor(bh * 0.92);
             var ph     = maxTH - ctrlH;
             var totalH = ph + ctrlH;
@@ -226,6 +226,7 @@
                 type: 'textList', id: 'id_popup_ctrl', visible: false,
                 x: px, y: py + ph,
                 width: pw, height: ctrlH,
+                maxCols: 2,
                 items: [
                     { text: '자세히 보기', symbol: 'view'  },
                     { text: '닫기',        symbol: 'close' }
