@@ -2731,11 +2731,6 @@
     if (this._focusable !== false) out.push(this);
   };
   Widget_TextList.prototype.activate = function() {
-    // [DBG-actor] actorWindow 위젯 activate 추적
-    if (this._id === 'actorWindow') {
-      console.log('[DBG-actor] Widget_TextList.activate() called, _window.active(before)=',
-        this._window ? this._window.active : 'N/A');
-    }
     if (this._dataScript) this._rebuildFromScript();
     if (this._window) {
       this._window.activate();
@@ -2780,10 +2775,6 @@
     ++this._updateCount;
     if (this._dataScript && this._autoRefresh !== false) {
       if (this._updateCount % 6 === 0) {
-        // [DBG-actor] actorWindow autoRefresh 시 active 상태 추적
-        if (this._id === 'actorWindow' && this._window && this._window.active) {
-          console.log('[DBG-actor] autoRefresh _rebuildFromScript while ACTIVE, index=', this._window.index());
-        }
         this._rebuildFromScript();
       }
     } else if (!this._dataScript) {
@@ -2889,6 +2880,7 @@
       cursorOverlay.y = this._y;
       this._rowOverlay = cursorOverlay;
       this._csCursorReparented = false;
+      this._autoRefresh = false; // cursorOnly는 drawItem이 없으므로 autoRefresh 불필요
     }
   };
 
@@ -2979,12 +2971,6 @@
     var all = [];
     rootWidget.collectFocusable(all);
     this._focusables = all;
-    // [DBG-actor] focusList에 actorWindow 포함 여부 확인
-    var ids = all.map(function(w) { return w._id; });
-    console.log('[DBG-actor] NavMgr focusList:', ids);
-    if (ids.indexOf('actorWindow') >= 0) {
-      console.log('[DBG-actor] ⚠ actorWindow이 NavMgr focusList에 포함됨 — 충돌 가능');
-    }
   };
   NavigationManager.prototype.start = function() {
     if (this._focusables.length === 0) return;
@@ -3005,11 +2991,6 @@
     if (idx < 0 || idx >= this._focusables.length) return;
     if (this._activeIndex >= 0 && this._focusables[this._activeIndex]) {
       var prevW = this._focusables[this._activeIndex];
-      // [DBG-actor] NavMgr가 actorWindow를 deactivate하는 순간 포착
-      if (prevW._id === 'actorWindow') {
-        console.warn('[DBG-actor] ⚠ NavMgr._activateAt deactivating actorWindow → new focus:', this._focusables[idx]._id);
-        console.trace('[DBG-actor] deactivate trace');
-      }
       prevW.deactivate();
       prevW._runScript('onBlur');
     }
@@ -4178,7 +4159,6 @@
   ];
 
   function installBattleWindowProxy(win, widget, widgetId) {
-    console.log('[DBG-actor] installBattleWindowProxy:', widgetId, '| win=', win ? win.constructor.name : 'NULL', '| widget=', widget ? widget._id : 'NULL');
     if (!win) return;
 
     // 원본 창은 항상 화면 밖으로 (위젯 유무와 무관)
@@ -4207,18 +4187,7 @@
           try { orig.apply(win, arguments); } catch(e) { /* 원본 창 에러 무시 — widget 메서드는 계속 호출 */ }
         if (method === 'activate') win.active = false;  // 원본 입력 차단
         win.x = -9999;
-        // [DBG-actor] activate/deactivate 위임 추적
-        if (widgetId === 'actorWindow') {
-          console.log('[DBG-actor] proxy.' + method + '() → widget.' + method,
-            'widget._window.active=', widget._window ? widget._window.active : 'N/A',
-            'widget._window.index=', widget._window ? widget._window.index() : 'N/A');
-        }
         if (widget[method]) widget[method].apply(widget, arguments);
-        if (widgetId === 'actorWindow' && method === 'activate') {
-          console.log('[DBG-actor] after widget.activate() → widget._window.active=',
-            widget._window ? widget._window.active : 'N/A',
-            'index=', widget._window ? widget._window.index() : 'N/A');
-        }
       };
     });
 
@@ -4669,15 +4638,28 @@
       }
     };
 
-    // _csUpdateActorCursor: 입력 단계 이외에서 BattleManager._subject 감시
-    // → 액터가 행동 중이면 actorWindow 커서를 해당 액터로 이동 + 깜빡임
-    // → subject 없거나 적이면 actorWindow 숨김
+    // _csUpdateActorCursor: 매 프레임 actorWindow 커서 가시성 제어
+    // - 파티 커맨드 단계(isInputting && !actor): 커서 강제 숨김
+    // - actorCommand 입력 단계(isInputting && actor): startActorCommandSelection이 제어
+    // - 전투 진행 중(!isInputting): subject가 액터이면 커서 표시+깜빡임, 아니면 숨김
     Klass.prototype._csUpdateActorCursor = function() {
-      if (BattleManager.isInputting()) return; // 입력 단계는 changeInputWindow가 제어
       var wmap = this._widgetMap || {};
       var actorWidget = wmap['actorWindow'];
       if (!actorWidget) return;
 
+      if (BattleManager.isInputting()) {
+        // 파티 커맨드 단계: 커서 강제 숨김 (매 프레임 강제 적용)
+        if (!BattleManager.actor()) {
+          if (actorWidget._csCursorOverlayVisible !== false) {
+            actorWidget.hide();
+          }
+          // _rowOverlay도 직접 숨김 (update()의 동기화 로직 우선 적용을 위해)
+          if (actorWidget._rowOverlay) actorWidget._rowOverlay.visible = false;
+        }
+        return;
+      }
+
+      // 전투 진행 중
       var subject = BattleManager._subject;
       if (subject && subject.isActor && subject.isActor()) {
         var idx = subject.index();
@@ -4741,7 +4723,6 @@
 
       // extends: Scene_Battle이면 배틀 UI 위젯 override 주입
       if (extendsName === 'Scene_Battle') {
-        console.log('[DBG-actor] applyBattleOverrides 호출: sceneId=' + sceneId);
         applyBattleOverrides(SceneCtor, sceneId);
       }
 
