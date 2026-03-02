@@ -2588,6 +2588,7 @@
       rowHeight: def.rowHeight || 0,
     };
     if (def.height) listDef.height = def.height;
+    if (def.padding !== undefined) listDef.padding = def.padding;
     var win = new Window_CustomCommand(this._x, this._y, listDef);
     win._customClassName = 'Widget_CS_' + this._id;
     // itemScene 모드: 윈도우 배경/프레임 숨김, 텍스트 렌더링 비활성 (커서/스크롤만 활용)
