@@ -42,22 +42,13 @@
   var _scenesData = {};
   var _configData = {};
 
-  function loadJSON(url) {
-    try {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', url + '?_=' + Date.now(), false);
-      xhr.send();
-      if (xhr.status === 200 || xhr.status === 0) {
-        return JSON.parse(xhr.responseText);
-      }
-    } catch (e) {
-      // 파일 없음 → 기본값
-    }
-    return {};
-  }
-
-  /** 404/오류 시 null 반환 (loadJSON과 달리 {} 반환 안 함) */
-  function loadJSONSafe(url) {
+  /**
+   * JSON 파일을 동기 XHR로 로드합니다.
+   * @param {string} url
+   * @param {*} [fallback={}] - 로드 실패 시 반환값 (null 전달 시 null 반환)
+   */
+  function loadJSON(url, fallback) {
+    if (fallback === undefined) fallback = {};
     try {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url + '?_=' + Date.now(), false);
@@ -66,8 +57,10 @@
         return JSON.parse(xhr.responseText);
       }
     } catch (e) {}
-    return null;
+    return fallback;
   }
+
+  function loadJSONSafe(url) { return loadJSON(url, null); }
 
   /**
    * 씬 데이터 로드: UIScenes/_index.json → 씬별 파일 로드
@@ -167,14 +160,6 @@
         if (cfgMatch && typeof ConfigManager !== 'undefined') {
           var v = ConfigManager[cfgMatch[1]];
           return typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : String(v !== undefined ? v : '');
-        }
-        // $ctx — 씬 컨텍스트 단축어 (안전한 처리)
-        if (/^\$ctx\b/.test(expr)) {
-          try {
-            var ctx = (SceneManager._scene && SceneManager._scene._ctx) || {};
-            var result = new Function('$ctx', 'return (' + expr + ')')(ctx);
-            return result === null || result === undefined ? '' : String(result);
-          } catch(e) { return ''; }
         }
         // 임의 JS 표현식 폴백 — $ctx 주입
         try {
@@ -838,7 +823,6 @@
   window.Window_ButtonRow = Window_ButtonRow;
 
   //===========================================================================
-  //===========================================================================
   // WidgetAnimator — 위젯 등장/퇴장 애니메이션 공유 모듈
   //===========================================================================
   var WidgetAnimator = (function() {
@@ -1330,9 +1314,7 @@
       this._displayObject = null;
     }
   };
-  window.Widget_Base   = Widget_Base;
-  window.Widget_Panel  = Widget_Panel;
-  window.Widget_Label  = Widget_Label;
+  window.Widget_Base = Widget_Base;
 
   //===========================================================================
   // Widget_Panel — 패널 (windowed 또는 투명 컨테이너)
@@ -1405,25 +1387,6 @@
     var aid = aw ? aw._id : null;
     var isLinked = aid && linked.indexOf(aid) >= 0;
     var dimAlpha = isLinked ? 1.0 : 0.63;
-    // DEBUG: 매 프레임 상태 로그 (id_popup에만)
-    if (this._id === 'id_popup' && !this.__dbgTick) this.__dbgTick = 0;
-    if (this._id === 'id_popup') {
-      this.__dbgTick++;
-      if (this.__dbgTick % 60 === 1) {
-        var ch0 = this._children[0] && this._children[0].displayObject && this._children[0].displayObject();
-        console.log('[DimDBG] id_popup tick', this.__dbgTick,
-          'dispAlpha=', this._displayObject.alpha, '|', this._displayObject._alpha,
-          'dimAlpha=', dimAlpha, 'aid=', aid,
-          'ch0 type=', ch0 && ch0.constructor && ch0.constructor.name,
-          'ch0._alpha=', ch0 && ch0._alpha,
-          'ch0.worldAlpha=', ch0 && ch0.worldAlpha,
-          'ch0._material.opacity=', ch0 && ch0._material && ch0._material.opacity,
-          'ch0._material.transparent=', ch0 && ch0._material && ch0._material.transparent,
-          'ch0._forcedOpacity=', ch0 && ch0._forcedOpacity,
-          'dispVisible=', this._displayObject._visible,
-          'disp3Dvis=', this._displayObject._threeObj && this._displayObject._threeObj.visible);
-      }
-    }
     if (Math.abs((this._displayObject.alpha || 1) - dimAlpha) > 0.005) {
       this._displayObject.alpha = dimAlpha;
       for (var _di = 0; _di < this._children.length; _di++) {
@@ -1440,10 +1403,6 @@
         }
       }
     }
-  };
-  Widget_Panel.prototype.destroy = function() {
-    // Window.prototype.destroy가 내부 bitmap + geometry 모두 처리하므로 별도 처리 불필요
-    Widget_Base.prototype.destroy.call(this);
   };
   window.Widget_Panel = Widget_Panel;
 
@@ -1515,14 +1474,9 @@
     this._drawDecoBg(this._bitmap, this._width, this._height, this._def);
     this._bitmap.textColor = color;
     var textH = this._fontSize + 8;
-    var ty;
-    if (this._vAlign === 'top') {
-      ty = 0;
-    } else if (this._vAlign === 'bottom') {
-      ty = this._height - textH;
-    } else {
-      ty = Math.floor((this._height - textH) / 2);
-    }
+    var ty = this._vAlign === 'top' ? 0
+           : this._vAlign === 'bottom' ? this._height - textH
+           : Math.floor((this._height - textH) / 2);
     this._bitmap.drawText(text, 0, ty, this._width, textH, this._align);
     this._drawDecoBorder(this._bitmap, this._width, this._height, this._def);
     Widget_Base.prototype.refresh.call(this);
@@ -1549,7 +1503,6 @@
     this._lineHeight = def.lineHeight || (this._fontSize + 8);
     this._useTextEx = def.useTextEx === true;
     if (this._useTextEx) {
-      // Widget_Label.useTextEx と同様: Window_Base で drawTextEx を使用
       var win = new Window_Base(this._x, this._y, this._width, this._height);
       win._padding = 0;
       win.standardPadding = function() { return 0; };
@@ -2375,23 +2328,10 @@
   // Scene.update 에서 keyHandlers 실행 후 다시 호출되어 same-frame 동기화
   Widget_Button.prototype._syncExternalVisibility = function() {
     var parentVisible = true;
-    var firstHiddenParent = null;
     var p = this._parent;
     while (p) {
-      if (p._displayObject && !p._displayObject.visible) {
-        parentVisible = false;
-        firstHiddenParent = p._id || p._def && p._def.id || '(unknown)';
-        break;
-      }
+      if (p._displayObject && !p._displayObject.visible) { parentVisible = false; break; }
       p = p._parent;
-    }
-    var myId = this._id || this._def && this._def.id || '?';
-    var prevVisible = this._transitionOverlay ? this._transitionOverlay.visible
-      : (this._decoSprite ? this._decoSprite.visible : (this._labelSprite ? this._labelSprite.visible : null));
-    if (prevVisible !== null && prevVisible !== parentVisible) {
-      console.log('[BTN_VIS] id=' + myId +
-        ' ' + prevVisible + ' → ' + parentVisible +
-        (firstHiddenParent ? ' (hiddenBy=' + firstHiddenParent + ')' : ''));
     }
     if (this._hideOnKeyboard) {
       var showBtn = parentVisible && typeof TouchInput !== 'undefined' && typeof Input !== 'undefined'
@@ -3255,48 +3195,35 @@
     if (rootObj && !(rootObj instanceof Window_Base)) {
       this.addChildAt(rootObj, 0);
     }
-    // Window_Base 타입 위젯의 decoSprite를 먼저 추가 (window layer 아래)
+    // Window_Base 위젯의 decoSprite를 먼저 추가 (windowLayer 아래)
     for (var id in this._widgetMap) {
       var w = this._widgetMap[id];
-      if (w._decoSprite && w.displayObject() instanceof Window_Base) {
-        this.addChild(w._decoSprite);
-      }
+      if (w._decoSprite && w.displayObject() instanceof Window_Base) this.addChild(w._decoSprite);
     }
-    // Window_Base 타입 위젯은 addWindow (topLayer 위젯 제외 — 나중에 별도 처리)
+    // Window_Base 위젯은 addWindow (topLayer 제외)
     for (var id2 in this._widgetMap) {
       var w2 = this._widgetMap[id2];
       var obj = w2.displayObject();
-      if (obj && obj instanceof Window_Base && !w2._topLayer) {
-        this.addWindow(obj);
-      }
+      if (obj && obj instanceof Window_Base && !w2._topLayer) this.addWindow(obj);
     }
-
-    // Widget_Button의 _labelSprite를 windowLayer 위에 addChild (커서 하이라이트 위에 텍스트)
+    // Widget_Button _labelSprite를 windowLayer 위에 추가 (커서 하이라이트 위에 텍스트)
     for (var idL in this._widgetMap) {
-      var wL = this._widgetMap[idL];
-      if (wL._labelSprite) {
-        this.addChild(wL._labelSprite);
-      }
+      if (this._widgetMap[idL]._labelSprite) this.addChild(this._widgetMap[idL]._labelSprite);
     }
-
-    // itemScene 모드 Widget_List의 _rowOverlay를 windowLayer 위에 addChild
+    // itemScene 모드 Widget_List의 _rowOverlay를 windowLayer 위에 추가
     for (var id3 in this._widgetMap) {
       var w3 = this._widgetMap[id3];
       if (w3 instanceof Widget_List && w3._rowOverlay) {
         this.addChild(w3._rowOverlay);
-        // 초기 행 생성 (dataScript가 있으면 _rebuildFromScript에서 처리)
         if (!w3._dataScript) w3._rebuildRows();
       }
     }
-
-    // topLayer 위젯들을 rowOverlay 이후에 Scene에 직접 addChild (팝업, 전체화면 등)
-    // — addWindow (windowLayer)보다 위, rowOverlay보다도 위에 렌더링됨
+    // topLayer 위젯들을 rowOverlay 이후에 Scene에 직접 추가 (팝업, 전체화면 등)
     for (var idT in this._widgetMap) {
       var wT = this._widgetMap[idT];
       if (!wT._topLayer) continue;
       var tObj = wT.displayObject();
       if (!tObj) continue;
-      // 기존 부모(root panel 등)에서 분리 후 씬에 직접 추가
       if (tObj.parent) tObj.parent.removeChild(tObj);
       this.addChild(tObj);
     }
@@ -3376,12 +3303,17 @@
 
   Scene_CustomUI.prototype._setupWidgetHandlers = function(rootWidget) {
     var self = this;
+    // 클로저 캡처 헬퍼 — handler/w를 캡처하여 실행 시점 참조 문제 방지
+    function bindExec(handler, w) {
+      return function() { self._executeWidgetHandler(handler, w); };
+    }
     function traverse(widget) {
       if (widget instanceof Widget_TextList) {
         var handlersDef = widget._handlersDef || {};
+        var okHandler = handlersDef['ok'] || null;
         // ok 핸들러: formation/selectActor 모드 처리를 위해 항상 등록
-        (function(okHandler, w) {
-          w.setHandler('ok', function() {
+        widget.setHandler('ok', (function(okH, w) {
+          return function() {
             // formation 모드 (list 기반)
             if (self._ctx && self._ctx._formationMode) {
               var idx = w._window ? w._window.index() : -1;
@@ -3414,22 +3346,18 @@
               return;
             }
             // 일반 ok 핸들러
-            if (okHandler) self._executeWidgetHandler(okHandler, w);
-          });
-        })(handlersDef['ok'] || null, widget);
+            if (okH) self._executeWidgetHandler(okH, w);
+          };
+        })(okHandler, widget));
         // ok 제외 나머지 핸들러
         for (var symbol in handlersDef) {
           if (symbol === 'ok') continue;
-          (function(sym, handler, w) {
-            w.setHandler(sym, function() {
-              self._executeWidgetHandler(handler, w);
-            });
-          })(symbol, handlersDef[symbol], widget);
+          widget.setHandler(symbol, bindExec(handlersDef[symbol], widget));
         }
         // cancel이 handlersDef에 없을 때만 기본 핸들러 설정
         if (!handlersDef['cancel']) {
-          (function(w) {
-            w.setCancelHandler(function() {
+          widget.setCancelHandler((function(w) {
+            return function() {
               // formation 모드 취소
               if (self._ctx && self._ctx._formationMode) {
                 if (self._ctx._formationPending >= 0) {
@@ -3459,50 +3387,30 @@
                 return;
               }
               self._executeWidgetHandler({ action: 'cancel' }, w);
-            });
-          })(widget);
+            };
+          })(widget));
         }
       } else if (widget instanceof Widget_Options) {
-        (function(w) {
-          w.setCancelHandler(function() { self._onOptionsCancel(w); });
-        })(widget);
+        widget.setCancelHandler((function(w) {
+          return function() { self._onOptionsCancel(w); };
+        })(widget));
       } else if (widget instanceof Widget_Button) {
-        var handlerDef = widget._handlerDef;
-        if (handlerDef) {
-          (function(handler, w) {
-            w.setOkHandler(function() {
-              self._executeWidgetHandler(handler, w);
-            });
-          })(handlerDef, widget);
+        if (widget._handlerDef) {
+          widget.setOkHandler(bindExec(widget._handlerDef, widget));
         }
-        var leftDef = widget._leftHandlerDef;
-        if (leftDef && widget._window && widget._window.setLeftHandler) {
-          (function(handler, w) {
-            w._window.setLeftHandler(function() {
-              self._executeWidgetHandler(handler, w);
-            });
-          })(leftDef, widget);
+        if (widget._leftHandlerDef && widget._window && widget._window.setLeftHandler) {
+          widget._window.setLeftHandler(bindExec(widget._leftHandlerDef, widget));
         }
-        var rightDef = widget._rightHandlerDef;
-        if (rightDef && widget._window && widget._window.setRightHandler) {
-          (function(handler, w) {
-            w._window.setRightHandler(function() {
-              self._executeWidgetHandler(handler, w);
-            });
-          })(rightDef, widget);
+        if (widget._rightHandlerDef && widget._window && widget._window.setRightHandler) {
+          widget._window.setRightHandler(bindExec(widget._rightHandlerDef, widget));
         }
-        widget.setCancelHandler(function() {
-          self._executeWidgetHandler({ action: 'cancel' }, widget);
-        });
+        widget.setCancelHandler(bindExec({ action: 'cancel' }, widget));
       } else if (widget instanceof Widget_ShopNumber) {
         var snHandlers = widget._handlersDef || {};
-        (function(w, handlers) {
-          if (handlers['ok']) {
-            w.setHandler('ok', function() { self._executeWidgetHandler(handlers['ok'], w); });
-          }
-          var cancelH = handlers['cancel'] || { action: 'cancel' };
-          w.setCancelHandler(function() { self._executeWidgetHandler(cancelH, w); });
-        })(widget, snHandlers);
+        if (snHandlers['ok']) {
+          widget.setHandler('ok', bindExec(snHandlers['ok'], widget));
+        }
+        widget.setCancelHandler(bindExec(snHandlers['cancel'] || { action: 'cancel' }, widget));
       }
       for (var i = 0; i < widget._children.length; i++) {
         traverse(widget._children[i]);
@@ -3630,14 +3538,13 @@
         break;
       }
       case 'incrementConfig': {
-        var cfgKey2 = handler.configKey;
-        if (cfgKey2 !== undefined && typeof ConfigManager !== 'undefined') {
-          var cur = ConfigManager[cfgKey2] !== undefined ? ConfigManager[cfgKey2] : 100;
-          var step = handler.step || 20;
-          var next = cur + step > 100 ? 0 : cur + step;
-          if (cur !== next) {
-            ConfigManager[cfgKey2] = next;
-  
+        var cfgKeyI = handler.configKey;
+        if (cfgKeyI !== undefined && typeof ConfigManager !== 'undefined') {
+          var curI = ConfigManager[cfgKeyI] !== undefined ? ConfigManager[cfgKeyI] : 100;
+          var stepI = handler.step || 20;
+          var nextI = curI + stepI > 100 ? 0 : curI + stepI;
+          if (curI !== nextI) {
+            ConfigManager[cfgKeyI] = nextI;
             if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
           }
         }
@@ -3645,14 +3552,13 @@
         break;
       }
       case 'decrementConfig': {
-        var cfgKey3 = handler.configKey;
-        if (cfgKey3 !== undefined && typeof ConfigManager !== 'undefined') {
-          var cur2 = ConfigManager[cfgKey3] !== undefined ? ConfigManager[cfgKey3] : 100;
-          var step2 = handler.step || 20;
-          var next2 = Math.max(0, cur2 - step2);
-          if (cur2 !== next2) {
-            ConfigManager[cfgKey3] = next2;
-  
+        var cfgKeyD = handler.configKey;
+        if (cfgKeyD !== undefined && typeof ConfigManager !== 'undefined') {
+          var curD = ConfigManager[cfgKeyD] !== undefined ? ConfigManager[cfgKeyD] : 100;
+          var stepD = handler.step || 20;
+          var nextD = Math.max(0, curD - stepD);
+          if (curD !== nextD) {
+            ConfigManager[cfgKeyD] = nextD;
             if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
           }
         }

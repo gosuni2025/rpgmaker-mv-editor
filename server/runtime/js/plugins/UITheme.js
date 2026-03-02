@@ -21,59 +21,27 @@
   'use strict';
 
   //===========================================================================
-  // UIEditorConfig.json 로드 (window 레이아웃 오버라이드)
-  // UIEditorSkins.json 로드 (스킨 정의: defaultSkin, cornerSize)
-  // 동기 XHR: NW.js(로컬 파일) + 브라우저(서버) 양쪽 호환
+  // JSON 로드 헬퍼 — 동기 XHR (NW.js + 브라우저 양쪽 호환)
   //===========================================================================
-  var _config = {};
-  (function () {
+  function loadJson(url) {
     try {
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'data/UIEditorConfig.json?_=' + Date.now(), false);
+      xhr.open('GET', url + '?_=' + Date.now(), false);
       xhr.send();
-      if (xhr.status === 200 || xhr.status === 0) {
-        _config = JSON.parse(xhr.responseText);
-      }
-    } catch (e) {
-      // 파일 없음 → 기본값 사용
-    }
-  })();
+      if (xhr.status === 200 || xhr.status === 0) return JSON.parse(xhr.responseText);
+    } catch (e) {}
+    return {};
+  }
 
-  var _skins = {};
-  (function () {
-    try {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'data/UIEditorSkins.json?_=' + Date.now(), false);
-      xhr.send();
-      if (xhr.status === 200 || xhr.status === 0) {
-        _skins = JSON.parse(xhr.responseText);
-      }
-    } catch (e) {
-      // 파일 없음 → 기본값 사용
-    }
-  })();
-
-  var _fonts = {};
-  (function () {
-    try {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'data/UIEditorFonts.json?_=' + Date.now(), false);
-      xhr.send();
-      if (xhr.status === 200 || xhr.status === 0) {
-        _fonts = JSON.parse(xhr.responseText);
-      }
-    } catch (e) {
-      // 파일 없음 → 기본값 사용
-    }
-  })();
+  var _config = loadJson('data/UIEditorConfig.json');
+  var _skins  = loadJson('data/UIEditorSkins.json');
+  var _fonts  = loadJson('data/UIEditorFonts.json');
 
   /** 스킨 bitmap URL에서 스킨 이름 추출 (img/system/ 이후 경로, 확장자 제거) */
   function skinNameFromBitmap(bitmap) {
     if (!bitmap || !bitmap.url) return null;
-    // img/system/ 이후 전체 경로 추출 (경로 포함 스킨 이름 지원)
     var m = bitmap.url.match(/img\/system\/(.+?)(?:\.(?:png|webp))?(?:\?.*)?$/i);
     if (m) return m[1];
-    // fallback: 파일명만
     var m2 = bitmap.url.match(/([^/\\]+?)(?:\.(?:png|webp))?(?:\?.*)?$/i);
     return m2 ? m2[1] : null;
   }
@@ -88,8 +56,7 @@
 
   /** 스킨 ID로 사전 항목 취득 (name 필드 정확 매칭, 없으면 null) */
   function findSkinEntryById(id) {
-    if (!Array.isArray(_skins.skins)) return null;
-    if (!id) return null;
+    if (!Array.isArray(_skins.skins) || !id) return null;
     return _skins.skins.filter(function (s) { return s.name === id; })[0] || null;
   }
 
@@ -120,29 +87,39 @@
 
   //===========================================================================
   // 창별 테마 스킨 항목 취득 헬퍼
-  // windowskin은 항상 원본 'Window' 이미지(textColor 팔레트용)로 유지하고,
-  // 커스텀 스킨 이미지는 _themeSkin에 분리 저장하여 렌더링에만 사용한다.
   //===========================================================================
+  function _winClassName(win) {
+    return win._customClassName || (win.constructor && win.constructor.name);
+  }
+
   function getThemeSkinEntry(win) {
-    var className = win._customClassName || (win.constructor && win.constructor.name);
-    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
+    var skinId = (_ov[_winClassName(win)] || {}).skinId;
     if (skinId) return findSkinEntryById(skinId);
-    var themeSkinName = skinNameFromBitmap(win._themeSkin);
-    return findSkinEntry(themeSkinName, 'defaultFrameSkin');
+    return findSkinEntry(skinNameFromBitmap(win._themeSkin), 'defaultFrameSkin');
   }
 
   /** 커서 전용 스킨 항목 취득 — defaultCursorSkin 폴백 */
   function getThemeCursorEntry(win) {
-    var className = win._customClassName || (win.constructor && win.constructor.name);
-    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
+    var skinId = (_ov[_winClassName(win)] || {}).skinId;
     if (skinId) return findSkinEntryById(skinId);
-    var themeSkinName = skinNameFromBitmap(win._themeSkin);
-    return findSkinEntry(themeSkinName, 'defaultCursorSkin');
+    return findSkinEntry(skinNameFromBitmap(win._themeSkin), 'defaultCursorSkin');
   }
 
   /** 렌더링용 스킨 비트맵 반환 (_themeSkin 우선, 없으면 _windowskin) */
   function getRenderSkin(win) {
     return win._themeSkin || win._windowskin;
+  }
+
+  //===========================================================================
+  // _themeSkin 자동 로드 헬퍼 (refreshBack/refreshFrame 공통)
+  //===========================================================================
+  function _ensureThemeSkin(win, entryFile) {
+    if (entryFile !== 'Window') {
+      if (!win._themeSkin ||
+          (win._themeSkin._url && win._themeSkin._url.indexOf(entryFile) === -1)) {
+        win._themeSkin = ImageManager.loadSystem(entryFile);
+      }
+    }
   }
 
   //===========================================================================
@@ -152,10 +129,8 @@
     var iw = src.width, ih = src.height;
     if (iw <= 0 || ih <= 0) return;
     if (mode === 'stretch') {
-      // 늘림: 이미지를 창 크기로 강제 늘림
       bitmap.blt(src, 0, 0, iw, ih, 0, 0, w, h);
     } else if (mode === 'tile') {
-      // 타일 반복: 이미지를 패턴처럼 반복
       for (var ty = 0; ty < h; ty += ih) {
         for (var tx = 0; tx < w; tx += iw) {
           var tw = Math.min(iw, w - tx);
@@ -164,17 +139,13 @@
         }
       }
     } else if (mode === 'fit') {
-      // 비율 맞춤: 비율 유지하며 창 안에 맞춤 (빈 가장자리 생길 수 있음)
       var fitScale = Math.min(w / iw, h / ih);
       var fitW = Math.floor(iw * fitScale), fitH = Math.floor(ih * fitScale);
-      var fitX = Math.floor((w - fitW) / 2), fitY = Math.floor((h - fitH) / 2);
-      bitmap.blt(src, 0, 0, iw, ih, fitX, fitY, fitW, fitH);
+      bitmap.blt(src, 0, 0, iw, ih, Math.floor((w - fitW) / 2), Math.floor((h - fitH) / 2), fitW, fitH);
     } else if (mode === 'cover') {
-      // 비율 채움: 비율 유지하며 꽉 채움 (가장자리 잘릴 수 있음)
       var covScale = Math.max(w / iw, h / ih);
       var covSW = Math.floor(w / covScale), covSH = Math.floor(h / covScale);
-      var covSX = Math.floor((iw - covSW) / 2), covSY = Math.floor((ih - covSH) / 2);
-      bitmap.blt(src, covSX, covSY, covSW, covSH, 0, 0, w, h);
+      bitmap.blt(src, Math.floor((iw - covSW) / 2), Math.floor((ih - covSH) / 2), covSW, covSH, 0, 0, w, h);
     } else {
       // center (기본): 원본 크기로 중앙 배치, 창 밖 영역 클리핑
       var ox = Math.floor((w - iw) / 2), oy = Math.floor((h - ih) / 2);
@@ -193,14 +164,13 @@
   //===========================================================================
   var _Window_refreshBack = Window.prototype._refreshBack;
   Window.prototype._refreshBack = function () {
-    var className = this._customClassName || (this.constructor && this.constructor.name);
+    var className = _winClassName(this);
     var ov = (_config.overrides || {})[className];
     // 이미지 모드 처리
     if (ov && ov.windowStyle === 'image') {
       var m = this._margin;
       var w = this._width - m * 2, h = this._height - m * 2;
       if (w <= 0 || h <= 0) return;
-      // imageFile이 없으면 "No Image" 안내 표시
       if (!ov.imageFile) {
         var old = this._windowBackSprite._bitmap; if (old && old.destroy) old.destroy();
         var noBitmap = new Bitmap(w, h);
@@ -214,7 +184,6 @@
         noBitmap.drawText('No Image', 0, Math.floor((h - fs) / 2), w, fs + 4, 'center');
         return;
       }
-      // _themeSkin이 imageFile과 다르면 (모드 전환 직후 등) 다시 로드
       if (!this._themeSkin ||
           (this._themeSkin._url && this._themeSkin._url.indexOf(ov.imageFile) === -1)) {
         this._themeSkin = ImageManager.loadSystem(ov.imageFile);
@@ -235,20 +204,9 @@
       return;
     }
     var entry = getThemeSkinEntry(this);
-    // 스킨 항목이 없으면 원본 호출
-    if (!entry) {
-      return _Window_refreshBack.call(this);
-    }
-    // 스킨 파일이 Window.png가 아닌 경우 _themeSkin 자동 로드
-    var entryFile = entry.file || 'Window';
-    if (entryFile !== 'Window') {
-      if (!this._themeSkin ||
-          (this._themeSkin._url && this._themeSkin._url.indexOf(entryFile) === -1)) {
-        this._themeSkin = ImageManager.loadSystem(entryFile);
-      }
-    }
+    if (!entry) { return _Window_refreshBack.call(this); }
+    _ensureThemeSkin(this, entry.file || 'Window');
     var renderSkin = getRenderSkin(this);
-    // renderSkin 미로드 시 원본 렌더링 fallback + 로드 완료 후 재렌더링
     if (!renderSkin || !renderSkin.isReady()) {
       if (renderSkin) renderSkin.addLoadListener(this._refreshAllParts.bind(this));
       return _Window_refreshBack.call(this);
@@ -269,11 +227,11 @@
   };
 
   //===========================================================================
-  // Window — 9-slice 프레임 커스터마이징 (_refreshFrame 오버라이드)
+  // Window — 9-slice プレーム커스터마이징 (_refreshFrame 오버라이드)
   //===========================================================================
   var _Window_refreshFrame = Window.prototype._refreshFrame;
   Window.prototype._refreshFrame = function () {
-    var className = this._customClassName || (this.constructor && this.constructor.name);
+    var className = _winClassName(this);
     var ov = (_config.overrides || {})[className];
     // 이미지 모드: 프레임 그리지 않음 (빈 비트맵)
     if (ov && ov.windowStyle === 'image') {
@@ -286,20 +244,9 @@
       return;
     }
     var entry = getThemeSkinEntry(this);
-    // 스킨 항목이 없으면 원본 호출
-    if (!entry) {
-      return _Window_refreshFrame.call(this);
-    }
-    // 스킨 파일이 Window.png가 아닌 경우 _themeSkin 자동 로드
-    var entryFile = entry.file || 'Window';
-    if (entryFile !== 'Window') {
-      if (!this._themeSkin ||
-          (this._themeSkin._url && this._themeSkin._url.indexOf(entryFile) === -1)) {
-        this._themeSkin = ImageManager.loadSystem(entryFile);
-      }
-    }
+    if (!entry) { return _Window_refreshFrame.call(this); }
+    _ensureThemeSkin(this, entry.file || 'Window');
     var renderSkin = getRenderSkin(this);
-    // renderSkin 미로드 시 원본 렌더링 fallback + 로드 완료 후 재렌더링
     if (!renderSkin || !renderSkin.isReady()) {
       if (renderSkin) renderSkin.addLoadListener(this._refreshAllParts.bind(this));
       return _Window_refreshFrame.call(this);
@@ -315,8 +262,8 @@
     var skin = renderSkin;
     var fx = f.x, fy = f.y, fw = f.w, fh = f.h, cs = f.cs;
     // top / bottom edges
-    bitmap.blt(skin, fx + cs,      fy,           fw - cs * 2, cs,      cs,      0,      w - cs * 2, cs);
-    bitmap.blt(skin, fx + cs,      fy + fh - cs, fw - cs * 2, cs,      cs,      h - cs, w - cs * 2, cs);
+    bitmap.blt(skin, fx + cs,      fy,           fw - cs * 2, cs,          cs,      0,      w - cs * 2, cs);
+    bitmap.blt(skin, fx + cs,      fy + fh - cs, fw - cs * 2, cs,          cs,      h - cs, w - cs * 2, cs);
     // left / right edges
     bitmap.blt(skin, fx,           fy + cs,      cs,          fh - cs * 2, 0,      cs,      cs,          h - cs * 2);
     bitmap.blt(skin, fx + fw - cs, fy + cs,      cs,          fh - cs * 2, w - cs, cs,      cs,          h - cs * 2);
@@ -383,13 +330,10 @@
         var dy = row === 0 ? 0 : row === 2 ? h - m : m;
         var dw = col === 0 || col === 2 ? m : w - m * 2;
         var dh = row === 0 || row === 2 ? m : h - m * 2;
-        if (sw > 0 && sh > 0 && dw > 0 && dh > 0) {
-          dest.blt(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
-        }
+        if (sw > 0 && sh > 0 && dw > 0 && dh > 0) dest.blt(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
       }
     }
 
-    // 색조 적용
     var tr = entry.cursorToneR || 0, tg = entry.cursorToneG || 0, tb = entry.cursorToneB || 0;
     if (tr !== 0 || tg !== 0 || tb !== 0) { dest.adjustTone(tr, tg, tb); }
 
@@ -411,15 +355,11 @@
     var entry = this._uiThemeCursorEntry;
     if (!entry || entry.cursorX === undefined) { return _Window_updateCursor.call(this); }
     var maxOpacity = entry.cursorOpacity !== undefined ? entry.cursorOpacity : 192;
-    var blink = entry.cursorBlink !== false; // 기본 true
+    var blink = entry.cursorBlink !== false;
     var blinkCount = this._animationCount % 40;
     var opacity = this.contentsOpacity * (maxOpacity / 255);
     if (blink && this.active) {
-      if (blinkCount < 20) {
-        opacity -= blinkCount * 8 * (maxOpacity / 255);
-      } else {
-        opacity -= (40 - blinkCount) * 8 * (maxOpacity / 255);
-      }
+      opacity -= (blinkCount < 20 ? blinkCount : 40 - blinkCount) * 8 * (maxOpacity / 255);
     }
     this._windowCursorSprite.alpha = Math.max(0, opacity) / 255;
     this._windowCursorSprite.visible = this.isOpen();
@@ -434,14 +374,10 @@
   }
 
   /** 클래스별 오버라이드 존재 여부 확인 */
-  function hasOv(className) {
-    return !!_ov[className];
-  }
+  function hasOv(className) { return !!_ov[className]; }
 
   /** 클래스별 오버라이드에서 값 취득 */
-  function OV(className, key) {
-    return (_ov[className] || {})[key];
-  }
+  function OV(className, key) { return (_ov[className] || {})[key]; }
 
   /** 런타임에서 _ov 업데이트 (에디터 원본값 가져오기 시 사용) */
   window._uiThemeUpdateOv = function(className, prop, value) {
@@ -471,12 +407,9 @@
 
     var w = Graphics.width || 816;
     var h = Graphics.height || 624;
-
-    // setFromCamera는 표준 WebGL Y-up NDC를 기대: 위쪽(sy=0) → +1, 아래쪽(sy=h) → -1
     var ndcX = (sx / w) * 2 - 1;
     var ndcY = 1 - (sy / h) * 2;
 
-    // 재사용 가능한 Three.js 객체
     if (!_uiPerspScreenToLocal._rc) {
       _uiPerspScreenToLocal._rc  = new THREE.Raycaster();
       _uiPerspScreenToLocal._pl  = new THREE.Plane();
@@ -491,24 +424,12 @@
     var hit = _uiPerspScreenToLocal._hit;
 
     rc.setFromCamera({ x: ndcX, y: ndcY }, cam);
-
-    // 창의 world matrix 갱신
     threeObj.updateMatrixWorld(true);
-
-    // 창 로컬 z=0 평면의 법선 벡터 (로컬 Z축 → world 방향)
     n.set(0, 0, 1).transformDirection(threeObj.matrixWorld);
-    // 평면 위의 한 점 (창의 world position)
     threeObj.getWorldPosition(pt);
     pl.setFromNormalAndCoplanarPoint(n, pt);
-
-    // ray-plane 교점
     if (!rc.ray.intersectPlane(pl, hit)) return null;
-
-    // world → 창 로컬
-    // worldToLocal의 inverse(T(x,y,z)*Ry*T(-px,-py,0)*S)에는 T(px,py,0)이 포함되므로
-    // 결과는 이미 PIXI 로컬 좌표 (0~width, 0~height). 추가 보정 불필요.
     threeObj.worldToLocal(hit);
-
     return { x: hit.x, y: hit.y };
   }
 
@@ -536,7 +457,6 @@
 
   /**
    * rotationX/Y가 있는 창에 Perspective 역변환 기반 히트 테스트를 적용.
-   * processTouch 자체를 오버라이드하여 캐시 없이 직접 로컬 좌표를 hitTest에 전달.
    */
   function _applyPerspHitTest(win) {
     win.processTouch = function() {
@@ -563,7 +483,6 @@
       }
     };
 
-    // 디버그: 호버 항목을 3D 녹색 박스로 표시
     var _origUpdate = win.update;
     win.update = function() {
       _origUpdate.call(this);
@@ -585,7 +504,6 @@
 
   function _perspUpdateHoverDebug(win) {
     if (!window._uiPerspHoverDebug) {
-      // 꺼질 때 남아있는 박스 정리
       if (win._dbgHoverMesh) {
         win._threeObj.remove(win._dbgHoverMesh);
         win._dbgHoverMesh.geometry.dispose();
@@ -599,9 +517,7 @@
 
     var local = null;
     if (win.isOpen()) {
-      var mx = window._uiPerspMouse.x;
-      var my = window._uiPerspMouse.y;
-      local = _uiPerspScreenToLocal(win, mx, my);
+      local = _uiPerspScreenToLocal(win, window._uiPerspMouse.x, window._uiPerspMouse.y);
     }
     var hitIdx = (local && local.x >= 0 && local.y >= 0 && local.x < win.width && local.y < win.height)
       ? win.hitTest(local.x, local.y) : -1;
@@ -609,7 +525,6 @@
     if (hitIdx === win._dbgHoverIdx) return;
     win._dbgHoverIdx = hitIdx;
 
-    // 이전 메시 제거
     if (win._dbgHoverMesh) {
       win._threeObj.remove(win._dbgHoverMesh);
       win._dbgHoverMesh.geometry.dispose();
@@ -622,31 +537,22 @@
     var rect = win.itemRect(hitIdx);
     var geo = new THREE.PlaneGeometry(rect.width, rect.height);
     var mat = new THREE.MeshBasicMaterial({
-      color: 0x00ff00,
-      transparent: true,
-      opacity: 0.5,
-      depthTest: false,
-      depthWrite: false,
-      side: THREE.DoubleSide
+      color: 0x00ff00, transparent: true, opacity: 0.5,
+      depthTest: false, depthWrite: false, side: THREE.DoubleSide
     });
     var mesh = new THREE.Mesh(geo, mat);
-    // 창 로컬 좌표계(Y-down): rect.x/y는 왼쪽 상단 기준
     mesh.position.set(rect.x + rect.width / 2, rect.y + rect.height / 2, 0.5);
-    mesh.layers.set(1);   // UI perspective 카메라 레이어
+    mesh.layers.set(1);
     mesh.renderOrder = 9000;
     win._threeObj.add(mesh);
     win._dbgHoverMesh = mesh;
   }
 
   /** _ov 항목 읽기 (preview.ts의 applyPropToWindow에서 사용) */
-  window._uiGetOv = function(className) {
-    return _ov[className] || {};
-  };
+  window._uiGetOv = function(className) { return _ov[className] || {}; };
 
   /** 런타임에서 _ov 항목 삭제 (RMMV 기본값으로 리셋 시 사용) */
-  window._uiThemeClearOv = function(className) {
-    delete _ov[className];
-  };
+  window._uiThemeClearOv = function(className) { delete _ov[className]; };
 
   /** 모든 _ov 항목 삭제 (undo/redo 재적용 전 초기화용) */
   window._uiThemeClearAllOv = function() {
@@ -670,7 +576,7 @@
     var orig = cls.prototype[methodName];
     if (!orig) return;
     cls.prototype[methodName] = function () {
-      if (elemCfg.visible === false) return; // 숨김
+      if (elemCfg.visible === false) return;
       var args = Array.prototype.slice.call(arguments);
       if (elemCfg.x !== undefined && argX !== null) args[argX] = elemCfg.x;
       if (elemCfg.y !== undefined && argY !== null) args[argY] = elemCfg.y;
@@ -687,8 +593,6 @@
   //===========================================================================
   // Window_Base — 게이지 이미지 렌더링 (defaultGaugeSkin 지정 시)
   //===========================================================================
-
-  /** defaultGaugeSkin 스킨 항목 취득 */
   function getGaugeSkinEntry() {
     var id = _skins.defaultGaugeSkin;
     if (!id) return null;
@@ -698,11 +602,7 @@
   var _WB_drawGauge = Window_Base.prototype.drawGauge;
   Window_Base.prototype.drawGauge = function (x, y, width, rate, color1, color2) {
     var entry = getGaugeSkinEntry();
-    if (!entry) {
-      _WB_drawGauge.call(this, x, y, width, rate, color1, color2);
-      return;
-    }
-    // 게이지 전용 이미지 로드 (gaugeFile 우선, 없으면 스킨 file/name)
+    if (!entry) { _WB_drawGauge.call(this, x, y, width, rate, color1, color2); return; }
     var gaugeFileName = entry.gaugeFile || entry.file || entry.name;
     var gaugeBitmap = ImageManager.loadSystem(gaugeFileName);
     if (!gaugeBitmap || !gaugeBitmap.isReady()) {
@@ -723,9 +623,7 @@
         var fillH = Math.floor(fH * rate);
         bmp.blt(gaugeBitmap, fX, fY + fH - fillH, fW, fillH, x, y + bgH - fillH, width, fillH);
       } else {
-        var fillW = Math.floor(fW * rate);
-        var dstFillW = Math.floor(width * rate);
-        bmp.blt(gaugeBitmap, fX, fY, fillW, fH, x, y, dstFillW, fH);
+        bmp.blt(gaugeBitmap, fX, fY, Math.floor(fW * rate), fH, x, y, Math.floor(width * rate), fH);
       }
     }
   };
@@ -734,17 +632,9 @@
   // Window_Base — 전역 스타일 (모든 Window에 적용)
   //===========================================================================
 
-  Window_Base.prototype.standardFontSize = function () {
-    return G('fontSize', 28);
-  };
-
-  Window_Base.prototype.standardPadding = function () {
-    return G('padding', 18);
-  };
-
-  Window_Base.prototype.standardBackOpacity = function () {
-    return G('backOpacity', 192);
-  };
+  Window_Base.prototype.standardFontSize   = function () { return G('fontSize',    28);  };
+  Window_Base.prototype.standardPadding    = function () { return G('padding',     18);  };
+  Window_Base.prototype.standardBackOpacity = function () { return G('backOpacity', 192); };
 
   // 현재 씬에 지정된 폰트 (Scene.create 시점에 설정)
   var _sceneFontFace = null;
@@ -767,15 +657,12 @@
   // 씬 시작 전(create) 씬별 폰트 설정 — Window들이 initialize되기 전에 적용해야 함
   var _origSceneBaseCreate = Scene_Base.prototype.create;
   Scene_Base.prototype.create = function () {
-    var sceneName = this.constructor.name;
-    _sceneFontFace = (_fonts.sceneFonts && _fonts.sceneFonts[sceneName]) || null;
+    _sceneFontFace = (_fonts.sceneFonts && _fonts.sceneFonts[this.constructor.name]) || null;
     _origSceneBaseCreate.call(this);
   };
 
   // 에디터 프리뷰에서 동적으로 폰트 설정 갱신 (refreshScene 전에 호출)
-  window._uiThemeUpdateFonts = function(config) {
-    if (config) _fonts = config;
-  };
+  window._uiThemeUpdateFonts = function(config) { if (config) _fonts = config; };
 
   // CustomSceneEngine 등에서 동적으로 창별 override 등록 (_customClassName key 사용)
   window._uiThemeSetWindowOverride = function(className, override) {
@@ -791,9 +678,7 @@
     var skinId = _skins.defaultSkin || G('windowskin', 'Window');
     var entry = findSkinEntryById(skinId) || findSkinEntry(skinId);
     var skinFile = (entry && entry.file) ? entry.file : skinId;
-    // textColor 팔레트용 windowskin은 항상 원본 'Window' 이미지 유지
     this.windowskin = ImageManager.loadSystem('Window');
-    // 커스텀 스킨 이미지를 _themeSkin에 별도 보관 (렌더링용)
     this._themeSkin = (skinFile !== 'Window') ? ImageManager.loadSystem(skinFile) : null;
   };
 
@@ -802,47 +687,27 @@
   Window_Base.prototype.initialize = function (x, y, width, height) {
     _WB_initialize.call(this, x, y, width, height);
     var tone = G('colorTone', null);
-    if (Array.isArray(tone)) {
-      this.setTone(tone[0] || 0, tone[1] || 0, tone[2] || 0);
-    }
+    if (Array.isArray(tone)) this.setTone(tone[0] || 0, tone[1] || 0, tone[2] || 0);
     var op = G('opacity', null);
     if (op !== null) this.opacity = op;
   };
 
   //===========================================================================
   // 헬퍼 — 클래스 프로토타입 스타일 오버라이드
-  //
-  // windowWidth / windowHeight : Scene이 생성 시 호출하는 메서드 오버라이드
-  // fontSize / backOpacity     : standardXxx() 메서드 오버라이드
-  // opacity / colorTone        : initialize 훅으로 인스턴스에 적용
   //===========================================================================
   function applyStyle(cls, className) {
     if (!cls || !hasOv(className)) return;
     var ov = _ov[className];
 
-    if (ov.width !== undefined) {
-      cls.prototype.windowWidth = function () { return ov.width; };
-    }
-    if (ov.height !== undefined) {
-      cls.prototype.windowHeight = function () { return ov.height; };
-    }
-    if (ov.fontSize !== undefined) {
-      cls.prototype.standardFontSize = function () { return ov.fontSize; };
-    }
-    if (ov.fontFace !== undefined) {
-      cls.prototype.standardFontFace = function () { return ov.fontFace; };
-    }
-    if (ov.backOpacity !== undefined) {
-      cls.prototype.standardBackOpacity = function () { return ov.backOpacity; };
-    }
-    if (ov.padding !== undefined) {
-      cls.prototype.standardPadding = function () { return ov.padding; };
-    }
+    if (ov.width     !== undefined) cls.prototype.windowWidth      = function () { return ov.width; };
+    if (ov.height    !== undefined) cls.prototype.windowHeight     = function () { return ov.height; };
+    if (ov.fontSize  !== undefined) cls.prototype.standardFontSize = function () { return ov.fontSize; };
+    if (ov.fontFace  !== undefined) cls.prototype.standardFontFace = function () { return ov.fontFace; };
+    if (ov.backOpacity !== undefined) cls.prototype.standardBackOpacity = function () { return ov.backOpacity; };
+    if (ov.padding   !== undefined) cls.prototype.standardPadding  = function () { return ov.padding; };
     if (ov.windowskinName !== undefined || ov.imageFile !== undefined) {
       cls.prototype.loadWindowskin = function () {
-        // textColor 팔레트용 windowskin은 항상 원본 'Window' 이미지 유지
         this.windowskin = ImageManager.loadSystem('Window');
-        // image 모드는 imageFile, frame/default 모드는 windowskinName 사용
         var skinFile = ov.windowStyle === 'image' ? ov.imageFile : ov.windowskinName;
         this._themeSkin = skinFile && skinFile !== 'Window'
           ? ImageManager.loadSystem(skinFile) : null;
@@ -862,15 +727,11 @@
 
   //===========================================================================
   // 헬퍼 — Scene.create() 이후 인스턴스에 위치/크기 적용
-  //
-  // Scene이 Window를 생성한 뒤 x/y를 덮어쓰는 경우를 처리.
-  // width/height 도 보정 (windowWidth()가 없는 pass-through 창 대응).
   //===========================================================================
   function applyLayout(win, className) {
     if (!win || !hasOv(className)) return;
     var ov = _ov[className];
 
-    // 오버라이드 적용 전 RMMV 원본값 보존 (최초 1회)
     if (!win._uiThemeOriginal) {
       win._uiThemeOriginal = { x: win.x, y: win.y, width: win.width, height: win.height };
     }
@@ -879,31 +740,21 @@
     if (ov.y !== undefined) win.y = ov.y;
 
     var needResize = false;
-    if (ov.width !== undefined && win.width !== ov.width) {
-      win.width = ov.width;
-      needResize = true;
-    }
-    if (ov.height !== undefined && win.height !== ov.height) {
-      win.height = ov.height;
-      needResize = true;
-    }
+    if (ov.width  !== undefined && win.width  !== ov.width)  { win.width  = ov.width;  needResize = true; }
+    if (ov.height !== undefined && win.height !== ov.height) { win.height = ov.height; needResize = true; }
     if (needResize) {
       if (win.createContents) win.createContents();
       if (win.refresh) win.refresh();
     }
 
-    // 정적 회전 적용 (도 → 라디안)
     if (ov.rotationX !== undefined) win.rotationX = ov.rotationX * Math.PI / 180;
     if (ov.rotationY !== undefined) win.rotationY = ov.rotationY * Math.PI / 180;
     if (ov.rotationZ !== undefined) win.rotation   = ov.rotationZ * Math.PI / 180;
 
-    // 정적 회전이 있으면 회전 기준점 (pivot) 설정
     if (win.pivot) {
       var hasStaticRotXY = !!(ov.rotationX || ov.rotationY || ov.rotationZ);
       if (hasStaticRotXY) {
-        var staticAnchor = ov.animPivot || 'center';
-        var staticPv = _parsePivotAnchor(staticAnchor, win.width, win.height);
-        // 화면 좌표 = ov.x (undefined이면 원본 MV 위치)
+        var staticPv = _parsePivotAnchor(ov.animPivot || 'center', win.width, win.height);
         var ssx = ov.x !== undefined ? ov.x : win._uiThemeOriginal.x;
         var ssy = ov.y !== undefined ? ov.y : win._uiThemeOriginal.y;
         win.pivot.x = staticPv.x;
@@ -916,19 +767,12 @@
       }
     }
 
-    // 렌더 카메라 (perspective / orthographic)
-    // rotationX/Y가 있으면 perspective 자동 활성화
     var renderCam = ov.renderCamera;
     if (!renderCam && (ov.rotationX || ov.rotationY)) renderCam = 'perspective';
-    renderCam = renderCam || 'orthographic';
-    _setWindowLayer(win, renderCam === 'perspective' ? 1 : 0);
+    _setWindowLayer(win, (renderCam || 'orthographic') === 'perspective' ? 1 : 0);
 
-    // rotationX/Y가 있는 창에 대해 퍼스펙티브 역변환 기반 히트 테스트 적용
-    if (ov.rotationX || ov.rotationY) {
-      _applyPerspHitTest(win);
-    }
+    if (ov.rotationX || ov.rotationY) _applyPerspHitTest(win);
 
-    // 등장 효과 시작 (에디터 씬 로드 중에는 억제)
     if (!window._uiEditorPreview && Array.isArray(ov.entrances) && ov.entrances.length > 0) {
       startEntranceAnimation(win, ov.entrances, className);
     }
@@ -973,168 +817,79 @@
   applyStyle(Window_GameEnd,      'Window_GameEnd');
 
   // Graphics 기반 기본값을 가지는 클래스 — windowWidth/Height 원본 보존하면서 오버라이드
-  // (applyStyle에서 이미 처리하지 않은 경우에만 아래 기본값 주입)
-  if (!OV('Window_MenuStatus', 'width')) {
-    Window_MenuStatus.prototype.windowWidth = function () {
-      return Graphics.boxWidth - 240;
-    };
-  }
-  if (!OV('Window_MenuStatus', 'height')) {
-    Window_MenuStatus.prototype.windowHeight = function () {
-      return Graphics.boxHeight;
-    };
-  }
-  if (!OV('Window_ItemCategory', 'width')) {
-    Window_ItemCategory.prototype.windowWidth = function () {
-      return Graphics.boxWidth;
-    };
-  }
-  if (!OV('Window_BattleStatus', 'width')) {
-    Window_BattleStatus.prototype.windowWidth = function () {
-      return Graphics.boxWidth - 192;
-    };
-  }
-  if (!OV('Window_BattleEnemy', 'width')) {
-    Window_BattleEnemy.prototype.windowWidth = function () {
-      return Graphics.boxWidth - 192;
-    };
-  }
-  if (!OV('Window_Message', 'width')) {
-    Window_Message.prototype.windowWidth = function () {
-      return Graphics.boxWidth;
-    };
-  }
-  if (!OV('Window_BattleLog', 'width')) {
-    Window_BattleLog.prototype.windowWidth = function () {
-      return Graphics.boxWidth;
-    };
-  }
+  if (!OV('Window_MenuStatus',   'width'))  Window_MenuStatus.prototype.windowWidth    = function () { return Graphics.boxWidth - 240; };
+  if (!OV('Window_MenuStatus',   'height')) Window_MenuStatus.prototype.windowHeight   = function () { return Graphics.boxHeight; };
+  if (!OV('Window_ItemCategory', 'width'))  Window_ItemCategory.prototype.windowWidth  = function () { return Graphics.boxWidth; };
+  if (!OV('Window_BattleStatus', 'width'))  Window_BattleStatus.prototype.windowWidth  = function () { return Graphics.boxWidth - 192; };
+  if (!OV('Window_BattleEnemy',  'width'))  Window_BattleEnemy.prototype.windowWidth   = function () { return Graphics.boxWidth - 192; };
+  if (!OV('Window_Message',      'width'))  Window_Message.prototype.windowWidth       = function () { return Graphics.boxWidth; };
+  if (!OV('Window_BattleLog',    'width'))  Window_BattleLog.prototype.windowWidth     = function () { return Graphics.boxWidth; };
 
   //===========================================================================
   // 위치 오버라이드 — updatePlacement() 보유 클래스
-  // (updatePlacement 내부에서 x/y를 계산하므로 그 뒤에 덮어씀)
   //===========================================================================
-
-  // Window_Options — 기본: 화면 중앙
-  if (hasOv('Window_Options')) {
-    var _WOpt_up = Window_Options.prototype.updatePlacement;
-    Window_Options.prototype.updatePlacement = function () {
-      _WOpt_up.call(this);
-      // RMMV 원본값 보존 (오버라이드 적용 전, 최초 1회)
+  function _wrapUpdatePlacement(cls, className) {
+    if (!hasOv(className)) return;
+    var _orig = cls.prototype.updatePlacement;
+    cls.prototype.updatePlacement = function () {
+      _orig.call(this);
       if (!this._uiThemeOriginal) {
         this._uiThemeOriginal = { x: this.x, y: this.y, width: this.width, height: this.height };
       }
-      var x = OV('Window_Options', 'x'), y = OV('Window_Options', 'y');
+      var x = OV(className, 'x'), y = OV(className, 'y');
       if (x !== undefined) this.x = x;
       if (y !== undefined) this.y = y;
     };
   }
-
-  // Window_TitleCommand — 기본: 수평 중앙, 하단 96px
-  if (hasOv('Window_TitleCommand')) {
-    var _WTC_up = Window_TitleCommand.prototype.updatePlacement;
-    Window_TitleCommand.prototype.updatePlacement = function () {
-      _WTC_up.call(this);
-      if (!this._uiThemeOriginal) {
-        this._uiThemeOriginal = { x: this.x, y: this.y, width: this.width, height: this.height };
-      }
-      var x = OV('Window_TitleCommand', 'x'), y = OV('Window_TitleCommand', 'y');
-      if (x !== undefined) this.x = x;
-      if (y !== undefined) this.y = y;
-    };
-  }
-
-  // Window_GameEnd — 기본: 화면 중앙
-  if (hasOv('Window_GameEnd')) {
-    var _WGE_up = Window_GameEnd.prototype.updatePlacement;
-    Window_GameEnd.prototype.updatePlacement = function () {
-      _WGE_up.call(this);
-      if (!this._uiThemeOriginal) {
-        this._uiThemeOriginal = { x: this.x, y: this.y, width: this.width, height: this.height };
-      }
-      var x = OV('Window_GameEnd', 'x'), y = OV('Window_GameEnd', 'y');
-      if (x !== undefined) this.x = x;
-      if (y !== undefined) this.y = y;
-    };
-  }
+  _wrapUpdatePlacement(Window_Options,      'Window_Options');
+  _wrapUpdatePlacement(Window_TitleCommand, 'Window_TitleCommand');
+  _wrapUpdatePlacement(Window_GameEnd,      'Window_GameEnd');
 
   //===========================================================================
   // 위치/크기 오버라이드 — Scene.create() 훅
-  // Scene이 Window를 생성하고 x/y를 결정한 뒤 applyLayout으로 덮어씀.
   //===========================================================================
+  function _hookSceneCreate(cls, fn) {
+    var _orig = cls.prototype.create;
+    cls.prototype.create = function () { _orig.call(this); fn.call(this); };
+  }
 
-  // Scene_Map
-  var _SMap_create = Scene_Map.prototype.create;
-  Scene_Map.prototype.create = function () {
-    _SMap_create.call(this);
+  _hookSceneCreate(Scene_Map, function () {
     applyLayout(this._mapNameWindow, 'Window_MapName');
-  };
-
-  // Scene_Menu
-  var _SMenu_create = Scene_Menu.prototype.create;
-  Scene_Menu.prototype.create = function () {
-    _SMenu_create.call(this);
+  });
+  _hookSceneCreate(Scene_Menu, function () {
     applyLayout(this._goldWindow,    'Window_Gold');
     applyLayout(this._commandWindow, 'Window_MenuCommand');
     applyLayout(this._statusWindow,  'Window_MenuStatus');
-  };
-
-  // Scene_Item
-  var _SItem_create = Scene_Item.prototype.create;
-  Scene_Item.prototype.create = function () {
-    _SItem_create.call(this);
+  });
+  _hookSceneCreate(Scene_Item, function () {
     applyLayout(this._helpWindow,     'Window_Help');
     applyLayout(this._categoryWindow, 'Window_ItemCategory');
     applyLayout(this._itemWindow,     'Window_ItemList');
-  };
-
-  // Scene_Skill
-  var _SSk_create = Scene_Skill.prototype.create;
-  Scene_Skill.prototype.create = function () {
-    _SSk_create.call(this);
+  });
+  _hookSceneCreate(Scene_Skill, function () {
     applyLayout(this._helpWindow,      'Window_Help');
     applyLayout(this._skillTypeWindow, 'Window_SkillType');
     applyLayout(this._statusWindow,    'Window_SkillStatus');
     applyLayout(this._itemWindow,      'Window_SkillList');
-  };
-
-  // Scene_Equip
-  var _SEq_create = Scene_Equip.prototype.create;
-  Scene_Equip.prototype.create = function () {
-    _SEq_create.call(this);
+  });
+  _hookSceneCreate(Scene_Equip, function () {
     applyLayout(this._helpWindow,    'Window_Help');
     applyLayout(this._statusWindow,  'Window_EquipStatus');
     applyLayout(this._commandWindow, 'Window_EquipCommand');
     applyLayout(this._slotWindow,    'Window_EquipSlot');
     applyLayout(this._itemWindow,    'Window_EquipItem');
-  };
-
-  // Scene_Status
-  var _SSt_create = Scene_Status.prototype.create;
-  Scene_Status.prototype.create = function () {
-    _SSt_create.call(this);
+  });
+  _hookSceneCreate(Scene_Status, function () {
     applyLayout(this._statusWindow, 'Window_Status');
-  };
-
-  // Scene_Options
-  var _SOpt_create = Scene_Options.prototype.create;
-  Scene_Options.prototype.create = function () {
-    _SOpt_create.call(this);
+  });
+  _hookSceneCreate(Scene_Options, function () {
     applyLayout(this._optionsWindow, 'Window_Options');
-  };
-
-  // Scene_File (공통 — Save/Load 양쪽에 _helpWindow, _listWindow 존재)
-  var _SF_create = Scene_File.prototype.create;
-  Scene_File.prototype.create = function () {
-    _SF_create.call(this);
+  });
+  _hookSceneCreate(Scene_File, function () {
     applyLayout(this._helpWindow, 'Window_Help');
     applyLayout(this._listWindow, 'Window_SavefileList');
-  };
-
-  // Scene_Shop
-  var _SSh_create = Scene_Shop.prototype.create;
-  Scene_Shop.prototype.create = function () {
-    _SSh_create.call(this);
+  });
+  _hookSceneCreate(Scene_Shop, function () {
     applyLayout(this._helpWindow,    'Window_Help');
     applyLayout(this._goldWindow,    'Window_Gold');
     applyLayout(this._commandWindow, 'Window_ShopCommand');
@@ -1142,27 +897,15 @@
     applyLayout(this._sellWindow,    'Window_ShopSell');
     applyLayout(this._numberWindow,  'Window_ShopNumber');
     applyLayout(this._statusWindow,  'Window_ShopStatus');
-  };
-
-  // Scene_Name
-  var _SNm_create = Scene_Name.prototype.create;
-  Scene_Name.prototype.create = function () {
-    _SNm_create.call(this);
+  });
+  _hookSceneCreate(Scene_Name, function () {
     applyLayout(this._editWindow,  'Window_NameEdit');
     applyLayout(this._inputWindow, 'Window_NameInput');
-  };
-
-  // Scene_GameEnd
-  var _SGE_create = Scene_GameEnd.prototype.create;
-  Scene_GameEnd.prototype.create = function () {
-    _SGE_create.call(this);
+  });
+  _hookSceneCreate(Scene_GameEnd, function () {
     applyLayout(this._commandWindow, 'Window_GameEnd');
-  };
-
-  // Scene_Battle
-  var _SBt_create = Scene_Battle.prototype.create;
-  Scene_Battle.prototype.create = function () {
-    _SBt_create.call(this);
+  });
+  _hookSceneCreate(Scene_Battle, function () {
     applyLayout(this._logWindow,          'Window_BattleLog');
     applyLayout(this._partyCommandWindow, 'Window_PartyCommand');
     applyLayout(this._actorCommandWindow, 'Window_ActorCommand');
@@ -1172,19 +915,10 @@
     applyLayout(this._skillWindow,        'Window_BattleSkill');
     applyLayout(this._itemWindow,         'Window_BattleItem');
     applyLayout(this._helpWindow,         'Window_Help');
-  };
+  });
 
   //===========================================================================
   // 요소 오버라이드 — 각 Window 내 draw 메서드 위치/크기 커스터마이징
-  //
-  // drawActorFace(actor, x, y, width, height)                       → argX=1
-  // drawActorName/Class/Nickname(actor, x, y, width)               → argX=1
-  // drawActorLevel(actor, x, y)                                    → argX=1
-  // drawActorIcons/Hp/Mp/Tp(actor, x, y, width)                    → argX=1
-  // drawSimpleStatus(actor, x, y, width)                           → argX=1
-  //
-  // perActor 창(BattleStatus, MenuStatus)은 y를 오버라이드하지 않음
-  // (y는 행 인덱스에 따라 자동 계산됨)
   //===========================================================================
 
   // ── Window_Status (single layout) ─────────────────────────────────────────
@@ -1209,8 +943,6 @@
   wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawSimpleStatus', 'simpleStatus', 1, null, 3, null);
 
   // ── 제네릭 요소 fontFace 지원: createContents 훅 ──────────────────────────
-  // wrapDraw가 다루지 않는 창의 window-specific draw 메서드에 대해
-  // 인스턴스 레벨 래퍼를 설치하여 fontFace를 적용.
   var ELEM_TYPE_TO_METHOD = {
     actorName: 'drawActorName', actorClass: 'drawActorClass',
     actorNickname: 'drawActorNickname', actorFace: 'drawActorFace',
@@ -1222,8 +954,7 @@
   var _origWindowBaseCreateContents = Window_Base.prototype.createContents;
   Window_Base.prototype.createContents = function () {
     _origWindowBaseCreateContents.call(this);
-    var className = this.constructor.name;
-    var classOv = _ov[className];
+    var classOv = _ov[this.constructor.name];
     if (!classOv || !classOv.elements) return;
     var self = this;
     Object.keys(classOv.elements).forEach(function (elemType) {
@@ -1231,12 +962,11 @@
       if (!elemCfg || (!elemCfg.fontFace && elemCfg.visible !== false)) return;
       var methodName = ELEM_TYPE_TO_METHOD[elemType] || elemType;
       if (typeof self[methodName] !== 'function') return;
-      if (self.hasOwnProperty(methodName)) return; // 이미 인스턴스 래퍼 있음
-      // self[methodName]은 wrapDraw로 교체된 prototype 메서드일 수 있음 → 그대로 호출
+      if (self.hasOwnProperty(methodName)) return;
       var orig = self[methodName];
       self[methodName] = (function (fn, cfg) {
         return function () {
-          if (cfg.visible === false) return; // 숨김
+          if (cfg.visible === false) return;
           var prevFace = this.contents && this.contents.fontFace;
           if (cfg.fontFace && this.contents) this.contents.fontFace = cfg.fontFace;
           var r = fn.apply(this, arguments);
@@ -1252,146 +982,113 @@
   //===========================================================================
 
   /** 이징 함수 */
+  var _EASE_FNS = {
+    linear:    function (t) { return t; },
+    easeIn:    function (t) { return t * t; },
+    easeInOut: function (t) { return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t); },
+    bounce: function (t) {
+      if (t < 1 / 2.75)        return 7.5625 * t * t;
+      if (t < 2 / 2.75)        return 7.5625 * (t -= 1.5   / 2.75) * t + 0.75;
+      if (t < 2.5 / 2.75)      return 7.5625 * (t -= 2.25  / 2.75) * t + 0.9375;
+      return                           7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
+    },
+  };
   function uiEase(t, easing) {
     t = Math.max(0, Math.min(1, t));
-    switch (easing) {
-      case 'linear':   return t;
-      case 'easeIn':   return t * t;
-      case 'easeInOut':return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
-      case 'bounce':
-        if (t < 1 / 2.75)       return 7.5625 * t * t;
-        else if (t < 2 / 2.75)  return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
-        else if (t < 2.5 / 2.75)return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
-        else                     return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
-      default: /* easeOut */     return 1 - (1 - t) * (1 - t);
-    }
+    var fn = _EASE_FNS[easing];
+    return fn ? fn(t) : 1 - (1 - t) * (1 - t); // default: easeOut
   }
 
   /** animPivot 앵커명 → {x, y} 픽셀 좌표 변환 (w/h 기준) */
+  var _ANCHOR_MAP = {
+    'top-left':    [0,   0  ], 'top':    [0.5, 0  ], 'top-right':    [1,   0  ],
+    'left':        [0,   0.5], 'center': [0.5, 0.5], 'right':        [1,   0.5],
+    'bottom-left': [0,   1  ], 'bottom': [0.5, 1  ], 'bottom-right': [1,   1  ],
+  };
   function _parsePivotAnchor(anchor, w, h) {
-    var rx = 0.5, ry = 0.5;
-    switch (anchor) {
-      case 'top-left':    rx = 0;   ry = 0;   break;
-      case 'top':         rx = 0.5; ry = 0;   break;
-      case 'top-right':   rx = 1;   ry = 0;   break;
-      case 'left':        rx = 0;   ry = 0.5; break;
-      case 'center':      rx = 0.5; ry = 0.5; break;
-      case 'right':       rx = 1;   ry = 0.5; break;
-      case 'bottom-left': rx = 0;   ry = 1;   break;
-      case 'bottom':      rx = 0.5; ry = 1;   break;
-      case 'bottom-right':rx = 1;   ry = 1;   break;
+    var a = _ANCHOR_MAP[anchor] || [0.5, 0.5];
+    return { x: Math.floor((w || 0) * a[0]), y: Math.floor((h || 0) * a[1]) };
+  }
+
+  /** pivot 설정 공통 헬퍼 (entrance/exit 공통) */
+  function _setupAnimPivot(win, effects, className, screenX, screenY) {
+    var needPivot = effects.some(function (e) {
+      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce' ||
+             e.type === 'rotateX' || e.type === 'rotateY';
+    });
+    var pivotX = 0, pivotY = 0;
+    if (needPivot && win.pivot) {
+      var pv = _parsePivotAnchor((_ov[className] && _ov[className].animPivot) || 'center', win.width, win.height);
+      pivotX = pv.x; pivotY = pv.y;
+      win.pivot.x = pivotX;
+      win.pivot.y = pivotY;
+      win.x = screenX + pivotX;
+      win.y = screenY + pivotY;
     }
-    return { x: Math.floor((w || 0) * rx), y: Math.floor((h || 0) * ry) };
+    return { pivotX: pivotX, pivotY: pivotY };
   }
 
   /** 등장 애니메이션 시작 — applyLayout 후 호출 */
   function startEntranceAnimation(win, entrances, className) {
     if (!entrances || entrances.length === 0) return;
-
-    // zoom / bounce / rotate 효과가 있으면 animPivot 기준 pivot 설정
-    var needPivot = entrances.some(function (e) {
-      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce' ||
-             e.type === 'rotateX' || e.type === 'rotateY';
-    });
-    var pivotX = 0, pivotY = 0;
     var originalX = win.x, originalY = win.y;
-    if (needPivot && win.pivot) {
-      var anchor = (_ov[className] && _ov[className].animPivot) || 'center';
-      var pv = _parsePivotAnchor(anchor, win.width, win.height);
-      pivotX = pv.x; pivotY = pv.y;
-      win.pivot.x = pivotX;
-      win.pivot.y = pivotY;
-      // pivot 변경 시 화면 위치 보정
-      win.x = originalX + pivotX;
-      win.y = originalY + pivotY;
-    }
-
+    var pv = _setupAnimPivot(win, entrances, className, originalX, originalY);
     win._uiEntrance = {
-      effects: entrances,
-      elapsed: 0,
-      screenX: originalX,          // 원래 화면 좌표 (slide 기준)
-      screenY: originalY,
-      baseX: win.x,                // pivot 보정 후 x
-      baseY: win.y,
+      effects: entrances, elapsed: 0,
+      screenX: originalX, screenY: originalY,
+      baseX: win.x, baseY: win.y,
       baseAlpha: win.alpha !== undefined ? win.alpha : 1,
       baseRotation: win.rotation || 0,
       baseRotationX: win.rotationX !== undefined ? win.rotationX : 0,
       baseRotationY: win.rotationY !== undefined ? win.rotationY : 0,
-      pivotX: pivotX,
-      pivotY: pivotY,
+      pivotX: pv.pivotX, pivotY: pv.pivotY,
       className: className,
     };
     _applyEntranceFrame(win, 0);
+  }
+
+  /** Graphics サイズ取得 */
+  function _gfxSize() {
+    return {
+      sw: typeof Graphics !== 'undefined' ? Graphics.width  : 816,
+      sh: typeof Graphics !== 'undefined' ? Graphics.height : 624,
+    };
   }
 
   /** 매 프레임 등장 상태 계산 및 적용 */
   function _applyEntranceFrame(win, elapsed) {
     var state = win._uiEntrance;
     if (!state) return;
-
     var effects = state.effects;
-    // slide 계산은 pivot 보정 전 화면 좌표 기준
     var totalX = state.screenX, totalY = state.screenY;
-    var totalAlpha = 1;
-    var totalScaleX = 1, totalScaleY = 1;
+    var totalAlpha = 1, totalScaleX = 1, totalScaleY = 1;
     var totalRotation = 0, totalRotationX = 0, totalRotationY = 0;
-    var sw = (typeof Graphics !== 'undefined' ? Graphics.width : 816);
-    var sh = (typeof Graphics !== 'undefined' ? Graphics.height : 624);
+    var gs = _gfxSize();
 
     for (var i = 0; i < effects.length; i++) {
       var eff = effects[i];
-      var delay = eff.delay || 0;
-      var localElapsed = elapsed - delay;
+      var localElapsed = elapsed - (eff.delay || 0);
       var p = localElapsed <= 0 ? 0 : uiEase(Math.min(localElapsed / eff.duration, 1), eff.easing);
-
+      var angle;
       switch (eff.type) {
-        case 'fade': case 'fadeIn':
-          totalAlpha *= p;
-          break;
-        case 'fadeOut':
-          totalAlpha *= (1 - p);
-          break;
-        // 화면 크기 기준: win.width/height 의존 제거
-        case 'slideLeft':
-          totalX = state.screenX - (1 - p) * (state.screenX + sw);
-          break;
-        case 'slideRight':
-          totalX = state.screenX + (1 - p) * sw;
-          break;
-        case 'slideTop':
-          totalY = state.screenY - (1 - p) * (state.screenY + sh);
-          break;
-        case 'slideBottom':
-          totalY = state.screenY + (1 - p) * sh;
-          break;
-        case 'zoom':
-        case 'bounce': {
-          var from = (eff.fromScale !== undefined ? eff.fromScale : 0);
+        case 'fade': case 'fadeIn':  totalAlpha *= p; break;
+        case 'fadeOut':              totalAlpha *= (1 - p); break;
+        case 'slideLeft':   totalX = state.screenX - (1 - p) * (state.screenX + gs.sw); break;
+        case 'slideRight':  totalX = state.screenX + (1 - p) * gs.sw; break;
+        case 'slideTop':    totalY = state.screenY - (1 - p) * (state.screenY + gs.sh); break;
+        case 'slideBottom': totalY = state.screenY + (1 - p) * gs.sh; break;
+        case 'zoom': case 'bounce': {
+          var from = eff.fromScale !== undefined ? eff.fromScale : 0;
           var s = from + p * (1 - from);
-          totalScaleX *= s; totalScaleY *= s;
-          break;
+          totalScaleX *= s; totalScaleY *= s; break;
         }
-        case 'rotate': {
-          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 180);
-          totalRotation += angle * (1 - p) * Math.PI / 180;
-          break;
-        }
-        case 'rotateX': {
-          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
-          totalRotationX += angle * (1 - p) * Math.PI / 180;
-          break;
-        }
-        case 'rotateY': {
-          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
-          totalRotationY += angle * (1 - p) * Math.PI / 180;
-          break;
-        }
+        case 'rotate':  angle = eff.fromAngle !== undefined ? eff.fromAngle : 180; totalRotation  += angle * (1 - p) * Math.PI / 180; break;
+        case 'rotateX': angle = eff.fromAngle !== undefined ? eff.fromAngle : 90;  totalRotationX += angle * (1 - p) * Math.PI / 180; break;
+        case 'rotateY': angle = eff.fromAngle !== undefined ? eff.fromAngle : 90;  totalRotationY += angle * (1 - p) * Math.PI / 180; break;
       }
     }
 
-    // 전체 alpha — win.alpha로 컨텐츠 포함 모든 자식에 적용
     win.alpha = state.baseAlpha * totalAlpha;
-    // 위치: pivot 보정 복원
     win.x = Math.round(totalX) + state.pivotX;
     win.y = Math.round(totalY) + state.pivotY;
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
@@ -1400,7 +1097,7 @@
     if (win.rotationY !== undefined) win.rotationY = (state.baseRotationY || 0) + totalRotationY;
   }
 
-  /** 등장 애니메이션이 완전히 끝났는지 확인 */
+  /** 등장/퇴장 애니메이션이 완전히 끝났는지 확인 */
   function _isEntranceDone(elapsed, effects) {
     for (var i = 0; i < effects.length; i++) {
       if (elapsed < (effects[i].delay || 0) + effects[i].duration) return false;
@@ -1433,7 +1130,6 @@
     var state = this._uiEntrance;
     state.elapsed += 1000 / 60;
     if (_isEntranceDone(state.elapsed, state.effects)) {
-      // 최종값으로 정리 + pivot 복원
       if (this.pivot && state.pivotX) {
         this.pivot.x = 0; this.pivot.y = 0;
         this.x = state.screenX;
@@ -1464,36 +1160,18 @@
   /** 퇴장 애니메이션 시작 */
   function startExitAnimation(win, exits, className) {
     if (!exits || exits.length === 0) return;
-
-    var needPivot = exits.some(function (e) {
-      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce' ||
-             e.type === 'rotateX' || e.type === 'rotateY';
-    });
-    var pivotX = 0, pivotY = 0;
     var screenX = getWinScreenX(win);
     var screenY = getWinScreenY(win);
-    if (needPivot && win.pivot) {
-      var exitAnchor = (_ov[className] && _ov[className].animPivot) || 'center';
-      var exitPv = _parsePivotAnchor(exitAnchor, win.width, win.height);
-      pivotX = exitPv.x; pivotY = exitPv.y;
-      win.pivot.x = pivotX;
-      win.pivot.y = pivotY;
-      win.x = screenX + pivotX;
-      win.y = screenY + pivotY;
-    }
-
-    win._uiEntrance = null; // 등장 중이었으면 취소
+    var pv = _setupAnimPivot(win, exits, className, screenX, screenY);
+    win._uiEntrance = null;
     win._uiExit = {
-      effects: exits,
-      elapsed: 0,
-      screenX: screenX,
-      screenY: screenY,
+      effects: exits, elapsed: 0,
+      screenX: screenX, screenY: screenY,
       baseAlpha: win.alpha !== undefined ? win.alpha : 1,
       baseRotation: win.rotation || 0,
       baseRotationX: win.rotationX !== undefined ? win.rotationX : 0,
       baseRotationY: win.rotationY !== undefined ? win.rotationY : 0,
-      pivotX: pivotX,
-      pivotY: pivotY,
+      pivotX: pv.pivotX, pivotY: pv.pivotY,
       className: className,
     };
     _applyExitFrame(win, 0);
@@ -1503,69 +1181,37 @@
   function _applyExitFrame(win, elapsed) {
     var state = win._uiExit;
     if (!state) return;
-
     var effects = state.effects;
     var totalX = state.screenX, totalY = state.screenY;
-    var totalAlpha = 1;
-    var totalScaleX = 1, totalScaleY = 1;
+    var totalAlpha = 1, totalScaleX = 1, totalScaleY = 1;
     var totalRotation = 0, totalRotationX = 0, totalRotationY = 0;
-    var sw = (typeof Graphics !== 'undefined' ? Graphics.width : 816);
-    var sh = (typeof Graphics !== 'undefined' ? Graphics.height : 624);
+    var gs = _gfxSize();
 
     for (var i = 0; i < effects.length; i++) {
       var eff = effects[i];
-      var delay = eff.delay || 0;
-      var localElapsed = elapsed - delay;
+      var localElapsed = elapsed - (eff.delay || 0);
       // p: 0=시작(원래 상태) → 1=끝(사라진 상태)
       var p = localElapsed <= 0 ? 0 : uiEase(Math.min(localElapsed / eff.duration, 1), eff.easing);
-
+      var angle;
       switch (eff.type) {
-        case 'fade': case 'fadeOut':
-          totalAlpha *= (1 - p);
-          break;
-        case 'fadeIn':
-          totalAlpha *= p;
-          break;
-        case 'slideLeft':
-          totalX = state.screenX - p * (state.screenX + sw);
-          break;
-        case 'slideRight':
-          totalX = state.screenX + p * sw;
-          break;
-        case 'slideTop':
-          totalY = state.screenY - p * (state.screenY + sh);
-          break;
-        case 'slideBottom':
-          totalY = state.screenY + p * sh;
-          break;
-        case 'zoom':
-        case 'bounce': {
-          var to = (eff.fromScale !== undefined ? eff.fromScale : 0);
+        case 'fade': case 'fadeOut': totalAlpha *= (1 - p); break;
+        case 'fadeIn':               totalAlpha *= p; break;
+        case 'slideLeft':   totalX = state.screenX - p * (state.screenX + gs.sw); break;
+        case 'slideRight':  totalX = state.screenX + p * gs.sw; break;
+        case 'slideTop':    totalY = state.screenY - p * (state.screenY + gs.sh); break;
+        case 'slideBottom': totalY = state.screenY + p * gs.sh; break;
+        case 'zoom': case 'bounce': {
+          var to = eff.fromScale !== undefined ? eff.fromScale : 0;
           var s = 1 - p * (1 - to);
-          totalScaleX *= s; totalScaleY *= s;
-          break;
+          totalScaleX *= s; totalScaleY *= s; break;
         }
-        case 'rotate': {
-          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 180);
-          totalRotation += angle * p * Math.PI / 180;
-          break;
-        }
-        case 'rotateX': {
-          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
-          totalRotationX += angle * p * Math.PI / 180;
-          break;
-        }
-        case 'rotateY': {
-          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
-          totalRotationY += angle * p * Math.PI / 180;
-          break;
-        }
+        case 'rotate':  angle = eff.fromAngle !== undefined ? eff.fromAngle : 180; totalRotation  += angle * p * Math.PI / 180; break;
+        case 'rotateX': angle = eff.fromAngle !== undefined ? eff.fromAngle : 90;  totalRotationX += angle * p * Math.PI / 180; break;
+        case 'rotateY': angle = eff.fromAngle !== undefined ? eff.fromAngle : 90;  totalRotationY += angle * p * Math.PI / 180; break;
       }
     }
 
     win.alpha = state.baseAlpha * totalAlpha;
-    // state.screenX = getWinScreenX (pivot 제거 순수 화면 좌표) 이므로
-    // win.x 복원 시 현재 pivot을 더해야 함 (state.pivotX는 애니메이션 pivot만 추적)
     win.x = Math.round(totalX) + ((win.pivot && win.pivot.x) || 0);
     win.y = Math.round(totalY) + ((win.pivot && win.pivot.y) || 0);
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
@@ -1633,9 +1279,7 @@
     _SBase_update.call(this);
     if (this._uiExiting) {
       this._uiExitElapsed += 1000 / 60;
-      if (this._uiExitElapsed >= this._uiExitMaxMs) {
-        this._uiExiting = false;
-      }
+      if (this._uiExitElapsed >= this._uiExitMaxMs) this._uiExiting = false;
     }
   };
 
@@ -1645,17 +1289,16 @@
   window.addEventListener('message', function (e) {
     var data = e.data;
     if (!data || !data.type) return;
+    var scene = typeof SceneManager !== 'undefined' ? SceneManager._scene : null;
+    if (!scene) return;
 
     if (data.type === 'previewEntrance') {
-      var scene = typeof SceneManager !== 'undefined' ? SceneManager._scene : null;
-      if (!scene) return;
       collectSceneWindows(scene).forEach(function (win) {
         var className = win.constructor && win.constructor.name;
         if (data.className && className !== data.className) return;
         var ov = (data.override && data.override.className === className)
           ? data.override : (_config.overrides || {})[className];
         if (!ov || !Array.isArray(ov.entrances) || ov.entrances.length === 0) return;
-        // 기존 애니메이션/pivot 초기화
         if (win._uiEntrance && win.pivot) {
           win.pivot.x = 0; win.pivot.y = 0;
           win.x = win._uiEntrance.screenX;
@@ -1668,12 +1311,7 @@
         win.rotation = 0;
         startEntranceAnimation(win, ov.entrances, className);
       });
-      return;
-    }
-
-    if (data.type === 'previewExit') {
-      var scene = typeof SceneManager !== 'undefined' ? SceneManager._scene : null;
-      if (!scene) return;
+    } else if (data.type === 'previewExit') {
       collectSceneWindows(scene).forEach(function (win) {
         var className = win.constructor && win.constructor.name;
         if (data.className && className !== data.className) return;
@@ -1683,7 +1321,6 @@
         win._uiEntrance = null;
         startExitAnimation(win, ov.exits, className);
       });
-      return;
     }
   });
 
