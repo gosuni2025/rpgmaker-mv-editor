@@ -1404,9 +1404,13 @@
     var aw = navMgr._activeIndex >= 0 ? navMgr._focusables[navMgr._activeIndex] : null;
     var aid = aw ? aw._id : null;
     var isLinked = aid && linked.indexOf(aid) >= 0;
-    var base = (this._def.bgAlpha !== undefined ? Math.round(this._def.bgAlpha * 255) : 255);
-    var tgt = isLinked ? base : Math.round(base * 0.63);
-    if (this._displayObject.opacity !== tgt) this._displayObject.opacity = tgt;
+    // Window.opacity setter는 _windowSpriteContainer.alpha만 변경하므로
+    // 자식 Sprite(이미지 등)에 cascade가 전달되지 않음.
+    // Window 자체의 alpha를 설정해야 모든 자식이 함께 dim됨.
+    var dimAlpha = isLinked ? 1.0 : 0.63;
+    if (Math.abs((this._displayObject.alpha || 1) - dimAlpha) > 0.005) {
+      this._displayObject.alpha = dimAlpha;
+    }
   };
   Widget_Panel.prototype.destroy = function() {
     // Window.prototype.destroy가 내부 bitmap + geometry 모두 처리하므로 별도 처리 불필요
@@ -2717,6 +2721,11 @@
     if (this._focusable !== false) out.push(this);
   };
   Widget_TextList.prototype.activate = function() {
+    // [DBG-actor] actorWindow 위젯 activate 추적
+    if (this._id === 'actorWindow') {
+      console.log('[DBG-actor] Widget_TextList.activate() called, _window.active(before)=',
+        this._window ? this._window.active : 'N/A');
+    }
     if (this._dataScript) this._rebuildFromScript();
     if (this._window) {
       this._window.activate();
@@ -2760,7 +2769,13 @@
     if (this._updateCount === undefined) this._updateCount = 0;
     ++this._updateCount;
     if (this._dataScript && this._autoRefresh !== false) {
-      if (this._updateCount % 6 === 0) this._rebuildFromScript();
+      if (this._updateCount % 6 === 0) {
+        // [DBG-actor] actorWindow autoRefresh 시 active 상태 추적
+        if (this._id === 'actorWindow' && this._window && this._window.active) {
+          console.log('[DBG-actor] autoRefresh _rebuildFromScript while ACTIVE, index=', this._window.index());
+        }
+        this._rebuildFromScript();
+      }
     } else if (!this._dataScript) {
       var items = this._items;
       var hasCondition = items && items.some(function(item) {
@@ -2941,6 +2956,12 @@
     var all = [];
     rootWidget.collectFocusable(all);
     this._focusables = all;
+    // [DBG-actor] focusList에 actorWindow 포함 여부 확인
+    var ids = all.map(function(w) { return w._id; });
+    console.log('[DBG-actor] NavMgr focusList:', ids);
+    if (ids.indexOf('actorWindow') >= 0) {
+      console.log('[DBG-actor] ⚠ actorWindow이 NavMgr focusList에 포함됨 — 충돌 가능');
+    }
   };
   NavigationManager.prototype.start = function() {
     if (this._focusables.length === 0) return;
@@ -2960,8 +2981,14 @@
   NavigationManager.prototype._activateAt = function(idx) {
     if (idx < 0 || idx >= this._focusables.length) return;
     if (this._activeIndex >= 0 && this._focusables[this._activeIndex]) {
-      this._focusables[this._activeIndex].deactivate();
-      this._focusables[this._activeIndex]._runScript('onBlur');
+      var prevW = this._focusables[this._activeIndex];
+      // [DBG-actor] NavMgr가 actorWindow를 deactivate하는 순간 포착
+      if (prevW._id === 'actorWindow') {
+        console.warn('[DBG-actor] ⚠ NavMgr._activateAt deactivating actorWindow → new focus:', this._focusables[idx]._id);
+        console.trace('[DBG-actor] deactivate trace');
+      }
+      prevW.deactivate();
+      prevW._runScript('onBlur');
     }
     this._activeIndex = idx;
     this._focusables[idx].activate();
@@ -4128,6 +4155,7 @@
   ];
 
   function installBattleWindowProxy(win, widget, widgetId) {
+    console.log('[DBG-actor] installBattleWindowProxy:', widgetId, '| win=', win ? win.constructor.name : 'NULL', '| widget=', widget ? widget._id : 'NULL');
     if (!win) return;
 
     // 원본 창은 항상 화면 밖으로 (위젯 유무와 무관)
@@ -4156,7 +4184,18 @@
           try { orig.apply(win, arguments); } catch(e) { /* 원본 창 에러 무시 — widget 메서드는 계속 호출 */ }
         if (method === 'activate') win.active = false;  // 원본 입력 차단
         win.x = -9999;
+        // [DBG-actor] activate/deactivate 위임 추적
+        if (widgetId === 'actorWindow') {
+          console.log('[DBG-actor] proxy.' + method + '() → widget.' + method,
+            'widget._window.active=', widget._window ? widget._window.active : 'N/A',
+            'widget._window.index=', widget._window ? widget._window.index() : 'N/A');
+        }
         if (widget[method]) widget[method].apply(widget, arguments);
+        if (widgetId === 'actorWindow' && method === 'activate') {
+          console.log('[DBG-actor] after widget.activate() → widget._window.active=',
+            widget._window ? widget._window.active : 'N/A',
+            'index=', widget._window ? widget._window.index() : 'N/A');
+        }
       };
     });
 
@@ -4353,6 +4392,7 @@
         var actorWidget = widget;
         win.setup = function(actor) {
           if (actorWidget._rebuildFromScript) actorWidget._rebuildFromScript();
+          if (actorWidget.show) actorWidget.show();
           this.select(0); this.activate(); this.open();
         };
         this._actorCommandWindow = win;
@@ -4370,6 +4410,7 @@
     Klass.prototype.commandAttack = function() {
       this._ctx.lastActorCommand = 'attack';
       BattleManager.inputtingAction().setAttack();
+      this._actorCommandWindow.deactivate();
       this.selectEnemySelection();
     };
 
@@ -4381,6 +4422,7 @@
       }
       this._ctx.lastActorCommand = 'skill';
       this._ctx.currentSkillStypeId = stypeId;
+      this._actorCommandWindow.deactivate();
       this._skillWindow.setActor(BattleManager.actor());
       this._skillWindow.setStypeId(stypeId);
       this._skillWindow.refresh();
@@ -4391,10 +4433,29 @@
 
     Klass.prototype.commandItem = function() {
       this._ctx.lastActorCommand = 'item';
+      this._actorCommandWindow.deactivate();
       this._itemWindow.refresh();
       this._itemWindow.show();
       this._itemWindow.activate();
       this._helpWindow.show();
+    };
+
+    // selectEnemySelection: actorCommand 비활성화 + actorWindow dim 처리
+    var origSES = SCB.selectEnemySelection || function() {};
+    Klass.prototype.selectEnemySelection = function() {
+      var wmap = this._widgetMap || {};
+      if (wmap.actorCommand && wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
+      var actorWidget = wmap['actorWindow'];
+      if (actorWidget && actorWidget._window) actorWidget._window.contentsOpacity = 80;
+      origSES.call(this);
+    };
+
+    // selectActorSelection: actorCommand 비활성화 + actorWindow activate
+    var origSAS = SCB.selectActorSelection || function() {};
+    Klass.prototype.selectActorSelection = function() {
+      var wmap = this._widgetMap || {};
+      if (wmap.actorCommand && wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
+      origSAS.call(this);
     };
 
     Klass.prototype.onSkillCancel = function() {
@@ -4410,7 +4471,6 @@
     };
 
     Klass.prototype.onActorCancel = function() {
-      // hide 대신 deactivate만 — 인디케이터 커서는 계속 보이도록 유지
       var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
       if (actorWidget && actorWidget.deactivate) actorWidget.deactivate();
       var last = this._ctx.lastActorCommand;
@@ -4419,19 +4479,26 @@
       else { this._actorCommandWindow.activate(); }
     };
 
-    // startPartyCommandSelection: 파티 커맨드 단계 → actorWindow 인디케이터 숨김
+    // startPartyCommandSelection: 파티 커맨드 단계 → actorCommand/actorWindow 비활성화 + 숨김
     var origSPCS = SCB.startPartyCommandSelection || function() {};
     Klass.prototype.startPartyCommandSelection = function() {
+      var wmap = this._widgetMap || {};
+      if (wmap.actorCommand) {
+        if (wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
+        if (wmap.actorCommand.hide) wmap.actorCommand.hide();
+      }
+      if (wmap.actorWindow && wmap.actorWindow.hide) wmap.actorWindow.hide();
       origSPCS.call(this);
-      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
-      if (actorWidget && actorWidget.hide) actorWidget.hide();
     };
 
-    // startActorCommandSelection: 액터 커맨드 단계 → actorWindow 인디케이터 표시 (비활성)
+    // startActorCommandSelection: 액터 커맨드 단계 → partyCommand 비활성화 + actorWindow 인디케이터 표시
     var origSACS = SCB.startActorCommandSelection || function() {};
     Klass.prototype.startActorCommandSelection = function() {
+      var wmap = this._widgetMap || {};
+      // partyCommand 비활성화 — actorCommand와 동시에 키 입력 받지 않도록
+      if (wmap.partyCommand && wmap.partyCommand.deactivate) wmap.partyCommand.deactivate();
       origSACS.call(this);
-      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      var actorWidget = wmap['actorWindow'];
       var actor = BattleManager.actor();
       if (actorWidget) {
         actorWidget.show();
@@ -4442,6 +4509,9 @@
 
     Klass.prototype.onEnemyCancel = function() {
       this._enemyWindow.hide();
+      // actorWindow dim 복구
+      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      if (actorWidget && actorWidget._window) actorWidget._window.contentsOpacity = 255;
       var last = this._ctx.lastActorCommand || 'attack';
       if (last === 'attack') { this._actorCommandWindow.activate(); }
       else if (last === 'skill') { this._skillWindow.show(); this._skillWindow.activate(); }
@@ -4521,6 +4591,7 @@
 
       // extends: Scene_Battle이면 배틀 UI 위젯 override 주입
       if (extendsName === 'Scene_Battle') {
+        console.log('[DBG-actor] applyBattleOverrides 호출: sceneId=' + sceneId);
         applyBattleOverrides(SceneCtor, sceneId);
       }
 
