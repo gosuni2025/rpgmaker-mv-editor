@@ -80,6 +80,9 @@
         if (!active) {
             // 비활성화 시 빈 데이터 전송하여 에디터 패널 초기화
             window.parent.postMessage({ type: 'statsUpdate', data: null }, '*');
+        } else {
+            // 재활성화 시 throttle 리셋 → 다음 rAF에서 즉시 전송
+            lastSend = 0;
         }
     });
 

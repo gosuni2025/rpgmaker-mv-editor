@@ -441,7 +441,7 @@ export default function UIEditorCanvas() {
       </div>
 
       <div ref={wrapperRef} className="ui-editor-canvas-wrapper" style={{ position: 'relative' }}>
-        {showStats && statsData && <UIStatsOverlay data={statsData} />}
+        {showStats && <UIStatsOverlay data={statsData ?? {}} />}
         <div
           ref={containerRef}
           className="ui-editor-game-container"
