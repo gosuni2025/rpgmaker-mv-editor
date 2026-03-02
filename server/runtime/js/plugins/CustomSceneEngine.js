@@ -4523,11 +4523,16 @@
       origSPCS.call(this);
     };
 
+    // changeInputWindow: 서브 선택 중에는 완전히 차단 (매 프레임 호출로 재활성화 방지)
+    var origCIW = SCB.changeInputWindow || function() {};
+    Klass.prototype.changeInputWindow = function() {
+      if (this._csInSubSelection) return;
+      origCIW.call(this);
+    };
+
     // startActorCommandSelection: 액터 커맨드 단계 → partyCommand 비활성화 + actorWindow 인디케이터 표시
     var origSACS = SCB.startActorCommandSelection || function() {};
     Klass.prototype.startActorCommandSelection = function() {
-      // 서브 선택(적/액터/스킬/아이템) 중에는 changeInputWindow 재진입 차단
-      if (this._csInSubSelection) return;
       var wmap = this._widgetMap || {};
       // partyCommand 비활성화 — actorCommand와 동시에 키 입력 받지 않도록
       if (wmap.partyCommand && wmap.partyCommand.deactivate) wmap.partyCommand.deactivate();
@@ -4569,6 +4574,20 @@
     var origOEO = SCB.onEnemyOk || function() {};
     Klass.prototype.onEnemyOk = function() {
       this._csInSubSelection = false;
+      var wmap = this._widgetMap || {};
+      // rowOverlay dim 복구
+      ['statusWindow', 'actorWindow'].forEach(function(id) {
+        var w = wmap[id];
+        if (w && w._rowOverlay) w._rowOverlay.alpha = 1;
+        if (w && w._window) w._window.alpha = 1;
+      });
+      // enemyWindow를 WindowLayer로 복귀
+      var enemyWidget = wmap['enemyWindow'];
+      if (enemyWidget && enemyWidget._window && enemyWidget._window._csBattleLifted) {
+        if (enemyWidget._window.parent) enemyWidget._window.parent.removeChild(enemyWidget._window);
+        if (this._windowLayer) this._windowLayer.addChild(enemyWidget._window);
+        enemyWidget._window._csBattleLifted = false;
+      }
       origOEO.call(this);
     };
 
