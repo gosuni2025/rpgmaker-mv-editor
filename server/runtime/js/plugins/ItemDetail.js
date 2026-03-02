@@ -178,22 +178,36 @@
         var hintH = this.lineHeight();
         var drawCh = ch - hintH - 4;  // 하단 도움말 영역 확보
 
-        if (detail.image) {
-            var bmp = ImageManager.loadPicture(detail.image);
-            if (bmp.isReady()) {
-                this._drawImage(bmp, detail, cw, drawCh);
-                this._drawText(detail, cw, drawCh);
-                this._drawHint(detail, cw, ch, hintH);
-            } else {
-                bmp.addLoadListener(function () {
-                    this.contents.clear();
-                    this._drawImage(bmp, detail, cw, drawCh);
-                    this._drawText(detail, cw, drawCh);
-                    this._drawHint(detail, cw, ch, hintH);
-                }.bind(this));
+        // 이미지+텍스트 모두 있으면 왼쪽 이미지 / 오른쪽 텍스트 2패널 레이아웃
+        var splitLayout = !!(detail.image && detail.text);
+        var self = this;
+
+        if (splitLayout) {
+            var sepX  = Math.floor(cw / 2);
+            var imgW  = sepX - 4;
+            var txtX  = sepX + 4;
+            var txtW  = cw - txtX;
+            var bmp   = ImageManager.loadPicture(detail.image);
+            function drawSplit() {
+                self.contents.clear();
+                self._drawImageInArea(bmp, detail, 0, 0, imgW, drawCh);
+                self._drawSeparator(sepX, drawCh);
+                self._drawTextInArea(detail, txtX, 0, txtW, drawCh, false);
+                self._drawHint(detail, cw, ch, hintH);
             }
+            if (bmp.isReady()) { drawSplit(); }
+            else { bmp.addLoadListener(drawSplit); }
+        } else if (detail.image) {
+            var bmp = ImageManager.loadPicture(detail.image);
+            function drawImg() {
+                self.contents.clear();
+                self._drawImageInArea(bmp, detail, 0, 0, cw, drawCh);
+                self._drawHint(detail, cw, ch, hintH);
+            }
+            if (bmp.isReady()) { drawImg(); }
+            else { bmp.addLoadListener(drawImg); }
         } else {
-            this._drawText(detail, cw, drawCh);
+            this._drawTextInArea(detail, 0, 0, cw, drawCh, false);
             this._drawHint(detail, cw, ch, hintH);
         }
     };
@@ -209,18 +223,18 @@
         this.contents.fontSize = prevFs;
     };
 
-    Window_ItemDetail.prototype._drawImage = function (bmp, detail, cw, ch) {
+    Window_ItemDetail.prototype._drawImageInArea = function (bmp, detail, ax, ay, aw, ah) {
         var bw = bmp.width, bh = bmp.height;
-        var scale = Math.min(cw / bw, ch / bh, 1);
+        var scale = Math.min(aw / bw, ah / bh, 1);
         var dw = Math.floor(bw * scale), dh = Math.floor(bh * scale);
 
-        var dx = 0;
-        if (detail.imgHAlign === 'center') dx = Math.floor((cw - dw) / 2);
-        else if (detail.imgHAlign === 'right') dx = cw - dw;
+        var dx = ax;
+        if (detail.imgHAlign === 'center') dx = ax + Math.floor((aw - dw) / 2);
+        else if (detail.imgHAlign === 'right') dx = ax + aw - dw;
 
-        var dy = 0;
-        if (detail.imgVAlign === 'middle') dy = Math.floor((ch - dh) / 2);
-        else if (detail.imgVAlign === 'bottom') dy = ch - dh;
+        var dy = ay;
+        if (detail.imgVAlign === 'middle') dy = ay + Math.floor((ah - dh) / 2);
+        else if (detail.imgVAlign === 'bottom') dy = ay + ah - dh;
 
         var prevOpacity = this.contents.paintOpacity;
         this.contents.paintOpacity = (detail.opacity != null) ? detail.opacity : 255;
@@ -228,12 +242,16 @@
         this.contents.paintOpacity = prevOpacity;
     };
 
+    Window_ItemDetail.prototype._drawSeparator = function (x, h) {
+        this.contents.fillRect(x - 1, 0, 1, h, 'rgba(255,255,255,0.15)');
+    };
+
     Window_ItemDetail.prototype._measureLine = function (text) {
         var plain = text.replace(/\\[A-Za-z]\[\d*\]/g, '').replace(/\\/g, '');
         return this.contents.measureTextWidth(plain);
     };
 
-    Window_ItemDetail.prototype._drawText = function (detail, cw, ch) {
+    Window_ItemDetail.prototype._drawTextInArea = function (detail, ax, ay, aw, ah, showBg) {
         if (!detail.text) return;
 
         var lines  = detail.text.split('\n');
@@ -241,21 +259,21 @@
         var total  = lines.length * lh;
         var pad    = 6;
 
-        var startY = pad;
-        if (detail.textVAlign === 'middle') startY = Math.max(pad, Math.floor((ch - total) / 2));
-        else if (detail.textVAlign === 'bottom') startY = Math.max(pad, ch - total - pad);
+        var startY = ay + pad;
+        if (detail.textVAlign === 'middle') startY = ay + Math.max(pad, Math.floor((ah - total) / 2));
+        else if (detail.textVAlign === 'bottom') startY = ay + Math.max(pad, ah - total - pad);
 
-        if (TEXT_BG && detail.image) {
-            this.contents.fillRect(0, startY - 2, cw, total + 4, 'rgba(0,0,0,0.55)');
+        if (showBg) {
+            this.contents.fillRect(ax, startY - 2, aw, total + 4, 'rgba(0,0,0,0.55)');
         }
 
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i];
             var y    = startY + i * lh;
             var tw   = this._measureLine(line);
-            var x    = pad;
-            if (detail.textHAlign === 'center') x = Math.floor((cw - tw) / 2);
-            else if (detail.textHAlign === 'right') x = cw - tw - pad;
+            var x    = ax + pad;
+            if (detail.textHAlign === 'center') x = ax + Math.floor((aw - tw) / 2);
+            else if (detail.textHAlign === 'right') x = ax + aw - tw - pad;
             this.drawTextEx(line, x, y);
         }
     };
