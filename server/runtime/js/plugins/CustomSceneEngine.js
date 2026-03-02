@@ -1404,12 +1404,19 @@
     var aw = navMgr._activeIndex >= 0 ? navMgr._focusables[navMgr._activeIndex] : null;
     var aid = aw ? aw._id : null;
     var isLinked = aid && linked.indexOf(aid) >= 0;
-    // Window.opacity setter는 _windowSpriteContainer.alpha만 변경하므로
-    // 자식 Sprite(이미지 등)에 cascade가 전달되지 않음.
-    // Window 자체의 alpha를 설정해야 모든 자식이 함께 dim됨.
     var dimAlpha = isLinked ? 1.0 : 0.63;
     if (Math.abs((this._displayObject.alpha || 1) - dimAlpha) > 0.005) {
       this._displayObject.alpha = dimAlpha;
+      // Three.js 런타임에서 _windowSpriteContainer가 ThreeContainer이므로
+      // PIXI Sprite 자식에게 alpha cascade가 전달되지 않음.
+      // 자식 위젯 displayObject에 직접 alpha를 전파한다.
+      for (var _di = 0; _di < this._children.length; _di++) {
+        var _dch = this._children[_di];
+        var _dobj = _dch && _dch.displayObject && _dch.displayObject();
+        if (!_dobj) continue;
+        if (_dch._baseDimAlpha === undefined) _dch._baseDimAlpha = _dobj.alpha !== undefined ? _dobj.alpha : 1;
+        _dobj.alpha = _dch._baseDimAlpha * dimAlpha;
+      }
     }
   };
   Widget_Panel.prototype.destroy = function() {
@@ -4440,13 +4447,25 @@
       this._helpWindow.show();
     };
 
-    // selectEnemySelection: actorCommand 비활성화 + actorWindow dim 처리
+    // selectEnemySelection: actorCommand 비활성화 + rowOverlay dim + enemyWindow를 Scene 최상단으로
     var origSES = SCB.selectEnemySelection || function() {};
     Klass.prototype.selectEnemySelection = function() {
       var wmap = this._widgetMap || {};
       if (wmap.actorCommand && wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
-      var actorWidget = wmap['actorWindow'];
-      if (actorWidget && actorWidget._window) actorWidget._window.contentsOpacity = 80;
+      // statusWindow _rowOverlay(서브씬 스프라이트) + actorWindow _rowOverlay(커서) dim
+      ['statusWindow', 'actorWindow'].forEach(function(id) {
+        var w = wmap[id];
+        if (w && w._rowOverlay) w._rowOverlay.alpha = 0.35;
+        if (w && w._window) w._window.alpha = 0.35;
+      });
+      // enemyWindow를 WindowLayer에서 꺼내 Scene 최상단에 addChild
+      // → statusWindow _rowOverlay보다 위에 그려짐
+      var enemyWidget = wmap['enemyWindow'];
+      if (enemyWidget && enemyWidget._window && !enemyWidget._window._csBattleLifted) {
+        if (enemyWidget._window.parent) enemyWidget._window.parent.removeChild(enemyWidget._window);
+        SceneManager._scene.addChild(enemyWidget._window);
+        enemyWidget._window._csBattleLifted = true;
+      }
       origSES.call(this);
     };
 
@@ -4509,9 +4528,20 @@
 
     Klass.prototype.onEnemyCancel = function() {
       this._enemyWindow.hide();
-      // actorWindow dim 복구
-      var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
-      if (actorWidget && actorWidget._window) actorWidget._window.contentsOpacity = 255;
+      var wmap = this._widgetMap || {};
+      // rowOverlay dim 복구
+      ['statusWindow', 'actorWindow'].forEach(function(id) {
+        var w = wmap[id];
+        if (w && w._rowOverlay) w._rowOverlay.alpha = 1;
+        if (w && w._window) w._window.alpha = 1;
+      });
+      // enemyWindow를 WindowLayer로 복귀
+      var enemyWidget = wmap['enemyWindow'];
+      if (enemyWidget && enemyWidget._window && enemyWidget._window._csBattleLifted) {
+        if (enemyWidget._window.parent) enemyWidget._window.parent.removeChild(enemyWidget._window);
+        if (this._windowLayer) this._windowLayer.addChild(enemyWidget._window);
+        enemyWidget._window._csBattleLifted = false;
+      }
       var last = this._ctx.lastActorCommand || 'attack';
       if (last === 'attack') { this._actorCommandWindow.activate(); }
       else if (last === 'skill') { this._skillWindow.show(); this._skillWindow.activate(); }
