@@ -558,9 +558,9 @@
             this._orderKey = '';
         }
 
-        if (this._frame % 6 === 0 || this._frame <= 4) {
-            this._updateOrder();
-        }
+        // 매 프레임 순서 계산 (캐시 — _updateOrder/_updateLayout 공유)
+        this._order = this._calcTurnOrder();
+        this._updateOrder();
         this._updateIconStatuses();
         this._updateLayout();
         this._updateIndicatorPos();
@@ -596,8 +596,13 @@
     //=========================================================================
     // 턴 순서 계산
     // 반환: { curOrder, curSubject, curPending, next }
-    // - curOrder: 이번 턴 배틀러 배열 (done+subject+pending 또는 input시 AGI예측)
-    // - next: 다음 턴 예측 (AGI 정렬)
+    //
+    // curOrder 규칙:
+    //   turn/action: done(반투명) + subject(active) + pending — 모두 유지
+    //   turnEnd/input/기타: [] — 모든 cur 아이콘 일괄 퇴장 트리거
+    //
+    // next: AGI 기반 다음 턴 예측 (항상 계산)
+    // SPD UP 등으로 AGI 변경 시 next 순서 자동 반영
     //=========================================================================
     Sprite_TurnOrderBar.prototype._calcTurnOrder = function () {
         var phase   = BattleManager._phase;
@@ -613,7 +618,8 @@
         var curOrder, curSubject, curPending;
 
         if (phase === 'turn' || phase === 'action') {
-            // 실제 배틀 순서: done → active(subject) → pending
+            // done(반투명 유지) + subject(active) + pending
+            // pending 순서 변경(SPD UP 등)도 즉시 반영
             var done = allAlive.filter(function (b) {
                 return pending.indexOf(b) < 0 && b !== subject;
             });
@@ -621,13 +627,14 @@
             curSubject = subject;
             curPending = pending;
         } else {
-            // input / 기타: AGI 기반 예측, 모두 pending 처리
-            curOrder   = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
+            // turnEnd / input / 기타:
+            // curOrder를 비워서 _syncIcons가 모든 cur 아이콘을 퇴장시키도록 함
+            curOrder   = [];
             curSubject = null;
-            curPending = curOrder.slice();
+            curPending = [];
         }
 
-        // 다음 턴 예측: AGI 정렬
+        // 다음 턴 예측: AGI 정렬 (버프/디버프 반영)
         var next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
 
         return { curOrder: curOrder, curSubject: curSubject, curPending: curPending, next: next };
@@ -645,7 +652,7 @@
     };
 
     Sprite_TurnOrderBar.prototype._updateOrder = function () {
-        var order = this._calcTurnOrder();
+        var order = this._order;
         var key   = this._orderKeyOf(order);
         if (key === this._orderKey) return;
         this._orderKey = key;
@@ -803,7 +810,7 @@
     // 레이아웃
     //=========================================================================
     Sprite_TurnOrderBar.prototype._updateLayout = function () {
-        var order = this._calcTurnOrder();
+        var order = this._order;
         var isH   = Config.direction === 'horizontal';
         if (isH) this._layoutH(order.curOrder, order.next);
         else     this._layoutV(order.curOrder, order.next);
