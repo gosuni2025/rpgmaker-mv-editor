@@ -4,6 +4,7 @@
 /*:
  * @plugindesc 커스텀 씬 엔진 - UIScenes/ 디렉터리에서 씬을 동적으로 생성
  * @author UI Editor
+ * @require UITheme
  *
  * @help CustomSceneEngine.js
  *

@@ -98,13 +98,17 @@ export default function PluginManagerDialog() {
                   if (!pluginMatches(plugin.name)) return null;
                   return (
                     <div key={index}
-                      className={`pm-plugin-item${pm.selectedIndex === index ? ' active' : ''}`}
+                      className={`pm-plugin-item${pm.selectedIndex === index ? ' active' : ''}${pm.dependencyViolations.some(v => v.pluginIndex === index) ? ' dep-error' : ''}`}
                       onClick={() => { pm.setSelectedIndex(index); pm.setEditingParamIndex(-1); }}>
                       <input type="checkbox" checked={plugin.status}
                         onClick={(e) => pm.toggleStatus(index, e)} onChange={() => {}} />
                       <span className="pm-plugin-item-name">
                         {pm.metadata[plugin.name]?.pluginname || plugin.name || t('pluginManager.noPlugins')}
                       </span>
+                      {pm.dependencyViolations.filter(v => v.pluginIndex === index).map(v => (
+                        <span key={v.requiredName} className="pm-dep-warning"
+                          title={`"${v.requiredName}" 플러그인보다 뒤에 위치해야 함`}>⚠</span>
+                      ))}
                       {pm.editorPluginMap.has(plugin.name) && (
                         <span className={`pm-plugin-badge editor${pm.editorPluginMap.get(plugin.name)!.hasUpdate ? ' has-update' : ''}`}
                           title={pm.editorPluginMap.get(plugin.name)!.hasUpdate ? '업그레이드 가능' : '에디터 기본 제공'}>에디터</span>
@@ -142,6 +146,12 @@ export default function PluginManagerDialog() {
                 <button className="db-btn-small" onClick={() => pm.movePlugin(1)} disabled={pm.selectedIndex < 0 || pm.selectedIndex >= pm.plugins.length - 1} title={t('pluginManager.moveDown')}>↓</button>
                 <button className="db-btn-small" onClick={pm.addPlugin} title={t('common.add')}>+</button>
                 <button className="db-btn-small" onClick={pm.removePlugin} disabled={pm.selectedIndex < 0} title={t('common.delete')}>✕</button>
+                {pm.dependencyViolations.length > 0 && (
+                  <button className="db-btn-small pm-auto-sort-btn" onClick={pm.autoSortByDependencies}
+                    title="@require 선언에 따라 플러그인 순서를 자동으로 정렬합니다">
+                    ⚠ 순서 정렬 ({pm.dependencyViolations.length})
+                  </button>
+                )}
               </div>
               <div className="pm-open-folder-btn">
                 <button className="db-btn-small" onClick={pm.handleOpenPluginFolder}>{t('pluginManager.openFolder')}</button>

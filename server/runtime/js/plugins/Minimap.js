@@ -1,6 +1,7 @@
 /*:
  * @plugindesc [v1.1] 미니맵 — FoW, 리전 색상, 커스텀 마커, 2D/3D 지원
  * @author Claude
+ * @require CustomSceneEngine
  *
  * @param showOnStart
  * @text 시작 시 표시

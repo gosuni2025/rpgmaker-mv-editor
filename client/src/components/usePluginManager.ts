@@ -70,6 +70,48 @@ export function usePluginManager() {
   const selectedPlugin = selectedIndex >= 0 && selectedIndex < plugins.length ? plugins[selectedIndex] : null;
   const selectedMeta = selectedPlugin ? metadata[selectedPlugin.name] : null;
   const usedPluginNames = useMemo(() => new Set(plugins.map(p => p.name)), [plugins]);
+
+  // 의존성 순서 위반 감지: @require 선언한 플러그인이 더 뒤에 있을 경우
+  const dependencyViolations = useMemo(() => {
+    const violations: { pluginIndex: number; pluginName: string; requiredName: string; requiredIndex: number }[] = [];
+    for (let i = 0; i < plugins.length; i++) {
+      const meta = metadata[plugins[i].name];
+      if (!meta?.requires) continue;
+      for (const req of meta.requires) {
+        const reqIdx = plugins.findIndex(p => p.name === req);
+        if (reqIdx < 0 || reqIdx < i) continue; // 미설치이거나 이미 앞에 있으면 OK
+        violations.push({ pluginIndex: i, pluginName: plugins[i].name, requiredName: req, requiredIndex: reqIdx });
+      }
+    }
+    return violations;
+  }, [plugins, metadata]);
+
+  // 의존성 순서에 따라 플러그인 목록 자동 정렬 (위상 정렬)
+  const autoSortByDependencies = () => {
+    const nameToPlugin = new Map<string, PluginEntry>();
+    plugins.forEach(p => nameToPlugin.set(p.name, p));
+
+    const visited = new Set<string>();
+    const sorted: PluginEntry[] = [];
+
+    const visit = (name: string) => {
+      if (visited.has(name)) return;
+      visited.add(name);
+      const meta = metadata[name];
+      if (meta?.requires) {
+        for (const req of meta.requires) {
+          if (nameToPlugin.has(req)) visit(req);
+        }
+      }
+      const plugin = nameToPlugin.get(name);
+      if (plugin) sorted.push(plugin);
+    };
+
+    for (const plugin of plugins) visit(plugin.name);
+    setPlugins(sorted);
+    setDirty(true);
+  };
+
   const editorPluginMap = useMemo(() => {
     const map = new Map<string, EditorPluginInfo>();
     for (const ep of editorPlugins) map.set(ep.name, ep);
@@ -266,6 +308,7 @@ export function usePluginManager() {
     selectedPlugin, selectedMeta, usedPluginNames, editorPluginMap, editorPlugins,
     pickerType, setPickerType, pickerParamIndex, dataListItems, dataListTitle,
     browseDir, browseFiles, browseDirs,
+    dependencyViolations, autoSortByDependencies,
     updateSetting, toggleStatus, setPluginStatus, updateParam, changePluginName,
     movePlugin, addPlugin, removePlugin,
     handleOpenPluginFolder, handleOpenInVSCode, handleUpgradePlugin, handleSave,

@@ -37,7 +37,8 @@ export interface PluginMetadata {
   params: PluginParamMeta[];
   commands?: PluginCommandMeta[];
   plugincommand?: string;   // @plugincommand — 실제 커맨드 prefix (파일명과 다를 경우 명시)
-  dependencies?: string[];  // e.g. ['EXT']
+  dependencies?: string[];  // e.g. ['EXT'] (자동 감지)
+  requires?: string[];      // @require 태그 — 명시적 플러그인 의존성 (이 플러그인보다 먼저 로드되어야 할 플러그인명)
 }
 
 export function parsePluginMetadata(content: string, locale?: string): PluginMetadata {
@@ -63,6 +64,7 @@ export function parsePluginMetadata(content: string, locale?: string): PluginMet
   let author = '';
   let help = '';
   let plugincommand = '';
+  const requires: string[] = [];
   const params: PluginParamMeta[] = [];
   const commands: PluginCommandMeta[] = [];
   let currentParam: PluginParamMeta | null = null;
@@ -89,6 +91,9 @@ export function parsePluginMetadata(content: string, locale?: string): PluginMet
         inHelp = false;
       } else if (tag === 'plugincommand') {
         plugincommand = value;
+        inHelp = false;
+      } else if (tag === 'require') {
+        if (value) requires.push(value);
         inHelp = false;
       } else if (tag === 'help') {
         help = value;
@@ -199,5 +204,6 @@ export function parsePluginMetadata(content: string, locale?: string): PluginMet
     ...(commands.length > 0 ? { commands } : {}),
     ...(plugincommand ? { plugincommand } : {}),
     ...(deps.length > 0 ? { dependencies: deps } : {}),
+    ...(requires.length > 0 ? { requires } : {}),
   };
 }

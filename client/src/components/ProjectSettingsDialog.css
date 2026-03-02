@@ -278,6 +278,29 @@
   color: #eed;
 }
 
+.pm-dep-warning {
+  color: #ffaa00;
+  font-size: 12px;
+  flex-shrink: 0;
+  cursor: default;
+  margin-left: 2px;
+}
+
+.pm-plugin-item.dep-error {
+  border-left: 2px solid #ffaa00;
+}
+
+.pm-auto-sort-btn {
+  background: #5a4a00 !important;
+  color: #ffdd88 !important;
+  border-color: #8a7000 !important;
+  white-space: nowrap;
+}
+
+.pm-auto-sort-btn:hover {
+  background: #7a6a00 !important;
+}
+
 .pm-editor-plugin-info {
   display: flex;
   align-items: center;

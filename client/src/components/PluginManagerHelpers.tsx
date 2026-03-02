@@ -67,6 +67,7 @@ export interface PluginMetadata {
   help: string;
   params: PluginParamMeta[];
   dependencies?: string[];
+  requires?: string[];  // @require — 먼저 로드되어야 할 플러그인 목록
 }
 
 export interface ProjectSettings {
