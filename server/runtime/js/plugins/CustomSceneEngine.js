@@ -2400,7 +2400,7 @@
       this._updateTransitionState();
     }
     // 버튼 터치 처리 — focusable: 포커스 이동 후 ok 실행 / non-focusable: 바로 ok 실행
-    if (this._window && this._window.isOpen() && this._window.visible) {
+    if (!this._transitionDisabled && this._window && this._window.isOpen() && this._window.visible) {
       if (TouchInput.isTriggered()) {
         var tx = TouchInput.x, ty = TouchInput.y;
         var wx = this._window.x, wy = this._window.y;
