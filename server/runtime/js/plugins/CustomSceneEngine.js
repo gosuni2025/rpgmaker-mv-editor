@@ -2839,29 +2839,6 @@
         }
       };
 
-      // processCursorMove 디버그 래퍼
-      var _origPCM = win.processCursorMove.bind(win);
-      win.processCursorMove = function() {
-        var before = this.index();
-        var isCM = this.isCursorMovable();
-        if (!isCM) {
-          this._pcmLog = (this._pcmLog || 0) + 1;
-          if (this._pcmLog % 60 === 1)
-            console.log('[CSE:' + def.id + '] NOT movable: active=' + this.active + ' isOpen=' + this.isOpen() + ' maxItems=' + this.maxItems());
-        } else {
-          this._pcmLog = 0;
-          var inp = [];
-          if (Input.isRepeated('down'))  inp.push('↓');
-          if (Input.isRepeated('up'))    inp.push('↑');
-          if (Input.isRepeated('right')) inp.push('→');
-          if (Input.isRepeated('left'))  inp.push('←');
-          if (inp.length) console.log('[CSE:' + def.id + '] input=[' + inp + '] idx=' + before + ' max=' + this.maxItems());
-        }
-        _origPCM();
-        var after = this.index();
-        if (after !== before) console.log('[CSE:' + def.id + '] cursor ' + before + ' → ' + after);
-      };
-
       // 커서 오버레이: windowLayer 위에 그려지도록 _rowOverlay로 등록
       // Window의 _windowCursorSprite를 이 overlay로 reparent → statusWindow _rowOverlay에 가리지 않음
       var cursorOverlay = new Sprite();
@@ -4158,10 +4135,7 @@
       if (!win[method]) return;
       var orig = win[method].bind(win);
       win[method] = function() {
-        if (method === 'activate' || method === 'deactivate') {
-          console.log('[CSE:battle] ' + widgetId + '.' + method + '()');
-        }
-        try { orig.apply(win, arguments); } catch(e) { /* 원본 창 에러 무시 — widget 메서드는 계속 호출 */ }
+          try { orig.apply(win, arguments); } catch(e) { /* 원본 창 에러 무시 — widget 메서드는 계속 호출 */ }
         if (method === 'activate') win.active = false;  // 원본 입력 차단
         win.x = -9999;
         if (widget[method]) widget[method].apply(widget, arguments);
@@ -4217,6 +4191,16 @@
     if (widgetId === 'enemyWindow') {
       win.enemy = function() { return widget._window ? widget._window.currentExt() : null; };
       win.enemyIndex = function() { return widget._window ? widget._window.index() : -1; };
+    }
+
+    // 핸들러 소급 복사: proxy 설치 전에 win에 등록된 'ok'/'cancel' 등을 widget window로 복사
+    // (createSkillWindow 등이 origCreateAllWindows에서 실행되어 proxy 설치 이전에 핸들러가 등록됨)
+    if (widget._window && widget._window !== win && win._handlers) {
+      for (var _sym in win._handlers) {
+        if (Object.prototype.hasOwnProperty.call(win._handlers, _sym)) {
+          widget._window.setHandler(_sym, win._handlers[_sym]);
+        }
+      }
     }
   }
 
