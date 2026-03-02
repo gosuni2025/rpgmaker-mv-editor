@@ -1414,10 +1414,15 @@
         if (_dch._baseDimAlpha === undefined) _dch._baseDimAlpha = _dobj.alpha !== undefined ? _dobj.alpha : 1;
         var _before = _dobj.alpha;
         _dobj.alpha = _dch._baseDimAlpha * dimAlpha;
-        console.log('[DIM2] panel=' + this._id + ' child=' + _dch._id +
+        // _threeObj: Three.js 메시, _material: 재질 직접 접근
+        var _tobj = _dobj._threeObj;
+        var _mat  = _dobj._material || (_tobj && _tobj.material);
+        console.log('[DIM2] child=' + _dch._id +
           ' alpha: ' + _before + ' → ' + _dobj.alpha +
-          ' (base=' + _dch._baseDimAlpha + ' dim=' + dimAlpha + ')' +
-          ' _dobj.constructor=' + (_dobj.constructor && _dobj.constructor.name));
+          ' | _threeObj=' + (_tobj ? _tobj.type || 'YES' : 'NO') +
+          ' | _material=' + (_mat ? 'YES opacity=' + _mat.opacity : 'NO') +
+          ' | worldAlpha=' + (_dobj.worldAlpha !== undefined ? _dobj.worldAlpha : '?') +
+          ' | syncTransform=' + (typeof _dobj.syncTransform));
       }
     }
   };
@@ -4452,11 +4457,12 @@
     // selectEnemySelection: actorCommand 비활성화 + rowOverlay dim + enemyWindow를 Scene 최상단으로
     var origSES = SCB.selectEnemySelection || function() {};
     Klass.prototype.selectEnemySelection = function() {
+      this._csSelectingEnemy = true; // startActorCommandSelection 재진입 방지
       var wmap = this._widgetMap || {};
       if (wmap.actorCommand) {
         if (wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
         if (wmap.actorCommand.hide) wmap.actorCommand.hide();
-        if (wmap.actorCommand._window && wmap.actorCommand._window.deselect) wmap.actorCommand._window.deselect();
+        if (wmap.actorCommand._window) wmap.actorCommand._window.deselect();
       }
       // statusWindow _rowOverlay(서브씬 스프라이트) + actorWindow _rowOverlay(커서) dim
       ['statusWindow', 'actorWindow'].forEach(function(id) {
@@ -4519,6 +4525,8 @@
     // startActorCommandSelection: 액터 커맨드 단계 → partyCommand 비활성화 + actorWindow 인디케이터 표시
     var origSACS = SCB.startActorCommandSelection || function() {};
     Klass.prototype.startActorCommandSelection = function() {
+      // 적 선택 중에는 changeInputWindow가 매 프레임 호출하므로 재진입 차단
+      if (this._csSelectingEnemy) return;
       var wmap = this._widgetMap || {};
       // partyCommand 비활성화 — actorCommand와 동시에 키 입력 받지 않도록
       if (wmap.partyCommand && wmap.partyCommand.deactivate) wmap.partyCommand.deactivate();
@@ -4533,6 +4541,7 @@
     };
 
     Klass.prototype.onEnemyCancel = function() {
+      this._csSelectingEnemy = false;
       this._enemyWindow.hide();
       var wmap = this._widgetMap || {};
       // rowOverlay dim 복구
@@ -4554,6 +4563,12 @@
       if (last === 'attack') { this._actorCommandWindow.activate(); }
       else if (last === 'skill') { this._skillWindow.show(); this._skillWindow.activate(); }
       else if (last === 'item') { this._itemWindow.show(); this._itemWindow.activate(); }
+    };
+
+    var origOEO = SCB.onEnemyOk || function() {};
+    Klass.prototype.onEnemyOk = function() {
+      this._csSelectingEnemy = false;
+      origOEO.call(this);
     };
 
     // start: 에디터 미리보기 모드에서 배틀 초기화 건너뜀
