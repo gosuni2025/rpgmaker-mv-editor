@@ -1388,6 +1388,21 @@
       }
     }
   };
+  // windowed 패널의 dim 동기화:
+  // Window.opacity는 _windowSpriteContainer.alpha만 변경하고 PIXI 자식 Sprite의 alpha에는
+  // 전파되지 않음. 따라서 패널의 자식 위젯 중 Sprite 기반인 것들의 alpha를 동기화한다.
+  Widget_Panel.prototype.update = function() {
+    if (this._windowed && this._displayObject && this._displayObject._windowSpriteContainer) {
+      var sprAlpha = this._displayObject._windowSpriteContainer.alpha;
+      for (var ci = 0; ci < this._children.length; ci++) {
+        var childObj = this._children[ci].displayObject();
+        if (childObj && !(childObj instanceof Window_Base)) {
+          childObj.alpha = sprAlpha;
+        }
+      }
+    }
+    Widget_Base.prototype.update.call(this);
+  };
   Widget_Panel.prototype.destroy = function() {
     // Window.prototype.destroy가 내부 bitmap + geometry 모두 처리하므로 별도 처리 불필요
     Widget_Base.prototype.destroy.call(this);
