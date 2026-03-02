@@ -2492,6 +2492,48 @@
   window.Widget_ShopNumber = Widget_ShopNumber;
 
   //===========================================================================
+  // Widget_SpriteButton — Sprite_Button 기반 이미지 버튼 위젯 (비-focusable)
+  //   터치/마우스 클릭용 버튼. 키보드 입력 감지 시 자동으로 숨겨짐.
+  //   def.buttonSetIndex : ButtonSet 내 버튼 인덱스 (0=−10, 1=−1, 2=+1, 3=+10, 4=OK×2)
+  //   def.imageSrc       : 시스템 이미지 파일명 (기본값 'ButtonSet')
+  //   def.buttonWidth    : 버튼 1칸 기본 너비 (기본값 48)
+  //   def.buttonHeight   : 버튼 높이 (기본값 48)
+  //   def.onClick        : 클릭 시 실행할 핸들러 정의
+  //   def.hideOnKeyboard : 키보드 사용 시 숨김 여부 (기본값 true)
+  //===========================================================================
+  function Widget_SpriteButton() {}
+  Widget_SpriteButton.prototype = Object.create(Widget_Base.prototype);
+  Widget_SpriteButton.prototype.constructor = Widget_SpriteButton;
+  Widget_SpriteButton.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._handlerDef = def.onClick || null;
+    this._hideOnKeyboard = def.hideOnKeyboard !== false;
+    var btn = new Sprite_Button();
+    var bIdx = def.buttonSetIndex || 0;
+    var bw = def.buttonWidth || 48;
+    var bh = def.buttonHeight || 48;
+    var bwFrame = (bIdx === 4) ? bw * 2 : bw; // OK 버튼은 2배 너비
+    btn.bitmap = ImageManager.loadSystem(def.imageSrc || 'ButtonSet');
+    btn.setColdFrame(bIdx * bw, 0, bwFrame, bh);
+    btn.setHotFrame(bIdx * bw, bh, bwFrame, bh);
+    btn.x = this._x;
+    btn.y = this._y;
+    btn.visible = def.visible !== false;
+    this._displayObject = btn;
+    this._button = btn;
+  };
+  Widget_SpriteButton.prototype.update = function() {
+    Widget_Base.prototype.update.call(this);
+    if (this._button && this._hideOnKeyboard) {
+      var showBtn = typeof TouchInput !== 'undefined' && typeof Input !== 'undefined'
+        ? TouchInput.date > Input.date
+        : false;
+      if (this._button.visible !== showBtn) this._button.visible = showBtn;
+    }
+  };
+  window.Widget_SpriteButton = Widget_SpriteButton;
+
+  //===========================================================================
   // Widget_TextList — Window_CustomCommand 기반 텍스트 커맨드 리스트 (focusable)
   //   itemScene 없는 순수 텍스트/아이콘 텍스트 메뉴. sugar syntax.
   //   Widget_List를 상속.
@@ -3212,8 +3254,9 @@
         case 'scene':       widget = new Widget_Scene();       break;
         case 'options':     widget = new Widget_Options();     break;
         case 'background':  widget = new Widget_Background();  break;
-        case 'shopNumber':  widget = new Widget_ShopNumber();  break;
-        default:            return null;
+        case 'shopNumber':     widget = new Widget_ShopNumber();  break;
+        case 'spriteButton':   widget = new Widget_SpriteButton(); break;
+        default:               return null;
       }
     }
     widget.initialize(def, parentWidget);
@@ -3302,6 +3345,16 @@
           var cancelH = handlers['cancel'] || { action: 'cancel' };
           w.setCancelHandler(function() { self._executeWidgetHandler(cancelH, w); });
         })(widget, snHandlers);
+      } else if (widget instanceof Widget_SpriteButton) {
+        if (widget._handlerDef) {
+          (function(handler, w) {
+            if (w._button) {
+              w._button.setClickHandler(function() {
+                self._executeWidgetHandler(handler, w);
+              });
+            }
+          })(widget._handlerDef, widget);
+        }
       }
       for (var i = 0; i < widget._children.length; i++) {
         traverse(widget._children[i]);
