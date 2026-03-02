@@ -51,7 +51,7 @@
         panel = document.createElement('div');
         panel.id = PANEL_ID;
         panel.style.cssText = [
-            'position:fixed', 'top:10px', 'right:10px', 'z-index:99999',
+            'position:fixed', 'top:10px', 'right:10px', 'z-index:2147483647',
             'background:rgba(0,0,0,0.85)', 'color:#ccc',
             'font:11px/1.4 monospace', 'padding:0',
             'border:1px solid #444', 'border-radius:4px',
@@ -181,7 +181,13 @@
 
     function loop() {
         rafId = requestAnimationFrame(loop);
-        if (visible && panel) updateStats();
+        if (!panel) return;
+        // 게임 canvas가 나중에 body에 추가되면 DOM 순서상 위로 올라오므로
+        // 패널을 항상 body의 마지막 자식으로 유지 (이미 마지막이면 no-op)
+        if (document.body.lastElementChild !== panel) {
+            document.body.appendChild(panel);
+        }
+        if (visible) updateStats();
     }
 
     function showPanel() {
