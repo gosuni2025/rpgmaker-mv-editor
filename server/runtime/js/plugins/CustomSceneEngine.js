@@ -329,6 +329,11 @@
     }
   };
 
+  Window_CustomCommand.prototype.standardPadding = function() {
+    if (this._winDef && this._winDef.padding !== undefined) return this._winDef.padding;
+    return Window_Command.prototype.standardPadding.call(this);
+  };
+
   Window_CustomCommand.prototype.itemHeight = function() {
     return this._winDef.rowHeight || this.lineHeight();
   };
