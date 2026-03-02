@@ -1971,6 +1971,326 @@
   window.Widget_Gauge = Widget_Gauge;
 
   //===========================================================================
+  // Widget_PartyStatus — MZ 스타일 배틀 파티 창
+  //
+  //  얼굴 그림을 슬롯에 표시하고, HP/MP/TP 게이지를 얼굴 위에 겹쳐서 표시.
+  //  최대 4명 가로 배치. focusable: true 시 가로 커서 이동 + ok/cancel 핸들러.
+  //
+  //  def 파라미터:
+  //    focusable  {bool}   — true면 커서 이동/선택 가능 (actorWindow 역할). 기본 false.
+  //    showTp     {bool}   — TP 게이지 표시 여부. 기본 true.
+  //    maxSlots   {number} — 최대 슬롯 수. 기본 4.
+  //===========================================================================
+  function Widget_PartyStatus() {}
+  Widget_PartyStatus.prototype = Object.create(Widget_Base.prototype);
+  Widget_PartyStatus.prototype.constructor = Widget_PartyStatus;
+
+  Widget_PartyStatus.prototype.initialize = function(def, parentWidget) {
+    Widget_Base.prototype.initialize.call(this, def, parentWidget);
+    this._focusable    = !!def.focusable;
+    this._transparent  = !!def.transparent; // true면 커서만 표시 (슬롯 배경/얼굴/게이지 없음)
+    this._showTp       = def.showTp !== false;
+    this._maxSlots     = def.maxSlots || 4;
+    this._active    = false;
+    this._index     = 0;
+    this._handlers  = {};
+    this._slots     = [];
+    this._cursorSprite = null;
+    this._cursorBmp    = null;
+    this._slotW     = 0;
+    this._updateCount  = 0;
+
+    var container = new Sprite();
+    container.x = this._x;
+    container.y = this._y;
+    this._displayObject = container;
+
+    this._buildSlots();
+    this.refresh();
+  };
+
+  // 슬롯 스프라이트 트리 생성
+  Widget_PartyStatus.prototype._buildSlots = function() {
+    var maxSlots = this._maxSlots;
+    var totalW   = this._width;
+    var totalH   = this._height;
+    var slotW    = Math.floor(totalW / maxSlots);
+    this._slotW  = slotW;
+
+    // 얼굴 크기 (MV 표준: 144×144)
+    var faceW = Math.min(slotW - 4, Window_Base._faceWidth  || 144);
+    var faceH = Math.min(totalH,    Window_Base._faceHeight || 144);
+    var faceX = Math.floor((slotW - faceW) / 2);
+
+    // 게이지 오버레이 영역 (얼굴 하단에 겹침)
+    var hasTP      = this._showTp;
+    var gaugeCount = hasTP ? 3 : 2;      // HP, MP, [TP]
+    var nameH      = 22;
+    var gaugeH     = 16;
+    var gaugeGap   = 2;
+    var overlayH   = nameH + (gaugeH + gaugeGap) * gaugeCount;
+    var overlayY   = Math.max(0, faceH - overlayH);
+
+    for (var i = 0; i < maxSlots; i++) {
+      var slotSpr = new Sprite();
+      slotSpr.x = i * slotW;
+      slotSpr.y = 0;
+      slotSpr.visible = false;
+
+      var faceBmp = null, faceSpr = null, infoBmp = null, infoSpr = null;
+
+      if (!this._transparent) {
+        // ── 얼굴 이미지 (Bitmap blt로 잘라냄)
+        faceBmp = new Bitmap(faceW, faceH);
+        faceSpr = new Sprite(faceBmp);
+        faceSpr.x = faceX;
+        faceSpr.y = 0;
+        slotSpr.addChild(faceSpr);
+
+        // ── 게이지 오버레이 배경 (반투명 검정)
+        var bgBmp = new Bitmap(slotW, overlayH);
+        var bgCtx = bgBmp._context;
+        bgCtx.fillStyle = 'rgba(0,0,0,0.62)';
+        bgCtx.fillRect(0, 0, slotW, overlayH);
+        bgBmp._setDirty();
+        var bgSpr = new Sprite(bgBmp);
+        bgSpr.x = 0;
+        bgSpr.y = overlayY;
+        slotSpr.addChild(bgSpr);
+
+        // ── 이름 + 게이지 텍스트 레이어 (매 프레임 갱신)
+        infoBmp = new Bitmap(slotW, overlayH);
+        infoSpr = new Sprite(infoBmp);
+        infoSpr.x = 0;
+        infoSpr.y = overlayY;
+        slotSpr.addChild(infoSpr);
+      }
+
+      this._displayObject.addChild(slotSpr);
+      this._slots.push({
+        container:    slotSpr,
+        faceBmp:      faceBmp,
+        faceSpr:      faceSpr,
+        infoBmp:      infoBmp,
+        infoSpr:      infoSpr,
+        lastFaceName: null,
+        lastFaceIdx:  -1,
+        overlayH:     overlayH,
+        overlayY:     overlayY,
+        faceW:        faceW,
+        faceH:        faceH,
+        faceX:        faceX
+      });
+    }
+
+    // ── 커서 스프라이트
+    var cursorBmp = new Bitmap(slotW, totalH);
+    this._drawCursorBitmap(cursorBmp, slotW, totalH);
+    var cursorSpr = new Sprite(cursorBmp);
+    cursorSpr.visible = false;
+    this._displayObject.addChild(cursorSpr);
+    this._cursorSprite = cursorSpr;
+    this._cursorBmp    = cursorBmp;
+  };
+
+  Widget_PartyStatus.prototype._drawCursorBitmap = function(bmp, w, h) {
+    var ctx = bmp._context;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(1, 1, w - 2, h - 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, w - 2, h - 2);
+    ctx.restore();
+    bmp._setDirty();
+  };
+
+  // 얼굴 이미지 업데이트 (변경된 경우만)
+  Widget_PartyStatus.prototype._refreshFace = function(slot, actor) {
+    var bitmap = ImageManager.loadFace(actor.faceName());
+    var fi = actor.faceIndex();
+    var pw = Window_Base._faceWidth  || 144;
+    var ph = Window_Base._faceHeight || 144;
+    var sx = (fi % 4) * pw;
+    var sy = Math.floor(fi / 4) * ph;
+    var faceBmp = slot.faceBmp;
+    var fw = faceBmp.width, fh = faceBmp.height;
+    bitmap.addLoadListener(function() {
+      faceBmp.clear();
+      faceBmp.blt(bitmap, sx, sy, pw, ph, 0, 0, fw, fh);
+    });
+  };
+
+  // 게이지 1개 그리기 (label + bar + value)
+  Widget_PartyStatus.prototype._drawGauge = function(bmp, cur, max, label, c1, c2, y) {
+    var w = bmp.width;
+    var barH = 10;
+    var barY = y + 6;
+    var labelW = 28;
+    var barX = labelW + 2;
+    var barW = w - barX - 4;
+    var rate = max > 0 ? Math.min(1, cur / max) : 0;
+
+    // 라벨
+    bmp.textColor = '#aaaaaa';
+    bmp.fontSize = 12;
+    bmp.drawText(label, 4, y, labelW, 16, 'left');
+
+    // 게이지 배경
+    bmp.fillRect(barX, barY, barW, barH, '#222222');
+    // 게이지 채움
+    var fillW = Math.floor(barW * rate);
+    if (fillW > 0) bmp.gradientFillRect(barX, barY, fillW, barH, c1, c2, false);
+
+    // 현재값/최대값
+    bmp.textColor = '#ffffff';
+    bmp.fontSize = 11;
+    bmp.drawText(cur + '/' + max, barX, y, barW, 16, 'right');
+  };
+
+  // 이름 + HP/MP/TP 게이지 렌더링
+  Widget_PartyStatus.prototype._refreshInfo = function(slot, actor) {
+    var bmp    = slot.infoBmp;
+    var w      = bmp.width;
+    var hasTP  = this._showTp;
+    var nameH  = 22;
+    var gaugeH = 16;
+    var gap    = 2;
+
+    bmp.clear();
+
+    // 이름
+    bmp.textColor = '#ffffff';
+    bmp.fontSize  = 16;
+    bmp.fontBold  = false;
+    bmp.drawText(actor.name(), 2, 0, w - 4, nameH, 'center');
+
+    // HP
+    var hpY = nameH;
+    this._drawGauge(bmp, actor.hp, actor.mhp, 'HP', '#cc3333', '#ff6666', hpY);
+    // MP
+    var mpY = hpY + gaugeH + gap;
+    this._drawGauge(bmp, actor.mp, actor.mmp, 'MP', '#3355cc', '#6688ff', mpY);
+    // TP
+    if (hasTP) {
+      var tpY = mpY + gaugeH + gap;
+      this._drawGauge(bmp, Math.floor(actor.tp), actor.maxTp(), 'TP', '#229944', '#44cc66', tpY);
+    }
+  };
+
+  // 커서 위치 동기화
+  Widget_PartyStatus.prototype._updateCursor = function() {
+    if (!this._cursorSprite) return;
+    var members = (typeof $gameParty !== 'undefined') ? $gameParty.battleMembers() : [];
+    if (!this._active || this._index < 0 || this._index >= members.length) {
+      this._cursorSprite.visible = false;
+      return;
+    }
+    this._cursorSprite.visible = true;
+    this._cursorSprite.x = this._index * this._slotW;
+  };
+
+  Widget_PartyStatus.prototype.refresh = function() {
+    if (typeof $gameParty === 'undefined') return;
+    var members = $gameParty.battleMembers();
+    for (var i = 0; i < this._slots.length; i++) {
+      var slot  = this._slots[i];
+      var actor = members[i];
+      if (!actor) { slot.container.visible = false; continue; }
+      slot.container.visible = true;
+      if (!this._transparent) {
+        // 얼굴 (faceName/faceIndex 바뀐 경우만 재렌더)
+        if (actor.faceName() !== slot.lastFaceName || actor.faceIndex() !== slot.lastFaceIdx) {
+          this._refreshFace(slot, actor);
+          slot.lastFaceName = actor.faceName();
+          slot.lastFaceIdx  = actor.faceIndex();
+        }
+        this._refreshInfo(slot, actor);
+      }
+    }
+    this._updateCursor();
+    Widget_Base.prototype.refresh.call(this);
+  };
+
+  Widget_PartyStatus.prototype.update = function() {
+    this._updateCount = (this._updateCount || 0) + 1;
+    // 게이지 갱신 (6프레임마다)
+    if (this._updateCount % 6 === 0) this.refresh();
+
+    if (this._active) {
+      var members = (typeof $gameParty !== 'undefined') ? $gameParty.battleMembers() : [];
+      var len = members.length;
+      if (len > 0) {
+        if (Input.isRepeated('right')) {
+          var next = (this._index + 1) % len;
+          if (next !== this._index) {
+            this._index = next;
+            this._updateCursor();
+            SoundManager.playCursor();
+          }
+        }
+        if (Input.isRepeated('left')) {
+          var prev = (this._index + len - 1) % len;
+          if (prev !== this._index) {
+            this._index = prev;
+            this._updateCursor();
+            SoundManager.playCursor();
+          }
+        }
+      }
+      if (Input.isTriggered('ok')) {
+        var actor = members[this._index];
+        if (actor && actor.isAlive()) { SoundManager.playOk(); this._callHandler('ok'); }
+        else SoundManager.playBuzzer();
+      }
+      if (Input.isTriggered('cancel')) {
+        SoundManager.playCancel();
+        this._callHandler('cancel');
+      }
+    }
+    Widget_Base.prototype.update.call(this);
+  };
+
+  Widget_PartyStatus.prototype.activate = function() {
+    this._active = true;
+    var members = (typeof $gameParty !== 'undefined') ? $gameParty.battleMembers() : [];
+    // 살아있는 첫 번째 멤버로 커서 이동
+    if (this._index < 0 || this._index >= members.length) {
+      this._index = 0;
+    }
+    for (var i = 0; i < members.length; i++) {
+      if (members[i] && members[i].isAlive()) { this._index = i; break; }
+    }
+    this._updateCursor();
+  };
+  Widget_PartyStatus.prototype.deactivate = function() {
+    this._active = false;
+    this._updateCursor();
+  };
+  Widget_PartyStatus.prototype.select   = function(i) { this._index = i; this._updateCursor(); };
+  Widget_PartyStatus.prototype.deselect = function()  { this._index = -1; this._updateCursor(); };
+  Widget_PartyStatus.prototype.index    = function()  { return this._index; };
+  Widget_PartyStatus.prototype.currentExt = function() {
+    var members = (typeof $gameParty !== 'undefined') ? $gameParty.battleMembers() : [];
+    return members[this._index] || null;
+  };
+  Widget_PartyStatus.prototype.setHandler = function(symbol, fn) {
+    this._handlers[symbol] = fn;
+  };
+  Widget_PartyStatus.prototype._callHandler = function(symbol) {
+    if (this._handlers[symbol]) this._handlers[symbol]();
+  };
+  Widget_PartyStatus.prototype.collectFocusable = function(out) {
+    if (this._focusable) out.push(this);
+  };
+  // DELEGATE 호환: _window 없이 직접 구현하므로 빈 stub
+  Widget_PartyStatus.prototype.setActor   = function() {};
+  Widget_PartyStatus.prototype.setStypeId = function() {};
+  Widget_PartyStatus.prototype.setItem    = function() {};
+
+  window.Widget_PartyStatus = Widget_PartyStatus;
+
+  //===========================================================================
   // Widget_Separator — 구분선
   //===========================================================================
   function Widget_Separator() {}
@@ -3134,6 +3454,7 @@
         case 'button':      widget = new Widget_Button();      break;
         case 'list':        widget = new Widget_List();        break;
         case 'textList':    widget = new Widget_TextList();    break;
+        case 'partyStatus': widget = new Widget_PartyStatus(); break;
         case 'scene':       widget = new Widget_Scene();       break;
         case 'options':     widget = new Widget_Options();     break;
         case 'background':  widget = new Widget_Background();  break;
@@ -4030,8 +4351,14 @@
       win.item = function() { return widget._window ? widget._window.currentExt() : null; };
     }
     if (widgetId === 'actorWindow') {
-      win.actor = function() { return widget._window ? widget._window.currentExt() : null; };
-      win.index = function() { return widget._window ? widget._window.index() : -1; };
+      win.actor = function() {
+        if (widget._window) return widget._window.currentExt();
+        return widget.currentExt ? widget.currentExt() : null;
+      };
+      win.index = function() {
+        if (widget._window) return widget._window.index();
+        return widget.index ? widget.index() : -1;
+      };
     }
     if (widgetId === 'enemyWindow') {
       win.enemy = function() { return widget._window ? widget._window.currentExt() : null; };
