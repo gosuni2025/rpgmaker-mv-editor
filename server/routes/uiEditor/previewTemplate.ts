@@ -64,6 +64,7 @@ export function buildPreviewHTML(useWebp: boolean): string {
     })();
     </script>
     <script defer src="js/DevPanelUtils.js${cb}"></script>
+    <script defer src="js/RendererStatsPanel.js${cb}"></script>
     <script defer src="js/rpg_objects.js${cb}"></script>
     <script defer src="js/rpg_scenes.js${cb}"></script>
     <script defer src="js/rpg_sprites.js${cb}"></script>

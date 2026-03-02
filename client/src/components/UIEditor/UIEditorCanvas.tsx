@@ -94,36 +94,12 @@ export default function UIEditorCanvas() {
     return () => ro.disconnect();
   }, []);
 
-  // Stats: FPS 측정 (iframe 기반이라 Three.js 접근 불가 → rAF 기반 브라우저 FPS)
-  const [statsFps, setStatsFps] = useState(0);
-  const statsFpsTimesRef = useRef<number[]>([]);
-  const statsAnimRef = useRef<number | null>(null);
-  const statsLastUpdateRef = useRef<number>(0);
+  // Stats: showStats 변경 시 iframe 내 RendererStatsPanel에 postMessage로 토글 전달
   useEffect(() => {
-    if (!showStats) {
-      if (statsAnimRef.current) cancelAnimationFrame(statsAnimRef.current);
-      statsAnimRef.current = null;
-      return;
-    }
-    function tick() {
-      statsAnimRef.current = requestAnimationFrame(tick);
-      const now = performance.now();
-      statsFpsTimesRef.current.push(now);
-      const cutoff = now - 1000;
-      while (statsFpsTimesRef.current.length > 0 && statsFpsTimesRef.current[0] < cutoff) {
-        statsFpsTimesRef.current.shift();
-      }
-      if (now - statsLastUpdateRef.current >= 200) {
-        statsLastUpdateRef.current = now;
-        setStatsFps(statsFpsTimesRef.current.length);
-      }
-    }
-    statsAnimRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (statsAnimRef.current) cancelAnimationFrame(statsAnimRef.current);
-      statsAnimRef.current = null;
-    };
-  }, [showStats]);
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+    iframe.contentWindow.postMessage({ type: 'setStats', show: showStats }, '*');
+  }, [showStats, uiEditorIframeReady]);
 
   // 저장된 config 로드
   useEffect(() => {
@@ -427,28 +403,7 @@ export default function UIEditorCanvas() {
         >◀ 퇴장</button>
       </div>
 
-      <div ref={wrapperRef} className="ui-editor-canvas-wrapper" style={{ position: 'relative' }}>
-        {showStats && (
-          <div style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            background: 'rgba(0,0,0,0.82)',
-            color: '#0f0',
-            fontFamily: 'monospace',
-            fontSize: 11,
-            padding: '6px 10px',
-            borderRadius: 4,
-            border: '1px solid #2a2a2a',
-            pointerEvents: 'none',
-            zIndex: 200,
-            lineHeight: 1.7,
-            userSelect: 'none',
-          }}>
-            <div><span style={{ color: '#ff4' }}>FPS</span>{'  '}<span style={{ color: '#fff' }}>{statsFps}</span></div>
-            <div style={{ color: '#888', fontSize: 10 }}>iframe 기반</div>
-          </div>
-        )}
+      <div ref={wrapperRef} className="ui-editor-canvas-wrapper">
         <div
           ref={containerRef}
           className="ui-editor-game-container"
