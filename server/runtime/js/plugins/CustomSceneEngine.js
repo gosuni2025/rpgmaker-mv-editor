@@ -4534,7 +4534,11 @@
         if (wmap.actorCommand.deactivate) wmap.actorCommand.deactivate();
         if (wmap.actorCommand.hide) wmap.actorCommand.hide();
       }
-      if (wmap.actorWindow && wmap.actorWindow.hide) wmap.actorWindow.hide();
+      if (wmap.actorWindow) {
+        if (wmap.actorWindow.hide) wmap.actorWindow.hide();
+        if (wmap.actorWindow._window && wmap.actorWindow._window.deselect)
+          wmap.actorWindow._window.deselect(); // cursorRect = 0 → 커서 비표시
+      }
       origSPCS.call(this);
     };
 
