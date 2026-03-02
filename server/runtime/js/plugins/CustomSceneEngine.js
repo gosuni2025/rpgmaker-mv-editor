@@ -2811,15 +2811,32 @@
       var win = this._window;
       win.setBackgroundType(2);
       win.drawItem = function() {};
+      // padding/spacing=0: itemRect 좌표가 슬롯 경계와 정확히 일치하도록 (커서 클리핑 방지)
+      win._padding = 0;
+      win.standardPadding = function() { return 0; };
+      win.spacing = function() { return 0; };
 
-      // up/down 차단 + 로그
-      win.cursorDown = function() { console.log('[CSE:' + def.id + '] cursorDown (blocked)'); };
-      win.cursorUp   = function() { console.log('[CSE:' + def.id + '] cursorUp (blocked)'); };
+      // up/down 차단
+      win.cursorDown = function() {};
+      win.cursorUp   = function() {};
       this.handlesUpDown = function() { return false; };
 
-      // 내장 cursor sprite 숨김 (대신 _rowOverlay에서 렌더링)
+      // _updateCursor: 인디케이터 모드 지원 (active=false 시 반투명 0.5)
+      // 내장 메커니즘(_refreshCursor, setCursorRect)을 그대로 사용하므로 수동 blt 불필요
       win._updateCursor = function() {
-        if (this._windowCursorSprite) this._windowCursorSprite.visible = false;
+        var spr = this._windowCursorSprite;
+        if (!spr) return;
+        spr.visible = this.isOpen() && this._cursorRect.width > 0;
+        if (!spr.visible) return;
+        if (this.active) {
+          var blinkCount = this._animationCount % 40;
+          var opacity = this.contentsOpacity;
+          if (blinkCount < 20) opacity -= blinkCount * 8;
+          else                 opacity -= (40 - blinkCount) * 8;
+          spr.alpha = Math.max(0, opacity) / 255;
+        } else {
+          spr.alpha = 0.5; // 인디케이터 모드: 반투명 고정
+        }
       };
 
       // processCursorMove 디버그 래퍼
@@ -2846,30 +2863,18 @@
       };
 
       // 커서 오버레이: windowLayer 위에 그려지도록 _rowOverlay로 등록
-      var maxCols = def.maxCols || 1;
-      var slotW = Math.floor(def.width / maxCols);
-      var slotH = def.rowHeight || def.height || 100;
+      // Window의 _windowCursorSprite를 이 overlay로 reparent → statusWindow _rowOverlay에 가리지 않음
       var cursorOverlay = new Sprite();
       cursorOverlay.x = this._x;
       cursorOverlay.y = this._y;
       this._rowOverlay = cursorOverlay;
-
-      var cursorSpr = new Sprite();
-      cursorSpr.visible = false;
-      cursorOverlay.addChild(cursorSpr);
-      this._csCursorSprite = cursorSpr;
-      this._csCursorSlotW  = slotW;
-      this._csCursorSlotH  = slotH;
-      this._csCursorBuilt  = false;
+      this._csCursorReparented = false;
     }
   };
 
   // 첫 표시 시 초기 빌드
   Widget_List.prototype.show = function() {
     Widget_Base.prototype.show.call(this);
-    if (this._def && this._def.cursorOnly) {
-      console.log('[CSE:' + this._id + '] show() → _window.visible=' + (this._window ? this._window.visible : 'n/a'));
-    }
     if (!this._builtOnce && this._dataScript) {
       this._builtOnce = true;
       this._rebuildFromScript();
@@ -2878,83 +2883,27 @@
 
   Widget_List.prototype.update = function() {
     Widget_TextList.prototype.update.call(this);
-    if (this._def && this._def.cursorOnly && this._csCursorSprite) {
+    if (this._def && this._def.cursorOnly) {
       this._updateCursorOverlay();
     }
   };
 
   Widget_List.prototype._updateCursorOverlay = function() {
     var win = this._window;
-    if (!win) return;
-    var cursorSpr = this._csCursorSprite;
-
-    // 첫 프레임: windowskin으로 커서 비트맵 생성
-    if (!this._csCursorBuilt) {
-      var skin = win._windowskin;
-      if (!skin || !skin.isReady()) return;
-      var slotW = this._csCursorSlotW;
-      var slotH = this._csCursorSlotH;
-      var bmp = new Bitmap(slotW, slotH);
-      // windowskin 커서: x=96, y=64, 48x48 (rpg_core.js Window._refreshCursor 참조)
-      var px = 96, py = 64, q = 48, m = 4;
-      bmp.blt(skin, px+m,   py+m,   q-m*2, q-m*2, m,       m,       slotW-m*2, slotH-m*2);
-      bmp.blt(skin, px+m,   py,     q-m*2, m,     m,       0,       slotW-m*2, m      );
-      bmp.blt(skin, px+m,   py+q-m, q-m*2, m,     m,       slotH-m, slotW-m*2, m      );
-      bmp.blt(skin, px,     py+m,   m,     q-m*2, 0,       m,       m,         slotH-m*2);
-      bmp.blt(skin, px+q-m, py+m,   m,     q-m*2, slotW-m, m,       m,         slotH-m*2);
-      bmp.blt(skin, px,     py,     m,     m,     0,       0,       m,         m      );
-      bmp.blt(skin, px+q-m, py,     m,     m,     slotW-m, 0,       m,         m      );
-      bmp.blt(skin, px,     py+q-m, m,     m,     0,       slotH-m, m,         m      );
-      bmp.blt(skin, px+q-m, py+q-m, m,     m,     slotW-m, slotH-m, m,         m      );
-      cursorSpr.bitmap = bmp;
-      cursorSpr.setFrame(0, 0, slotW, slotH);
-      this._csCursorBuilt = true;
-    }
-
-    var idx = win.index();
-    // active 여부와 무관하게 visible + 인덱스 선택 시 커서 표시
-    // active=true → 깜박임(인터랙티브), active=false → 반투명 고정(인디케이터)
-    var visible = win.visible && idx >= 0;
-    // 상태 변화 시에만 로그
-    var _prevVis = this._csLastVisible;
-    var _prevIdx = this._csLastIdx;
-    var _prevActive = this._csLastActive;
-    if (_prevVis !== visible || _prevIdx !== idx || _prevActive !== win.active) {
-      console.log('[CSE:' + this._id + '] cursorOverlay: visible=' + visible
-        + ' (win.visible=' + win.visible + ' idx=' + idx + ' active=' + win.active + ')'
-        + ' rowOverlay.visible=' + (this._rowOverlay ? this._rowOverlay.visible : 'n/a'));
-      this._csLastVisible = visible;
-      this._csLastIdx = idx;
-      this._csLastActive = win.active;
-    }
-    cursorSpr.visible = visible;
-    if (visible) {
-      cursorSpr.x = idx * this._csCursorSlotW;
-      cursorSpr.y = 0;
-      if (win.active) {
-        // 인터랙티브 모드: 깜박임 효과
-        var blinkCount = (win._animationCount || 0) % 40;
-        var opacity = 255;
-        if (blinkCount < 20) opacity -= blinkCount * 8;
-        else                 opacity -= (40 - blinkCount) * 8;
-        cursorSpr.alpha = Math.max(0, opacity) / 255;
-      } else {
-        // 인디케이터 모드: 반투명 고정 커서
-        cursorSpr.alpha = 0.5;
-      }
+    if (!win || !win._windowCursorSprite) return;
+    // 첫 프레임: Window의 _windowCursorSprite를 cursorOverlay로 reparent
+    // → windowLayer 위에서 렌더링하여 statusWindow의 _rowOverlay에 가려지지 않음
+    // 커서 비주얼은 Window 내장 _refreshCursor/_updateCursor가 자동으로 관리함
+    if (!this._csCursorReparented) {
+      var spr = win._windowCursorSprite;
+      if (spr.parent) spr.parent.removeChild(spr);
+      this._rowOverlay.addChild(spr);
+      this._csCursorReparented = true;
     }
   };
 
   // DELEGATE 호환: select/deselect 를 _window에 위임
-  Widget_List.prototype.select   = function(i) {
-    if (this._def && this._def.cursorOnly) {
-      console.log('[CSE:' + this._id + '] select(' + i + ') → _window.index before=' + (this._window ? this._window.index() : 'n/a'));
-    }
-    if (this._window) this._window.select(i);
-    if (this._def && this._def.cursorOnly) {
-      console.log('[CSE:' + this._id + '] select(' + i + ') → _window.index after=' + (this._window ? this._window.index() : 'n/a') + ' visible=' + (this._window ? this._window.visible : 'n/a'));
-    }
-  };
+  Widget_List.prototype.select   = function(i) { if (this._window) this._window.select(i); };
   Widget_List.prototype.deselect = function()  { if (this._window) this._window.deselect(); };
 
   window.Widget_List = Widget_List;
@@ -4494,30 +4443,21 @@
     // startPartyCommandSelection: 파티 커맨드 단계 → actorWindow 인디케이터 숨김
     var origSPCS = SCB.startPartyCommandSelection || function() {};
     Klass.prototype.startPartyCommandSelection = function() {
-      console.log('[CSE:battle] startPartyCommandSelection()');
       origSPCS.call(this);
       var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
-      console.log('[CSE:battle] startPartyCommandSelection: actorWidget=' + (actorWidget ? 'OK' : 'MISSING'));
       if (actorWidget && actorWidget.hide) actorWidget.hide();
     };
 
     // startActorCommandSelection: 액터 커맨드 단계 → actorWindow 인디케이터 표시 (비활성)
     var origSACS = SCB.startActorCommandSelection || function() {};
     Klass.prototype.startActorCommandSelection = function() {
-      console.log('[CSE:battle] startActorCommandSelection()');
       origSACS.call(this);
       var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
       var actor = BattleManager.actor();
-      console.log('[CSE:battle] startActorCommandSelection: actorWidget=' + (actorWidget ? 'OK' : 'MISSING')
-        + ' actor=' + (actor ? actor.name() + '[' + actor.index() + ']' : 'null'));
       if (actorWidget) {
         actorWidget.show();
         if (actor) actorWidget.select(actor.index());
         // activate하지 않음 — 인터랙티브 아닌 인디케이터 전용
-        console.log('[CSE:battle] startActorCommandSelection: after show+select → _window.visible='
-          + (actorWidget._window ? actorWidget._window.visible : 'n/a')
-          + ' _window.index=' + (actorWidget._window ? actorWidget._window.index() : 'n/a')
-          + ' _rowOverlay.visible=' + (actorWidget._rowOverlay ? actorWidget._rowOverlay.visible : 'n/a'));
       }
     };
 
