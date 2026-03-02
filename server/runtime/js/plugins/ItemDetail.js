@@ -478,6 +478,7 @@
     Scene_Item.prototype.update = function () {
         var fs = this._itemDetailFullscreen;
         var dw = this._detailWindow;
+        var aw = this._itemActionWindow;
 
         if (this._detailOverlay) {
             this._detailOverlay.visible = !!(fs && fs.isOpen()) || !!(dw && dw.visible);
@@ -490,6 +491,32 @@
                 if (dw && dw.visible) dw.activate();
             }
             Input.clear(); TouchInput.clear();
+            return;
+        }
+
+        // isPressed+prev 추적으로 input 처리
+        if (dw && dw.visible) {
+            this.updateFade();
+            var cancelNow = Input.isPressed('cancel');
+            var okNow     = Input.isPressed('ok');
+            if (cancelNow && !this._dwPrevCancel) {
+                Input.clear();
+                dw.callHandler('cancel');
+            } else if (okNow && !this._dwPrevOk) {
+                Input.clear();
+                dw.callHandler('ok');
+            }
+            this._dwPrevCancel = cancelNow;
+            this._dwPrevOk     = okNow;
+            return;
+        }
+        if (aw && aw.visible) {
+            this.updateFade();
+            var c2 = Input.isPressed('cancel'), o2 = Input.isPressed('ok');
+            if (c2 && !this._awPrevCancel) { Input.clear(); aw.callHandler('cancel'); }
+            else if (o2 && !this._awPrevOk) { Input.clear(); aw.callHandler('ok'); }
+            this._awPrevCancel = c2;
+            this._awPrevOk     = o2;
             return;
         }
 
@@ -581,6 +608,7 @@
 
             var fs = this._itemDetailFullscreen;
             var dw = this._itemDetailWindow;
+            var aw = this._itemActionWindow;
 
             if (this._detailOverlay) {
                 this._detailOverlay.visible = !!(fs && fs.isOpen()) || !!(dw && dw.visible);
@@ -593,6 +621,34 @@
                     if (dw && dw.visible) dw.activate();
                 }
                 Input.clear(); TouchInput.clear();
+                return;
+            }
+
+            // 팝업이 열린 동안: isPressed+prev 추적으로 input 처리
+            // (Input.update()가 processHandling보다 먼저 실행되어 _pressedTime이 항상 >=1이므로
+            //  isTriggered는 사용 불가 — isPressed로 첫 pressed 프레임을 직접 감지)
+            if (dw && dw.visible) {
+                if (this.updateFade) this.updateFade();
+                var cancelNow = Input.isPressed('cancel');
+                var okNow     = Input.isPressed('ok');
+                if (cancelNow && !this._dwPrevCancel) {
+                    Input.clear();
+                    dw.callHandler('cancel');
+                } else if (okNow && !this._dwPrevOk) {
+                    Input.clear();
+                    dw.callHandler('ok');
+                }
+                this._dwPrevCancel = cancelNow;
+                this._dwPrevOk     = okNow;
+                return;
+            }
+            if (aw && aw.visible) {
+                if (this.updateFade) this.updateFade();
+                var c2 = Input.isPressed('cancel'), o2 = Input.isPressed('ok');
+                if (c2 && !this._awPrevCancel) { Input.clear(); aw.callHandler('cancel'); }
+                else if (o2 && !this._awPrevOk) { Input.clear(); aw.callHandler('ok'); }
+                this._awPrevCancel = c2;
+                this._awPrevOk     = o2;
                 return;
             }
 

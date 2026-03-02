@@ -2903,6 +2903,13 @@
       }
     }
   };
+  NavigationManager.prototype.clearFocus = function() {
+    if (this._activeIndex >= 0 && this._focusables[this._activeIndex]) {
+      this._focusables[this._activeIndex].deactivate();
+      this._focusables[this._activeIndex]._runScript('onBlur');
+    }
+    this._activeIndex = -1;
+  };
   NavigationManager.prototype.focusNext = function() {
     var next = (this._activeIndex + 1) % this._focusables.length;
     if (typeof SoundManager !== 'undefined') SoundManager.playCursor();
@@ -2995,6 +3002,7 @@
     this._customWindows = {};
     this._pendingPersonalAction = null;
     this._personalOriginWidget = null;
+    this._sceneOnUpdateFn = null;
   };
 
   Scene_CustomUI.prototype.prepare = function () {
@@ -3163,6 +3171,16 @@
       this._navManager.initialize(sceneDef.navigation);
       this._navManager.setScene(this);
       this._navManager.buildFocusList(this._rootWidget);
+    }
+
+    // 씬 레벨 onUpdate 스크립트 컴파일
+    this._sceneOnUpdateFn = null;
+    if (sceneDef.onUpdate) {
+      try {
+        this._sceneOnUpdateFn = new Function('$ctx', sceneDef.onUpdate);
+      } catch(e) {
+        console.error('[CSE] scene onUpdate compile error:', e);
+      }
     }
 
     // onCreate 스크립트 실행 (위젯 트리 구축 + 핸들러 설정 완료 후)
@@ -3852,6 +3870,11 @@
     }
     if (this._navManager) this._navManager.update();
     if (this._rootWidget) this._rootWidget.update();
+    // 씬 레벨 onUpdate 스크립트
+    if (this._sceneOnUpdateFn) {
+      try { this._sceneOnUpdateFn.call(this, this._ctx || {}); }
+      catch(e) { console.error('[CSE] scene onUpdate error:', e); }
+    }
     // 씬 레벨 keyHandlers: pageup/pagedown/cancel 등 임의 키 처리
     var sceneDef = this._getSceneDef();
     var keyHandlers = sceneDef && sceneDef.keyHandlers;
