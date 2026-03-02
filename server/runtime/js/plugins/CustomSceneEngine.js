@@ -1405,6 +1405,25 @@
     var aid = aw ? aw._id : null;
     var isLinked = aid && linked.indexOf(aid) >= 0;
     var dimAlpha = isLinked ? 1.0 : 0.63;
+    // DEBUG: 매 프레임 상태 로그 (id_popup에만)
+    if (this._id === 'id_popup' && !this.__dbgTick) this.__dbgTick = 0;
+    if (this._id === 'id_popup') {
+      this.__dbgTick++;
+      if (this.__dbgTick % 60 === 1) {
+        var ch0 = this._children[0] && this._children[0].displayObject && this._children[0].displayObject();
+        console.log('[DimDBG] id_popup tick', this.__dbgTick,
+          'dispAlpha=', this._displayObject.alpha, '|', this._displayObject._alpha,
+          'dimAlpha=', dimAlpha, 'aid=', aid,
+          'ch0 type=', ch0 && ch0.constructor && ch0.constructor.name,
+          'ch0._alpha=', ch0 && ch0._alpha,
+          'ch0.worldAlpha=', ch0 && ch0.worldAlpha,
+          'ch0._material.opacity=', ch0 && ch0._material && ch0._material.opacity,
+          'ch0._material.transparent=', ch0 && ch0._material && ch0._material.transparent,
+          'ch0._forcedOpacity=', ch0 && ch0._forcedOpacity,
+          'dispVisible=', this._displayObject._visible,
+          'disp3Dvis=', this._displayObject._threeObj && this._displayObject._threeObj.visible);
+      }
+    }
     if (Math.abs((this._displayObject.alpha || 1) - dimAlpha) > 0.005) {
       this._displayObject.alpha = dimAlpha;
       for (var _di = 0; _di < this._children.length; _di++) {
@@ -2899,17 +2918,26 @@
     Widget_Base.prototype.hide.call(this);
     this._csCursorOverlayVisible = false;
     if (this._rowOverlay) this._rowOverlay.visible = false;
+    if (this._def && this._def.cursorOnly)
+      console.log('[CSE:cursorOnly] hide()', this._id, '_rowOverlay.visible=', this._rowOverlay ? this._rowOverlay.visible : 'null');
   };
 
   Widget_List.prototype.update = function() {
     Widget_TextList.prototype.update.call(this);
     if (this._def && this._def.cursorOnly) {
       this._updateCursorOverlay();
+      var beforeFix = this._rowOverlay ? this._rowOverlay.visible : 'null';
       // Widget_TextList.update()가 _rowOverlay.visible을 _window.visible로 매 프레임 덮어씀
       // cursorOnly 모드에서는 hide()/show()로 설정한 _csCursorOverlayVisible로 복원
       if (this._rowOverlay && this._csCursorOverlayVisible !== undefined) {
         this._rowOverlay.visible = this._csCursorOverlayVisible;
       }
+      if (this._updateCount % 60 === 1)
+        console.log('[CSE:cursorOnly] update()', this._id,
+          '_window.visible=', this._window ? this._window.visible : 'null',
+          'beforeFix=', beforeFix,
+          '_csCursorOverlayVisible=', this._csCursorOverlayVisible,
+          '_rowOverlay.visible=', this._rowOverlay ? this._rowOverlay.visible : 'null');
     }
   };
 
@@ -4599,6 +4627,7 @@
 
     var origOAO = SCB.onActorOk || function() {};
     Klass.prototype.onActorOk = function() {
+      if (!BattleManager.inputtingAction()) return;
       this._csInSubSelection = false;
       origOAO.call(this);
     };
@@ -4650,6 +4679,12 @@
       if (BattleManager.isInputting()) {
         // 파티 커맨드 단계: 커서 강제 숨김 (매 프레임 강제 적용)
         if (!BattleManager.actor()) {
+          if (this._updateCount === undefined) this._updateCount = 0;
+          this._updateCount++;
+          if (this._updateCount % 60 === 1)
+            console.log('[CSE:actorCursor] partyCmd phase — hiding',
+              'visible=', actorWidget._rowOverlay ? actorWidget._rowOverlay.visible : 'null',
+              '_csCursorOverlayVisible=', actorWidget._csCursorOverlayVisible);
           if (actorWidget._csCursorOverlayVisible !== false) {
             actorWidget.hide();
           }
