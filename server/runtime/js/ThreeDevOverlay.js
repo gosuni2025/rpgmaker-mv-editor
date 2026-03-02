@@ -11,13 +11,14 @@
 
     //=========================================================================
     // GPU 리소스 누수 추적 훅
-    // renderer.info.memory.textures/geometries setter를 후킹하여
-    // 실제 GPU 업로드/해제 시점의 call stack을 console.trace()로 출력
     //
-    // 이전 방식(Three.js 생성자 래핑)은 Three.js 내부가 원본 생성자 참조를
-    // 클로저로 갖고 있어 PlaneGeometry 등 내부 객체를 추적할 수 없었음.
-    // 이 방식은 renderer.info.memory 카운터가 변할 때마다 후킹되므로
-    // 모든 경로를 100% 캡처함.
+    // renderer.info.memory setter 후킹 + 구간 추적 방식:
+    //   window._startTrack()  - 추적 시작 (창 열기 전 호출)
+    //   window._endTrack()    - 추적 종료 및 결과 출력 (창 닫은 후 호출)
+    //
+    // Three.js는 매 프레임 memory 카운터를 0→N으로 재카운트하므로,
+    // 개별 increment를 모두 로그하면 5만 줄이 나옴.
+    // 대신 추적 구간의 per-frame 최고값 변화만 추적하여 누수만 출력.
     //=========================================================================
     (function installLeakTracker() {
         function tryInstall() {
@@ -34,45 +35,135 @@
 
             var memory = renderer.info.memory;
 
-            // textures 카운터 후킹
+            // 현재 카운터 값
             var _texVal = memory.textures;
+            var _geoVal = memory.geometries;
+
+            // 프레임 내 최고값 (Three.js가 0→N 재카운트하므로 max로 실제 사용량 파악)
+            var _texFrameMax = _texVal;
+            var _geoFrameMax = _geoVal;
+
+            // 추적 상태
+            var _tracking = false;
+            var _trackLabel = '';
+            var _trackStartTexMax = 0;
+            var _trackStartGeoMax = 0;
+
+            // 추적 중 수집한 증가 이벤트 버퍼 (최대 5000개)
+            var _traceBuffer = [];
+
+            // textures setter 후킹
             Object.defineProperty(memory, 'textures', {
                 get: function() { return _texVal; },
                 set: function(v) {
-                    if (v > _texVal) {
-                        console.trace('[TexTrack+' + (v - _texVal) + '] ' + _texVal + ' → ' + v);
-                    } else if (v < _texVal) {
-                        console.log('[TexTrack-' + (_texVal - v) + '] ' + _texVal + ' → ' + v);
+                    if (v > _texFrameMax) _texFrameMax = v;
+                    if (_tracking && v > _texVal) {
+                        _traceBuffer.push({
+                            type: 'tex',
+                            from: _texVal, to: v,
+                            stack: new Error().stack.split('\n').slice(2, 7).join('\n')
+                        });
+                        if (_traceBuffer.length > 5000) _traceBuffer.shift();
                     }
                     _texVal = v;
                 },
                 configurable: true
             });
 
-            // geometries 카운터 후킹
-            var _geoVal = memory.geometries;
+            // geometries setter 후킹
             Object.defineProperty(memory, 'geometries', {
                 get: function() { return _geoVal; },
                 set: function(v) {
-                    if (v > _geoVal) {
-                        console.trace('[GeoTrack+' + (v - _geoVal) + '] ' + _geoVal + ' → ' + v);
-                    } else if (v < _geoVal) {
-                        console.log('[GeoTrack-' + (_geoVal - v) + '] ' + _geoVal + ' → ' + v);
+                    if (v > _geoFrameMax) _geoFrameMax = v;
+                    if (_tracking && v > _geoVal) {
+                        _traceBuffer.push({
+                            type: 'geo',
+                            from: _geoVal, to: v,
+                            stack: new Error().stack.split('\n').slice(2, 7).join('\n')
+                        });
+                        if (_traceBuffer.length > 5000) _traceBuffer.shift();
                     }
                     _geoVal = v;
                 },
                 configurable: true
             });
 
-            // 편의 함수
-            window._memInfo = function() {
-                console.log('[MemInfo] textures:', _texVal, ', geometries:', _geoVal);
+            // 추적 시작 (창 열기 전에 호출)
+            window._startTrack = function(label) {
+                _trackLabel = label || '';
+                _trackStartTexMax = _texFrameMax;
+                _trackStartGeoMax = _geoFrameMax;
+                _traceBuffer = [];
+                _tracking = true;
+                console.log('[Track] 시작' + (_trackLabel ? ' [' + _trackLabel + ']' : '') +
+                    ' tex=' + _trackStartTexMax + ', geo=' + _trackStartGeoMax);
             };
 
-            console.log('[LeakTracker] renderer.info.memory 후킹 완료 (tex=' + _texVal + ', geo=' + _geoVal + ')\n  GPU 업로드 시 console.trace로 call stack 출력됨');
+            // 추적 종료 및 결과 출력 (창 닫은 후 호출)
+            window._endTrack = function() {
+                _tracking = false;
+                var texDelta = _texFrameMax - _trackStartTexMax;
+                var geoDelta = _geoFrameMax - _trackStartGeoMax;
+                var sign = function(n) { return (n >= 0 ? '+' : '') + n; };
+
+                console.group('[Track] 결과' + (_trackLabel ? ' [' + _trackLabel + ']' : '') +
+                    '  tex' + sign(texDelta) + '  geo' + sign(geoDelta));
+
+                if (geoDelta > 0) {
+                    // threshold를 초과한 증가만 표시 (누수된 geometry의 스택)
+                    var leaked = _traceBuffer.filter(function(t) {
+                        return t.type === 'geo' && t.to > _trackStartGeoMax;
+                    });
+                    // 중복 제거 (동일 스택 합산)
+                    var dedupe = {};
+                    leaked.forEach(function(t) {
+                        var key = t.stack;
+                        if (!dedupe[key]) dedupe[key] = { count: 0, from: t.from, to: t.to, stack: t.stack };
+                        dedupe[key].count++;
+                        dedupe[key].to = t.to;
+                    });
+                    console.group('Geometry 누수 +' + geoDelta + ' (before=' + _trackStartGeoMax + ', after=' + _geoFrameMax + ')');
+                    Object.values(dedupe).forEach(function(e) {
+                        console.log((e.count > 1 ? 'x' + e.count + ' ' : '') + e.from + '→' + e.to + '\n' + e.stack);
+                    });
+                    console.groupEnd();
+                }
+
+                if (texDelta > 0) {
+                    var leaked2 = _traceBuffer.filter(function(t) {
+                        return t.type === 'tex' && t.to > _trackStartTexMax;
+                    });
+                    var dedupe2 = {};
+                    leaked2.forEach(function(t) {
+                        var key = t.stack;
+                        if (!dedupe2[key]) dedupe2[key] = { count: 0, from: t.from, to: t.to, stack: t.stack };
+                        dedupe2[key].count++;
+                        dedupe2[key].to = t.to;
+                    });
+                    console.group('Texture 누수 +' + texDelta + ' (before=' + _trackStartTexMax + ', after=' + _texFrameMax + ')');
+                    Object.values(dedupe2).forEach(function(e) {
+                        console.log((e.count > 1 ? 'x' + e.count + ' ' : '') + e.from + '→' + e.to + '\n' + e.stack);
+                    });
+                    console.groupEnd();
+                }
+
+                if (texDelta <= 0 && geoDelta <= 0) {
+                    console.log('누수 없음');
+                }
+                console.groupEnd();
+            };
+
+            // 편의: 현재 프레임 max 확인
+            window._memInfo = function() {
+                console.log('[MemInfo] tex=' + _texFrameMax + ', geo=' + _geoFrameMax +
+                    ' (raw: tex=' + _texVal + ', geo=' + _geoVal + ')');
+            };
+
+            console.log('[LeakTracker] 준비 완료 (tex=' + _texFrameMax + ', geo=' + _geoFrameMax + ')\n' +
+                '  _startTrack()  → 창 열기 전 호출\n' +
+                '  _endTrack()    → 창 닫은 후 호출, 누수 스택 출력');
         }
 
-        // 렌더러 초기화 후 후킹 (게임 시작 2초 후 시도)
         setTimeout(tryInstall, 2000);
     })();
 
