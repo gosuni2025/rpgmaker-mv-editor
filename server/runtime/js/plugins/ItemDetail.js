@@ -549,6 +549,17 @@
         this.createDetailWindow();
     };
 
+    var _Scene_Item_terminate = Scene_Item.prototype.terminate;
+    Scene_Item.prototype.terminate = function () {
+        _Scene_Item_terminate.call(this);
+        var keys = ['_detailOverlay', '_detailWindow', '_itemActionWindow', '_itemDetailFullscreen'];
+        for (var i = 0; i < keys.length; i++) {
+            var obj = this[keys[i]];
+            if (obj && obj.destroy) { obj.destroy(); }
+            this[keys[i]] = null;
+        }
+    };
+
     //=========================================================================
     // Scene_CustomUI (CustomSceneEngine) — item 씬 연동
     //=========================================================================
@@ -662,6 +673,19 @@
             }
 
             _CustomUI_update.call(this);
+        };
+
+        var _CustomUI_terminate = Scene_CustomUI.prototype.terminate || function () {};
+        Scene_CustomUI.prototype.terminate = function () {
+            _CustomUI_terminate.call(this);
+            if (this._sceneId === 'item') {
+                var keys = ['_detailOverlay', '_itemDetailWindow', '_itemActionWindow', '_itemDetailFullscreen'];
+                for (var i = 0; i < keys.length; i++) {
+                    var obj = this[keys[i]];
+                    if (obj && obj.destroy) { obj.destroy(); }
+                    this[keys[i]] = null;
+                }
+            }
         };
 
         // useItem 인터셉트
