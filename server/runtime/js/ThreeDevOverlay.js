@@ -21,7 +21,9 @@
     // 대신 추적 구간의 per-frame 최고값 변화만 추적하여 누수만 출력.
     //=========================================================================
     (function installLeakTracker() {
+        var _installed = false;
         function tryInstall() {
+            if (_installed) return;
             var renderer = null;
             if (typeof Graphics !== 'undefined') {
                 if (Graphics._renderer && Graphics._renderer.renderer) {
@@ -32,6 +34,7 @@
                 setTimeout(tryInstall, 1000);
                 return;
             }
+            _installed = true;
 
             var memory = renderer.info.memory;
 
@@ -258,6 +261,14 @@
                     }
                 }
 
+                // 타이밍 노이즈 설명
+                // Three.js는 매 프레임 memory.textures를 0→N으로 재카운트하므로,
+                // _startTrack/_endTrack 호출 시점이 다른 프레임 내 위치에 있으면 raw값이 다름.
+                // peak(texDelta)=0이면 실제 누수 없음, raw의 ±1~2는 타이밍 노이즈임.
+                if (texDelta === 0 && rawTexDelta > 0) {
+                    console.log('tex 실제 +' + rawTexDelta + ' → 타이밍 노이즈' +
+                        ' (Three.js 프레임별 카운터 리셋 오차, peak delta=0 → 누수 없음)');
+                }
                 if (rawTexDelta <= 0 && rawGeoDelta <= 0) {
                     if (texDelta > 0 || geoDelta > 0) {
                         console.log('실제 누수 없음 (최대값 delta는 추적 구간 중 일시적 증가)');
@@ -274,65 +285,54 @@
                     ' (raw: tex=' + _texVal + ', geo=' + _geoVal + ')');
             };
 
-            // THREE.PlaneGeometry 생성자 래핑 (게임 코드에서 new THREE.PlaneGeometry(...) 호출 캡처)
-            // Three.js 내부 클래스 체계는 원본 참조를 사용하므로 영향 없음
-            // rpg_sprites.js, ShadowAndLight.js 등 게임 코드만 캡처됨
-            if (THREE.PlaneGeometry) {
-                var _OrigPlaneGeo = THREE.PlaneGeometry;
-                THREE.PlaneGeometry = function() {
-                    _OrigPlaneGeo.apply(this, arguments);
-                    if (_tracking) {
-                        _planeGeoLog.push(new Error().stack.split('\n').slice(2, 7).join('\n'));
-                    }
-                };
-                THREE.PlaneGeometry.prototype = _OrigPlaneGeo.prototype;
-                Object.keys(_OrigPlaneGeo).forEach(function(k) {
-                    try { THREE.PlaneGeometry[k] = _OrigPlaneGeo[k]; } catch(e) {}
-                });
-            }
+            // ===================================================================
+            // 게임 코드 함수 래핑 (THREE 생성자 직접 교체 대신)
+            //
+            // 이유: three.global.min.js 번들은 모든 클래스를 non-configurable getter로
+            // 내보내므로 (ag함수 → Object.defineProperty({get:...})), sloppy mode에서
+            // THREE.X = fn 할당이 조용히 실패함.
+            // 대신 ThreeRendererFactory의 팩토리 메서드를 래핑하여 생성을 추적.
+            // ===================================================================
 
-            // THREE.CanvasTexture 생성자 래핑 (생성 시점 스택 캡처 — GPU 업로드 스택은 Three.js 내부라 무의미)
-            // 게임 코드에서 new THREE.CanvasTexture(...) 호출만 캡처 (Three.js 내부는 로컬 참조 사용)
-            if (THREE.CanvasTexture) {
-                var _OrigCanvasTex = THREE.CanvasTexture;
-                THREE.CanvasTexture = function() {
-                    _OrigCanvasTex.apply(this, arguments);
-                    if (_tracking) {
+            // ThreeRendererFactory.createBaseTexture 래핑 (Bitmap GPU 텍스처 생성 추적)
+            if (window.ThreeRendererFactory && ThreeRendererFactory.createBaseTexture) {
+                var _origCBT = ThreeRendererFactory.createBaseTexture;
+                ThreeRendererFactory.createBaseTexture = function(source) {
+                    var tex = _origCBT.apply(this, arguments);
+                    if (_tracking && tex) {
                         var entry = {
-                            tex: this,
+                            tex: tex,
                             stack: new Error().stack.split('\n').slice(2, 8).join('\n'),
                             disposed: false
                         };
                         _canvasTexLog.push(entry);
-                        this._leakEntry = entry;
+                        tex._leakEntry = entry;
                     }
+                    return tex;
                 };
-                THREE.CanvasTexture.prototype = _OrigCanvasTex.prototype;
-                Object.keys(_OrigCanvasTex).forEach(function(k) {
-                    try { THREE.CanvasTexture[k] = _OrigCanvasTex[k]; } catch(e) {}
-                });
             }
 
-            // THREE.WebGLRenderTarget 생성자 래핑
-            if (THREE.WebGLRenderTarget) {
-                var _OrigRT = THREE.WebGLRenderTarget;
-                THREE.WebGLRenderTarget = function(w, h, options) {
-                    _OrigRT.call(this, w, h, options);
-                    if (_tracking) {
+            // ThreeRendererFactory.createRenderTexture 래핑 (RenderTexture 래퍼 생성 추적)
+            if (window.ThreeRendererFactory && ThreeRendererFactory.createRenderTexture) {
+                var _origCRT = ThreeRendererFactory.createRenderTexture;
+                ThreeRendererFactory.createRenderTexture = function(w, h) {
+                    var rt = _origCRT.apply(this, arguments);
+                    if (_tracking && rt) {
                         var entry = {
-                            rt: this,
+                            rt: rt,
                             w: w, h: h,
                             stack: new Error().stack.split('\n').slice(2, 8).join('\n'),
                             disposed: false
                         };
                         _rtLog.push(entry);
-                        this._leakEntry = entry;
+                        var _origDestroy = rt.destroy;
+                        rt.destroy = function() {
+                            if (_origDestroy) _origDestroy.apply(this, arguments);
+                            entry.disposed = true;
+                        };
                     }
+                    return rt;
                 };
-                THREE.WebGLRenderTarget.prototype = _OrigRT.prototype;
-                Object.keys(_OrigRT).forEach(function(k) {
-                    try { THREE.WebGLRenderTarget[k] = _OrigRT[k]; } catch(e) {}
-                });
             }
 
             // dispose 추적: THREE.Texture + THREE.WebGLRenderTarget

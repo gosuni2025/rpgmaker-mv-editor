@@ -490,4 +490,7 @@
 
     RendererFactory.register('threejs', ThreeRendererFactory);
 
+    // DevTools 접근용 전역 노출 (ThreeDevOverlay.js에서 createBaseTexture 래핑에 사용)
+    window.ThreeRendererFactory = ThreeRendererFactory;
+
 })();
