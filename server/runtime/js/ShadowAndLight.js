@@ -2043,6 +2043,24 @@ Scene_Map.prototype.terminate = function() {
         }
         this._spriteset._shadowMeshes = null;
     }
+    // object shader RT GPU 누수 수정: terminate 시 각 오브젝트 스프라이트의 RT dispose
+    if (this._spriteset && this._spriteset._objectSprites) {
+        var objectSprites = this._spriteset._objectSprites;
+        for (var oi = 0; oi < objectSprites.length; oi++) {
+            var container = objectSprites[oi];
+            var imgChild = container.children && container.children[0];
+            if (imgChild && imgChild._objShaderRTs) {
+                this._spriteset._disposeObjectShaderPasses(imgChild);
+            }
+        }
+        // 공유 RT 씬 PlaneGeometry dispose
+        if (this._spriteset._objRTQuad && this._spriteset._objRTQuad.geometry) {
+            this._spriteset._objRTQuad.geometry.dispose();
+        }
+        this._spriteset._objRTQuad = null;
+        this._spriteset._objRTScene = null;
+        this._spriteset._objRTCamera = null;
+    }
     _Scene_Map_terminate_shadowLight.call(this);
 };
 
