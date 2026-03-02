@@ -1383,25 +1383,14 @@
         if (child._labelSprite) { child._labelSprite.x += this._x; child._labelSprite.y += this._y; }
         if (child._rowOverlay)  { child._rowOverlay.x  += this._x; child._rowOverlay.y  += this._y; }
       } else if (this._displayObject) {
-        if (child._decoSprite) this._displayObject.addChild(child._decoSprite);
-        this._displayObject.addChild(childObj);
+        // windowed 패널: Sprite 자식을 _windowSpriteContainer에 추가
+        // → window.opacity dim이 PIXI alpha cascade로 자식 Sprite에도 자동 전파됨
+        var target = (this._windowed && this._displayObject._windowSpriteContainer)
+          ? this._displayObject._windowSpriteContainer : this._displayObject;
+        if (child._decoSprite) target.addChild(child._decoSprite);
+        target.addChild(childObj);
       }
     }
-  };
-  // windowed 패널의 dim 동기화:
-  // Window.opacity는 _windowSpriteContainer.alpha만 변경하고 PIXI 자식 Sprite의 alpha에는
-  // 전파되지 않음. 따라서 패널의 자식 위젯 중 Sprite 기반인 것들의 alpha를 동기화한다.
-  Widget_Panel.prototype.update = function() {
-    if (this._windowed && this._displayObject && this._displayObject._windowSpriteContainer) {
-      var sprAlpha = this._displayObject._windowSpriteContainer.alpha;
-      for (var ci = 0; ci < this._children.length; ci++) {
-        var childObj = this._children[ci].displayObject();
-        if (childObj && !(childObj instanceof Window_Base)) {
-          childObj.alpha = sprAlpha;
-        }
-      }
-    }
-    Widget_Base.prototype.update.call(this);
   };
   Widget_Panel.prototype.destroy = function() {
     // Window.prototype.destroy가 내부 bitmap + geometry 모두 처리하므로 별도 처리 불필요
