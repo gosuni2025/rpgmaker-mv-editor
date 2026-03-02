@@ -1,17 +1,33 @@
 //=============================================================================
 // TurnOrderDisplay.js
 // 전투 씬 턴 순서 아이콘 바 표시 플러그인
-//
-// 기능:
-//   - 현재 턴 행동 순서 + 다음 턴 예측 아이콘 표시 (가로/세로 배치)
-//   - 슬라이드+페이드 진입/퇴장 애니메이션
-//   - 행동 대상 베지어 연결선 (공격/마법/회복 색상 구분)
-//   - active 아이콘 주위 FOW 스타일 촉수 애니메이션
 //=============================================================================
 
 /*:
- * @plugindesc 전투 화면에 턴 순서 아이콘 바를 표시합니다.
+ * @plugindesc 전투 화면 상단에 턴 순서 아이콘 바를 표시합니다.
  * @author Claude
+ *
+ * @param iconSize
+ * @text 아이콘 크기 (px)
+ * @type number
+ * @min 20
+ * @max 100
+ * @default 52
+ *
+ * @param barY
+ * @text 바 Y 위치 (px, 상단 기준)
+ * @type number
+ * @min 0
+ * @max 200
+ * @default 8
+ *
+ * @param nextScale
+ * @text 다음 턴 아이콘 크기 비율
+ * @type number
+ * @decimals 2
+ * @min 0.3
+ * @max 1.0
+ * @default 0.75
  *
  * @param === 레이아웃 ===
  * @default
@@ -46,13 +62,6 @@
  * @value right-center
  * @default top-center
  *
- * @param iconSize
- * @text 아이콘 크기 (px)
- * @type number
- * @min 20
- * @max 100
- * @default 52
- *
  * @param gap
  * @text 아이콘 간격 (px)
  * @type number
@@ -66,14 +75,6 @@
  * @min 0
  * @max 100
  * @default 8
- *
- * @param nextScale
- * @text 다음 턴 아이콘 크기 비율
- * @type number
- * @decimals 2
- * @min 0.3
- * @max 1.0
- * @default 0.75
  *
  * @param === 아이콘 ===
  * @default
@@ -147,28 +148,23 @@
  *
  * @param showCurves
  * @text 행동 연결선 표시
- * @desc 배틀러의 공격/마법/회복 대상을 아이콘 사이 베지어 곡선으로 연결
  * @type boolean
  * @default true
  *
  * @param curveAttack
  * @text 공격 선 색
- * @desc 일반 공격 대상 연결선 색
  * @default rgba(255,90,90,0.85)
  *
  * @param curveMagic
  * @text 마법 선 색
- * @desc 마법 스킬 대상 연결선 색
  * @default rgba(100,160,255,0.85)
  *
  * @param curveHeal
  * @text 회복 선 색
- * @desc 회복/아군 대상 연결선 색
  * @default rgba(100,220,100,0.85)
  *
  * @param curveOther
  * @text 기타 선 색
- * @desc 그 외 행동 연결선 색
  * @default rgba(210,210,210,0.85)
  *
  * @param curveWidth
@@ -183,7 +179,6 @@
  *
  * @param showTentacle
  * @text 촉수 애니메이션
- * @desc active 아이콘 주위에 FOW 스타일 촉수 애니메이션 표시
  * @type boolean
  * @default true
  *
@@ -213,32 +208,17 @@
  *
  * [아이콘 의미]
  *   완료(반투명) → 행동중(강조) → 대기 ▶ 다음 턴 예측(작게)
+ *   예: A B C D E | a b c d e
  *
- * [연결선]
- *   행동 중인 배틀러의 타겟 아이콘까지 베지어 곡선으로 연결됩니다.
- *   공격=빨강, 마법=파랑, 회복=초록, 기타=회색
- *
- * [촉수 애니메이션]
- *   현재 행동 중인 배틀러 아이콘 주위에 시야각 스타일의
- *   촉수가 파동치며 뻗어나가는 애니메이션이 표시됩니다.
- *
- * [콘솔에서 실시간 변경]
- *   TurnOrderDisplay.Config.showCurves   = false;
- *   TurnOrderDisplay.Config.showTentacle = false;
- *   TurnOrderDisplay.Config.tentacleLen  = 0.8;
- *
- * ============================================================
- * 플러그인 커맨드
- * ============================================================
- *
- * TurnOrderDisplay show / hide
- * TurnOrderDisplay direction horizontal / vertical
- * TurnOrderDisplay position top-center (등 8방향)
- * TurnOrderDisplay iconSize 48
- * TurnOrderDisplay indicator triangle / dot / bar / none
- * TurnOrderDisplay clip circle / square / roundRect / diamond
- * TurnOrderDisplay curves on / off
- * TurnOrderDisplay tentacle on / off
+ * [플러그인 커맨드]
+ *   TurnOrderDisplay show / hide
+ *   TurnOrderDisplay direction horizontal / vertical
+ *   TurnOrderDisplay position top-center
+ *   TurnOrderDisplay iconSize 48
+ *   TurnOrderDisplay indicator triangle / dot / bar / none
+ *   TurnOrderDisplay clip circle / square / roundRect / diamond
+ *   TurnOrderDisplay curves on / off
+ *   TurnOrderDisplay tentacle on / off
  */
 
 (function () {
@@ -253,6 +233,7 @@
         direction:      String(_p['direction']      || 'horizontal'),
         position:       String(_p['position']       || 'top-center'),
         iconSize:       parseInt(_p['iconSize']      || 52),
+        barY:           parseInt(_p['barY']          || 8),
         gap:            parseInt(_p['gap']           || 4),
         margin:         parseInt(_p['margin']        || 8),
         nextScale:      parseFloat(_p['nextScale']   || 0.75),
@@ -311,7 +292,6 @@
         }
     }
 
-    // CSS 색상 문자열의 alpha를 동적으로 교체
     function withAlpha(color, alpha) {
         var a = alpha.toFixed(2);
         if (color[0] === '#') {
@@ -322,7 +302,6 @@
             var b = parseInt(hex.substr(4, 2), 16);
             return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
         }
-        // rgba(r,g,b,a) → alpha 교체
         return color.replace(/[\d.]+\)$/, a + ')');
     }
 
@@ -446,9 +425,9 @@
         ctx.fillRect(0, 0, size, size);
 
         if (isActor) {
-            var fi  = this._battler.faceIndex();
-            var fx  = (fi % 4) * 96;
-            var fy  = Math.floor(fi / 4) * 96;
+            var fi   = this._battler.faceIndex();
+            var fx   = (fi % 4) * 96;
+            var fy   = Math.floor(fi / 4) * 96;
             var zoom = Config.faceZoom;
             var dw   = size * zoom, dh = size * zoom;
             ctx.drawImage(src._canvas, fx, fy, 96, 96, (size-dw)/2, (size-dh)/2, dw, dh);
@@ -538,30 +517,27 @@
         this._configKey    = '';
         this._frame        = 0;
 
-        // 배경 패널
         this._bgBitmap = new Bitmap(Graphics.width, Graphics.height);
         this._bgSprite = new Sprite(this._bgBitmap);
         this.addChild(this._bgSprite);
 
-        // 오버레이: 촉수 + 연결선 (아이콘 아래)
         this._overlayBitmap = new Bitmap(Graphics.width, Graphics.height);
         this._overlaySprite = new Sprite(this._overlayBitmap);
         this.addChild(this._overlaySprite);
 
-        // 구분선
         this._divSprite = new Sprite();
         this._divSprite.anchor.x = 0.5;
         this._divSprite.anchor.y = 0.5;
         this.addChild(this._divSprite);
 
-        // 인디케이터
         this._indSprite = new Sprite();
         this._indSprite.visible = false;
         this.addChild(this._indSprite);
     };
 
-    // ── 매 프레임 ─────────────────────────────────────────────────────────────
-
+    //=========================================================================
+    // 매 프레임 업데이트
+    //=========================================================================
     Sprite_TurnOrderBar.prototype.update = function () {
         Sprite.prototype.update.call(this);
 
@@ -582,7 +558,7 @@
             this._orderKey = '';
         }
 
-        if (this._frame % 8 === 0 || this._frame <= 3) {
+        if (this._frame % 6 === 0 || this._frame <= 4) {
             this._updateOrder();
         }
         this._updateIconStatuses();
@@ -592,8 +568,9 @@
         this._cleanExiting();
     };
 
-    // ── 구분선 / 인디케이터 재생성 ───────────────────────────────────────────
-
+    //=========================================================================
+    // 구분선 / 인디케이터 재생성
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._rebuildDivider = function () {
         var lw = Config.dividerWidth;
         if (lw <= 0) { this._divSprite.bitmap = new Bitmap(1, 1); return; }
@@ -616,12 +593,16 @@
         this._indSprite.visible  = false;
     };
 
-    // ── 턴 순서 계산 ─────────────────────────────────────────────────────────
-
+    //=========================================================================
+    // 턴 순서 계산
+    // 반환: { curOrder, curSubject, curPending, next }
+    // - curOrder: 이번 턴 배틀러 배열 (done+subject+pending 또는 input시 AGI예측)
+    // - next: 다음 턴 예측 (AGI 정렬)
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._calcTurnOrder = function () {
+        var phase   = BattleManager._phase;
         var subject = BattleManager._subject;
         var pending = (BattleManager._actionBattlers || []).slice();
-        var phase   = BattleManager._phase;
 
         var partyAlive = $gameParty.battleMembers().filter(function (b) { return b.isAlive(); });
         var troopAlive = ($gameTroop.aliveMembers
@@ -629,23 +610,37 @@
             : $gameTroop.members().filter(function (b) { return b.isAlive(); }));
         var allAlive = partyAlive.concat(troopAlive);
 
-        var showCurrent = (phase === 'turn' || phase === 'action') &&
-                          (pending.length > 0 || !!subject);
-        var done = showCurrent
-            ? allAlive.filter(function (b) { return pending.indexOf(b) < 0 && b !== subject; })
-            : [];
+        var curOrder, curSubject, curPending;
+
+        if (phase === 'turn' || phase === 'action') {
+            // 실제 배틀 순서: done → active(subject) → pending
+            var done = allAlive.filter(function (b) {
+                return pending.indexOf(b) < 0 && b !== subject;
+            });
+            curOrder   = done.concat(subject ? [subject] : []).concat(pending);
+            curSubject = subject;
+            curPending = pending;
+        } else {
+            // input / 기타: AGI 기반 예측, 모두 pending 처리
+            curOrder   = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
+            curSubject = null;
+            curPending = curOrder.slice();
+        }
+
+        // 다음 턴 예측: AGI 정렬
         var next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
 
-        return { subject: showCurrent ? subject : null, pending: showCurrent ? pending : [],
-                 done: done, next: next };
+        return { curOrder: curOrder, curSubject: curSubject, curPending: curPending, next: next };
     };
 
     Sprite_TurnOrderBar.prototype._orderKeyOf = function (order) {
+        var subKey = order.curSubject
+            ? order.curSubject.name() + order.curSubject.index()
+            : '-';
         return [
-            order.subject ? order.subject.name() + order.subject.index() : '-',
-            order.done.map(function (b)    { return b.name() + b.index(); }).join(','),
-            order.pending.map(function (b) { return b.name() + b.index(); }).join(','),
-            order.next.map(function (b)    { return b.name() + b.index(); }).join(',')
+            order.curOrder.map(function (b) { return b.name() + b.index(); }).join(','),
+            subKey,
+            order.next.map(function (b) { return b.name() + b.index(); }).join(',')
         ].join('|');
     };
 
@@ -657,102 +652,161 @@
         this._syncIcons(order);
     };
 
-    // ── 아이콘 동기화 ─────────────────────────────────────────────────────────
-
-    Sprite_TurnOrderBar.prototype._syncIcons = function (order) {
-        var isH = Config.direction === 'horizontal';
-
-        // 새 배치 목록 구성
-        var newItems = [];
-        order.done.forEach(function (b)    { newItems.push({ b:b, s:'done',    role:'cur'  }); });
-        if (order.subject)                   newItems.push({ b:order.subject, s:'active', role:'cur'  });
-        order.pending.forEach(function (b) { newItems.push({ b:b, s:'pending', role:'cur'  }); });
-        order.next.forEach(function (b)    { newItems.push({ b:b, s:'next',    role:'next' }); });
-
-        var newBattlers = newItems.map(function (i) { return i.b; });
-
-        // 사라질 아이콘 → exit
-        var kept = [];
-        this._iconEntries.forEach(function (e) {
-            if (newBattlers.indexOf(e.b) < 0) {
-                e.ic.startExit(isH);
-                this._exitingIcons.push(e.ic);
-            } else {
-                kept.push(e);
-            }
-        }, this);
-        this._iconEntries = kept;
-
-        // 새 아이콘 생성 / 기존 아이콘 상태 갱신
-        newItems.forEach(function (item) {
-            var entry = this._findEntry(item.b);
-            if (!entry) {
-                var ic = new Sprite_TurnOrderIcon(item.b);
-                ic.setStatus(item.s);
-                ic.opacity = 0;
-                ic._isNew  = true;
-                var sc = item.role === 'next' ? Config.nextScale : 1.0;
-                ic.scale.x = sc; ic.scale.y = sc;
-                this.addChild(ic);
-                this._iconEntries.push({ b: item.b, ic: ic, role: item.role });
-            } else {
-                entry.ic.setStatus(item.s);
-                entry.role = item.role;  // role 갱신 (예: next→cur)
-                var sc = item.role === 'next' ? Config.nextScale : 1.0;
-                entry.ic.scale.x = sc; entry.ic.scale.y = sc;
-            }
-        }, this);
-
-        // 구분선·인디케이터 최상위
-        this.removeChild(this._divSprite);
-        this.removeChild(this._indSprite);
-        this.addChild(this._divSprite);
-        this.addChild(this._indSprite);
+    //=========================================================================
+    // 배틀러 고유 키
+    //=========================================================================
+    Sprite_TurnOrderBar.prototype._bKey = function (battler) {
+        return battler.isActor() ? 'a' + battler.actorId() : 'e' + battler.index();
     };
 
-    Sprite_TurnOrderBar.prototype._findEntry = function (battler) {
+    //=========================================================================
+    // 아이콘 동기화
+    //
+    // 핵심 원칙:
+    //   1. 기존 'cur' 항목 재사용 (변경 없음)
+    //   2. 기존 'next' 항목을 'cur'로 승격 (새 아이콘 생성 없음 → 슬라이드 없음)
+    //   3. 남은 경우에만 새 아이콘 생성
+    //   4. next 항목: 기존 재사용, 없으면 신규 (오른쪽에서 슬라이드 인)
+    //=========================================================================
+    Sprite_TurnOrderBar.prototype._syncIcons = function (order) {
+        var isH  = Config.direction === 'horizontal';
+        var self = this;
+
+        // 기존 엔트리를 (bKey, role) 기준으로 분류
+        var oldCur  = {};  // bKey → entry
+        var oldNext = {};  // bKey → entry
+        this._iconEntries.forEach(function (e) {
+            var k = self._bKey(e.b);
+            if (e.role === 'cur')  oldCur[k]  = e;
+            else                   oldNext[k] = e;
+        });
+
+        var newEntries = [];
+        var sc_next = Config.nextScale;
+
+        // ── cur 아이콘 처리 ──
+        // 기존 cur 재사용 → 없으면 기존 next 승격 (이동 애니만, 새 아이콘 아님) → 없으면 신규
+        order.curOrder.forEach(function (b) {
+            var s   = b === order.curSubject ? 'active' :
+                      (order.curPending.indexOf(b) >= 0 ? 'pending' : 'done');
+            var k   = self._bKey(b);
+            var entry;
+
+            if (oldCur[k]) {
+                // 기존 cur 항목 재사용
+                entry = oldCur[k];
+                delete oldCur[k];
+                entry.ic.setStatus(s);
+                entry.ic.scale.x = 1.0; entry.ic.scale.y = 1.0;
+
+            } else if (oldNext[k]) {
+                // next → cur 승격: 아이콘 재사용, 위치는 lerp로 자연스럽게 이동
+                entry = oldNext[k];
+                delete oldNext[k];
+                entry.role = 'cur';
+                entry.ic.setStatus(s);
+                // scale은 즉시 변경 (위치 lerp로 자연스러운 전환 느낌)
+                entry.ic.scale.x = 1.0; entry.ic.scale.y = 1.0;
+
+            } else {
+                // 신규 생성 (배틀 중간에 소환 등 예외 케이스)
+                var ic = new Sprite_TurnOrderIcon(b);
+                ic.setStatus(s);
+                ic.opacity = 0;
+                ic._isNew  = true;
+                ic.scale.x = 1.0; ic.scale.y = 1.0;
+                self.addChild(ic);
+                entry = { b: b, ic: ic, role: 'cur' };
+            }
+            newEntries.push(entry);
+        });
+
+        // ── next 아이콘 처리 ──
+        // 기존 next 재사용 (cur 승격에서 사용되지 않은 것) → 없으면 신규
+        order.next.forEach(function (b) {
+            var k   = self._bKey(b);
+            var entry;
+
+            if (oldNext[k]) {
+                // 기존 next 재사용
+                entry = oldNext[k];
+                delete oldNext[k];
+                entry.ic.setStatus('next');
+                entry.ic.scale.x = sc_next; entry.ic.scale.y = sc_next;
+
+            } else {
+                // 신규 생성 (next→cur 승격 이후 새 next 슬롯)
+                var ic = new Sprite_TurnOrderIcon(b);
+                ic.setStatus('next');
+                ic.opacity = 0;
+                ic._isNew  = true;
+                ic.scale.x = sc_next; ic.scale.y = sc_next;
+                self.addChild(ic);
+                entry = { b: b, ic: ic, role: 'next' };
+            }
+            newEntries.push(entry);
+        });
+
+        // ── 남은 old 항목 → 퇴장 애니메이션 ──
+        var k;
+        for (k in oldCur)  { oldCur[k].ic.startExit(isH);  self._exitingIcons.push(oldCur[k].ic);  }
+        for (k in oldNext) { oldNext[k].ic.startExit(isH); self._exitingIcons.push(oldNext[k].ic); }
+
+        self._iconEntries = newEntries;
+
+        // 구분선·인디케이터를 최상위로
+        self.removeChild(self._divSprite);
+        self.removeChild(self._indSprite);
+        self.addChild(self._divSprite);
+        self.addChild(self._indSprite);
+    };
+
+    // role 포함 검색
+    Sprite_TurnOrderBar.prototype._findEntry = function (battler, role) {
         for (var i = 0; i < this._iconEntries.length; i++) {
-            if (this._iconEntries[i].b === battler) return this._iconEntries[i];
+            var e = this._iconEntries[i];
+            if (e.b === battler && e.role === role) return e;
         }
         return null;
     };
 
-    // ── 상태 동기화 (role 기반으로 정확하게) ────────────────────────────────
-
+    //=========================================================================
+    // 상태 동기화 (매 프레임, role 기반)
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._updateIconStatuses = function () {
         var subject = BattleManager._subject;
         var pending = BattleManager._actionBattlers || [];
+        var phase   = BattleManager._phase;
+        var inTurn  = (phase === 'turn' || phase === 'action');
 
         this._iconEntries.forEach(function (e) {
+            if (e.role === 'next') {
+                if (e.ic._status !== 'next') e.ic.setStatus('next');
+                return;
+            }
+            // cur role
             var b = e.b;
             if (b === subject) {
                 e.ic.setStatus('active');
-            } else if (e.role === 'next') {
-                // next role 아이콘은 next 상태 유지 (done으로 내려가지 않음)
-                if (e.ic._status !== 'next') e.ic.setStatus('next');
+            } else if (!inTurn) {
+                // input 단계: 모두 pending
+                if (e.ic._status !== 'pending') e.ic.setStatus('pending');
+            } else if (pending.indexOf(b) >= 0) {
+                if (e.ic._status !== 'pending') e.ic.setStatus('pending');
             } else {
-                // cur role: pending 여부로 판단
-                if (pending.indexOf(b) >= 0) e.ic.setStatus('pending');
-                else                         e.ic.setStatus('done');
+                if (e.ic._status !== 'done') e.ic.setStatus('done');
             }
         });
     };
 
-    // ── 레이아웃 ─────────────────────────────────────────────────────────────
-
+    //=========================================================================
+    // 레이아웃
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._updateLayout = function () {
         var order = this._calcTurnOrder();
         var isH   = Config.direction === 'horizontal';
-
-        var curList  = [];
-        var nextList = [];
-        order.done.forEach(function (b) { curList.push(b); });
-        if (order.subject) curList.push(order.subject);
-        order.pending.forEach(function (b) { curList.push(b); });
-        order.next.forEach(function (b)    { nextList.push(b); });
-
-        if (isH) this._layoutH(curList, nextList);
-        else     this._layoutV(curList, nextList);
+        if (isH) this._layoutH(order.curOrder, order.next);
+        else     this._layoutV(order.curOrder, order.next);
     };
 
     Sprite_TurnOrderBar.prototype._layoutH = function (curList, nextList) {
@@ -762,22 +816,26 @@
         var dBSz = lw > 0 ? lw + 8 : 0;
         var hasDiv = lw > 0 && curList.length > 0 && nextList.length > 0;
 
-        var curW  = curList.length  > 0 ? curList.length  * (size+gap) - gap : 0;
-        var nxtW  = nextList.length > 0 ? nextList.length * (nSz+gap)  - gap : 0;
-        var midW  = hasDiv ? dg+dBSz+dg : (curList.length>0 && nextList.length>0 ? gap : 0);
+        var curW  = curList.length  > 0 ? curList.length  * (size + gap) - gap : 0;
+        var nxtW  = nextList.length > 0 ? nextList.length * (nSz  + gap) - gap : 0;
+        var midW  = hasDiv
+            ? dg + dBSz + dg
+            : (curList.length > 0 && nextList.length > 0 ? gap : 0);
         var total = curW + midW + nxtW;
 
-        var sx = this._startX(total), cy = this._centerY(size), x = sx;
+        var sx = this._startX(total);
+        var cy = this._centerY(size);
+        var x  = sx;
 
         curList.forEach(function (b) {
-            var e = this._findEntry(b); if (!e) return;
-            this._setTarget(e.ic, x + Math.round(size/2), cy, true);
+            var e = this._findEntry(b, 'cur'); if (!e) return;
+            this._setTarget(e.ic, x + Math.round(size / 2), cy, true);
             x += size + gap;
         }, this);
 
         if (hasDiv) {
             x += dg - gap;
-            this._divSprite.x = x + Math.round(dBSz/2);
+            this._divSprite.x = x + Math.round(dBSz / 2);
             this._divSprite.y = cy;
             x += dBSz + dg;
         } else {
@@ -785,12 +843,12 @@
         }
 
         nextList.forEach(function (b) {
-            var e = this._findEntry(b); if (!e) return;
-            this._setTarget(e.ic, x + Math.round(nSz/2), cy, true);
+            var e = this._findEntry(b, 'next'); if (!e) return;
+            this._setTarget(e.ic, x + Math.round(nSz / 2), cy, true);
             x += nSz + gap;
         }, this);
 
-        this._redrawBackground(sx-10, cy - Math.round(size/2) - 9, total+20, size+18);
+        this._redrawBackground(sx - 10, cy - Math.round(size / 2) - 9, total + 20, size + 18);
     };
 
     Sprite_TurnOrderBar.prototype._layoutV = function (curList, nextList) {
@@ -800,45 +858,52 @@
         var dBSz = lw > 0 ? lw + 8 : 0;
         var hasDiv = lw > 0 && curList.length > 0 && nextList.length > 0;
 
-        var curH  = curList.length  > 0 ? curList.length  * (size+gap) - gap : 0;
-        var nxtH  = nextList.length > 0 ? nextList.length * (nSz+gap)  - gap : 0;
-        var midH  = hasDiv ? dg+dBSz+dg : (curList.length>0 && nextList.length>0 ? gap : 0);
+        var curH  = curList.length  > 0 ? curList.length  * (size + gap) - gap : 0;
+        var nxtH  = nextList.length > 0 ? nextList.length * (nSz  + gap) - gap : 0;
+        var midH  = hasDiv
+            ? dg + dBSz + dg
+            : (curList.length > 0 && nextList.length > 0 ? gap : 0);
         var total = curH + midH + nxtH;
 
-        var cx = this._centerX(size), sy = this._startY(total), y = sy;
+        var cx = this._centerX(size);
+        var sy = this._startY(total);
+        var y  = sy;
 
         curList.forEach(function (b) {
-            var e = this._findEntry(b); if (!e) return;
-            this._setTarget(e.ic, cx, y + Math.round(size/2), false);
+            var e = this._findEntry(b, 'cur'); if (!e) return;
+            this._setTarget(e.ic, cx, y + Math.round(size / 2), false);
             y += size + gap;
         }, this);
 
         if (hasDiv) {
             y += dg - gap;
             this._divSprite.x = cx;
-            this._divSprite.y = y + Math.round(dBSz/2);
+            this._divSprite.y = y + Math.round(dBSz / 2);
             y += dBSz + dg;
         } else {
             this._divSprite.x = -999;
         }
 
         nextList.forEach(function (b) {
-            var e = this._findEntry(b); if (!e) return;
-            this._setTarget(e.ic, cx, y + Math.round(nSz/2), false);
+            var e = this._findEntry(b, 'next'); if (!e) return;
+            this._setTarget(e.ic, cx, y + Math.round(nSz / 2), false);
             y += nSz + gap;
         }, this);
 
-        this._redrawBackground(cx - Math.round(size/2) - 9, sy-10, size+18, total+20);
+        this._redrawBackground(cx - Math.round(size / 2) - 9, sy - 10, size + 18, total + 20);
     };
 
-    // 첫 배치(frame<=2)는 즉시 위치, 이후는 진입 애니메이션
+    // _isNew인 아이콘: 항상 즉시 배치 (슬라이드 없음)
+    // 단, 배틀 중간에 새로 생긴 경우(_isNew && frame > 10)만 오른쪽에서 슬라이드
     Sprite_TurnOrderBar.prototype._setTarget = function (ic, tx, ty, isH) {
         if (ic._exiting) return;
         if (ic._isNew) {
             ic._isNew = false;
-            if (this._frame <= 2) {
+            if (this._frame <= 4) {
+                // 첫 배치: 즉시 표시
                 ic.x = tx; ic.y = ty; ic.opacity = 255;
             } else {
+                // 배틀 중 추가 (next→cur 승격 후 새 next 등): 오른쪽/아래에서 슬라이드 인
                 ic.x = isH ? tx + Config.iconSize * 3 : tx;
                 ic.y = isH ? ty : ty + Config.iconSize * 3;
                 ic.opacity = 0;
@@ -848,14 +913,17 @@
         ic._targetY = ty;
     };
 
-    // ── 인디케이터 위치 ──────────────────────────────────────────────────────
-
+    //=========================================================================
+    // 인디케이터 위치
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._updateIndicatorPos = function () {
         if (Config.indicatorStyle === 'none') return;
         var activeIc = null;
         for (var i = 0; i < this._iconEntries.length; i++) {
             var e = this._iconEntries[i];
-            if (e.ic._status === 'active' && !e.ic._exiting) { activeIc = e.ic; break; }
+            if (e.role === 'cur' && e.ic._status === 'active' && !e.ic._exiting) {
+                activeIc = e.ic; break;
+            }
         }
         if (!activeIc) { this._indSprite.visible = false; return; }
 
@@ -867,8 +935,9 @@
         this._indSprite.y = isH ? activeIc.y - half - pad : activeIc.y;
     };
 
-    // ── 퇴장 아이콘 정리 ─────────────────────────────────────────────────────
-
+    //=========================================================================
+    // 퇴장 아이콘 정리
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._cleanExiting = function () {
         this._exitingIcons = this._exitingIcons.filter(function (ic) {
             if (ic._exitDone) { this.removeChild(ic); return false; }
@@ -876,36 +945,29 @@
         }, this);
     };
 
-    // ── 오버레이 (촉수 + 연결선) ─────────────────────────────────────────────
-
+    //=========================================================================
+    // 오버레이 (촉수 + 연결선)
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._updateOverlay = function () {
-        var needsUpdate = Config.showTentacle || Config.showCurves;
-        if (!needsUpdate) { this._overlayBitmap.clear(); return; }
-
+        if (!Config.showTentacle && !Config.showCurves) {
+            this._overlayBitmap.clear();
+            return;
+        }
         var bmp = this._overlayBitmap;
         bmp.clear();
         var ctx = bmp._context;
 
-        // 1. 촉수 애니메이션
-        if (Config.showTentacle) {
-            this._drawTentacles(ctx);
-        }
-
-        // 2. 행동 연결선
-        if (Config.showCurves) {
-            this._drawActionCurves(ctx);
-        }
+        if (Config.showTentacle) this._drawTentacles(ctx);
+        if (Config.showCurves)   this._drawActionCurves(ctx);
 
         bmp._setDirty();
     };
-
-    // ── 촉수 그리기 ──────────────────────────────────────────────────────────
 
     Sprite_TurnOrderBar.prototype._drawTentacles = function (ctx) {
         var activeIc = null;
         for (var i = 0; i < this._iconEntries.length; i++) {
             var e = this._iconEntries[i];
-            if (e.ic._status === 'active' && !e.ic._exiting && e.ic.opacity > 100) {
+            if (e.role === 'cur' && e.ic._status === 'active' && !e.ic._exiting && e.ic.opacity > 100) {
                 activeIc = e.ic; break;
             }
         }
@@ -922,25 +984,18 @@
         ctx.lineCap = 'round';
 
         for (var i = 0; i < cnt; i++) {
-            // 각 촉수의 기본 각도 (고르게 분산) + 시간에 따른 천천한 회전
-            var baseAngle  = (i / cnt) * Math.PI * 2 + t * 0.018;
-            var phase      = (i / cnt) * Math.PI * 2;
-
-            // 길이 맥동: 서로 다른 주파수/위상으로 자연스럽게
-            var pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 0.042 + phase * 1.5));
-            var len   = maxL * pulse;
-
-            // 촉수 구불거림: 중간 제어점을 수직 방향으로 흔들기
-            var wiggle  = Math.sin(t * 0.057 + phase * 2.1) * maxL * 0.28;
-            var perpA   = baseAngle + Math.PI / 2;
-            var cpx     = cx + Math.cos(baseAngle) * len * 0.5 + Math.cos(perpA) * wiggle;
-            var cpy     = cy + Math.sin(baseAngle) * len * 0.5 + Math.sin(perpA) * wiggle;
-            var ex      = cx + Math.cos(baseAngle) * len;
-            var ey      = cy + Math.sin(baseAngle) * len;
-
-            // 알파: 맥동 + 중앙 근처는 더 밝게
-            var alpha   = 0.12 + 0.55 * pulse;
-            var lineW   = Math.max(0.4, 1.6 * (1.0 - pulse * 0.25));
+            var baseAngle = (i / cnt) * Math.PI * 2 + t * 0.018;
+            var phase     = (i / cnt) * Math.PI * 2;
+            var pulse     = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 0.042 + phase * 1.5));
+            var len       = maxL * pulse;
+            var wiggle    = Math.sin(t * 0.057 + phase * 2.1) * maxL * 0.28;
+            var perpA     = baseAngle + Math.PI / 2;
+            var cpx       = cx + Math.cos(baseAngle) * len * 0.5 + Math.cos(perpA) * wiggle;
+            var cpy       = cy + Math.sin(baseAngle) * len * 0.5 + Math.sin(perpA) * wiggle;
+            var ex        = cx + Math.cos(baseAngle) * len;
+            var ey        = cy + Math.sin(baseAngle) * len;
+            var alpha     = 0.12 + 0.55 * pulse;
+            var lineW     = Math.max(0.4, 1.6 * (1.0 - pulse * 0.25));
 
             ctx.beginPath();
             ctx.moveTo(cx, cy);
@@ -950,7 +1005,6 @@
             ctx.stroke();
         }
 
-        // 아이콘 중심에서 방사 광선 (FOW 스타일)
         var rayCount = Math.round(cnt * 0.6);
         for (var j = 0; j < rayCount; j++) {
             var rAngle = (j / rayCount) * Math.PI * 2 + t * 0.025 + 0.15;
@@ -964,11 +1018,8 @@
             ctx.lineWidth   = 0.8;
             ctx.stroke();
         }
-
         ctx.restore();
     };
-
-    // ── 행동 연결선 ──────────────────────────────────────────────────────────
 
     Sprite_TurnOrderBar.prototype._drawActionCurves = function (ctx) {
         if (BattleManager._phase !== 'action') return;
@@ -976,7 +1027,7 @@
         var targets = BattleManager._targets || [];
         if (!subject || targets.length === 0) return;
 
-        var subEntry = this._findEntry(subject);
+        var subEntry = this._findEntry(subject, 'cur');
         if (!subEntry || subEntry.ic._exiting) return;
 
         var action = subject.currentAction ? subject.currentAction() : null;
@@ -985,14 +1036,13 @@
         var half   = Math.round(Config.iconSize / 2);
 
         targets.forEach(function (target) {
-            var tEntry = this._findEntry(target);
+            var tEntry = this._findEntry(target, 'cur') || this._findEntry(target, 'next');
             if (!tEntry || tEntry.ic._exiting) return;
 
             var sx = subEntry.ic.x, sy = subEntry.ic.y;
             var tx = tEntry.ic.x,   ty = tEntry.ic.y;
 
             if (isH) {
-                // 아이콘 하단에서 시작, 아래로 처지는 베지어
                 var p1x = sx, p1y = sy + half + 4;
                 var p2x = tx, p2y = ty + half + 4;
                 var drop = Math.max(20, Math.abs(p2x - p1x) * 0.35);
@@ -1001,7 +1051,6 @@
                     p1x + (p2x-p1x)*0.75, p2y + drop,
                     p2x, p2y, color);
             } else {
-                // 세로 모드: 아이콘 오른쪽에서 시작, 오른쪽으로 처지는 베지어
                 var p1x = sx + half + 4, p1y = sy;
                 var p2x = tx + half + 4, p2y = ty;
                 var drift = Math.max(20, Math.abs(p2y - p1y) * 0.35);
@@ -1015,8 +1064,6 @@
 
     Sprite_TurnOrderBar.prototype._strokeBezier = function (ctx, x0, y0, cp1x, cp1y, cp2x, cp2y, x1, y1, color) {
         var lw = Config.curveWidth;
-
-        // 발광 효과 (뒤에 두꺼운 반투명 선)
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x1, y1);
@@ -1025,7 +1072,6 @@
         ctx.lineCap     = 'round';
         ctx.stroke();
 
-        // 본선
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x1, y1);
@@ -1033,38 +1079,33 @@
         ctx.lineWidth   = lw;
         ctx.stroke();
 
-        // 시작점 원
         ctx.beginPath();
         ctx.arc(x0, y0, lw + 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
+        ctx.fillStyle = color; ctx.fill();
 
-        // 끝점 원 (타겟)
         ctx.beginPath();
         ctx.arc(x1, y1, lw + 2, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-        // 끝점 테두리 (화살 느낌)
+        ctx.fillStyle = color; ctx.fill();
+
         ctx.beginPath();
         ctx.arc(x1, y1, lw + 4, 0, Math.PI * 2);
         ctx.strokeStyle = withAlpha(color, 0.5);
-        ctx.lineWidth   = 1.5;
-        ctx.stroke();
+        ctx.lineWidth   = 1.5; ctx.stroke();
     };
 
     Sprite_TurnOrderBar.prototype._curveColor = function (action) {
         if (!action || !action.item()) return Config.curveOther;
         if (action.isAttack && action.isAttack()) return Config.curveAttack;
         var item = action.item();
-        // hitType: 0=certain, 1=physical, 2=magical
         if (item.hitType === 2) return Config.curveMagic;
         if (action.isMagicSkill && action.isMagicSkill()) return Config.curveMagic;
         if (action.isForFriend && action.isForFriend()) return Config.curveHeal;
         return Config.curveOther;
     };
 
-    // ── 배경 패널 ─────────────────────────────────────────────────────────────
-
+    //=========================================================================
+    // 배경 패널
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._redrawBackground = function (bx, by, bw, bh) {
         var bmp = this._bgBitmap;
         bmp.clear();
@@ -1078,13 +1119,13 @@
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(bx+r, by); ctx.lineTo(bx+bw-r, by);
-        ctx.quadraticCurveTo(bx+bw, by,    bx+bw, by+r);
+        ctx.quadraticCurveTo(bx+bw, by, bx+bw, by+r);
         ctx.lineTo(bx+bw, by+bh-r);
         ctx.quadraticCurveTo(bx+bw, by+bh, bx+bw-r, by+bh);
-        ctx.lineTo(bx+r,  by+bh);
-        ctx.quadraticCurveTo(bx, by+bh,    bx, by+bh-r);
-        ctx.lineTo(bx,    by+r);
-        ctx.quadraticCurveTo(bx, by,        bx+r, by);
+        ctx.lineTo(bx+r, by+bh);
+        ctx.quadraticCurveTo(bx, by+bh, bx, by+bh-r);
+        ctx.lineTo(bx, by+r);
+        ctx.quadraticCurveTo(bx, by, bx+r, by);
         ctx.closePath();
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fill();
@@ -1092,8 +1133,9 @@
         bmp._setDirty();
     };
 
-    // ── 위치 계산 헬퍼 ───────────────────────────────────────────────────────
-
+    //=========================================================================
+    // 위치 계산 헬퍼
+    //=========================================================================
     Sprite_TurnOrderBar.prototype._startX = function (totalW) {
         var pos = Config.position, m = Config.margin;
         if (pos.indexOf('right') >= 0 && pos.indexOf('left') < 0) return Graphics.width - totalW - m;
@@ -1102,13 +1144,13 @@
     };
     Sprite_TurnOrderBar.prototype._centerY = function (s) {
         var pos = Config.position, m = Config.margin;
-        if (pos.indexOf('bottom') >= 0) return Graphics.height - m - Math.round(s/2);
+        if (pos.indexOf('bottom') >= 0) return Graphics.height - m - Math.round(s / 2);
         if (pos === 'left-center' || pos === 'right-center') return Math.round(Graphics.height / 2);
         return m + Math.round(s / 2);
     };
     Sprite_TurnOrderBar.prototype._centerX = function (s) {
         var pos = Config.position, m = Config.margin;
-        if (pos.indexOf('right') >= 0) return Graphics.width - m - Math.round(s/2);
+        if (pos.indexOf('right') >= 0) return Graphics.width - m - Math.round(s / 2);
         if (pos === 'top-center' || pos === 'bottom-center') return Math.round(Graphics.width / 2);
         return m + Math.round(s / 2);
     };
@@ -1142,22 +1184,22 @@
         var n;
 
         switch (sub) {
-            case 'show':        Config.visible = true;  break;
-            case 'hide':        Config.visible = false; break;
+            case 'show':      Config.visible = true;  break;
+            case 'hide':      Config.visible = false; break;
             case 'direction':
                 if (val === 'horizontal' || val === 'vertical') Config.direction = val;
                 break;
-            case 'position':    Config.position = val;  break;
+            case 'position':  Config.position = val;  break;
             case 'iconsize':
                 n = parseInt(val, 10);
                 if (!isNaN(n) && n >= 20) Config.iconSize = n;
                 break;
-            case 'indicator':   Config.indicatorStyle = val; break;
-            case 'clip':        Config.clipShape = val;       break;
+            case 'indicator': Config.indicatorStyle = val; break;
+            case 'clip':      Config.clipShape = val;       break;
             case 'curves':
-                Config.showCurves   = (val === 'on' || val === 'true');  break;
+                Config.showCurves   = (val === 'on' || val === 'true'); break;
             case 'tentacle':
-                Config.showTentacle = (val === 'on' || val === 'true');  break;
+                Config.showTentacle = (val === 'on' || val === 'true'); break;
         }
     };
 
