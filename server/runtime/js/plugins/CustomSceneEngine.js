@@ -2698,13 +2698,11 @@
       var btn = slots[i];
       if (!btn) continue;
       var rw = this._rowWidgets[i];
-      // 터치 감지 위치: window는 scene tree에 없으므로 실제 화면 좌표로 이동
+      // 터치 감지 위치: window는 scene tree에 없으므로 실제 화면 좌표로 직접 설정
+      // move()는 _refreshAllParts()를 호출해 자식 스프라이트를 날리므로 x/y 직접 할당
       if (btn._window && rw && rw._container) {
-        btn._window.move(
-          (this._rowOverlay ? this._rowOverlay.x : 0) + rw._container.x,
-          (this._rowOverlay ? this._rowOverlay.y : 0) + rw._container.y,
-          btn._window.width, btn._window.height
-        );
+        btn._window.x = (this._rowOverlay ? this._rowOverlay.x : 0) + rw._container.x;
+        btn._window.y = (this._rowOverlay ? this._rowOverlay.y : 0) + rw._container.y;
       }
       // 양방향 navLeft/navRight 링크 (슬롯이 2개 이상일 때만)
       if (slots.length >= 2 && btn._def) {
@@ -2739,14 +2737,11 @@
       // enabled 상태도 반영
       var rowData = commands[i] || {};
       rw._container.opacity = (rowData.enabled === false) ? 160 : 255;
-      // focusable 슬롯 버튼: 터치 감지용 window 위치를 화면 좌표로 갱신
+      // focusable 슬롯 버튼: 터치 감지용 window 위치를 화면 좌표로 갱신 (x/y만 직접 할당)
       var built = rw._subRoot;
       if (built && built instanceof Widget_Button && built._focusable && built._window) {
-        built._window.move(
-          (this._rowOverlay ? this._rowOverlay.x : 0) + rect.x,
-          (this._rowOverlay ? this._rowOverlay.y : 0) + rect.y,
-          built._window.width, built._window.height
-        );
+        built._window.x = (this._rowOverlay ? this._rowOverlay.x : 0) + rect.x;
+        built._window.y = (this._rowOverlay ? this._rowOverlay.y : 0) + rect.y;
       }
     }
   };
