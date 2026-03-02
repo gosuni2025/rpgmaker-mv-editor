@@ -2049,10 +2049,7 @@
 
         // ── 게이지 오버레이 배경 (반투명 검정)
         var bgBmp = new Bitmap(slotW, overlayH);
-        var bgCtx = bgBmp._context;
-        bgCtx.fillStyle = 'rgba(0,0,0,0.62)';
-        bgCtx.fillRect(0, 0, slotW, overlayH);
-        bgBmp._setDirty();
+        bgBmp.fillRect(0, 0, slotW, overlayH, 'rgba(0,0,0,0.62)');
         var bgSpr = new Sprite(bgBmp);
         bgSpr.x = 0;
         bgSpr.y = overlayY;
@@ -2094,15 +2091,14 @@
   };
 
   Widget_PartyStatus.prototype._drawCursorBitmap = function(bmp, w, h) {
-    var ctx = bmp._context;
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(1, 1, w - 2, h - 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, w - 2, h - 2);
-    ctx.restore();
-    bmp._setDirty();
+    // 내부 반투명 채움
+    bmp.fillRect(0, 0, w, h, 'rgba(255,255,255,0.12)');
+    // 테두리 (4개 fillRect로 구현 — Bitmap API, _context 직접 접근 불필요)
+    var lc = 'rgba(255,255,255,0.9)';
+    bmp.fillRect(0,     0,     w, 2,  lc);  // 상단
+    bmp.fillRect(0,     h - 2, w, 2,  lc);  // 하단
+    bmp.fillRect(0,     0,     2, h,  lc);  // 좌측
+    bmp.fillRect(w - 2, 0,     2, h,  lc);  // 우측
   };
 
   // 얼굴 이미지 업데이트 (변경된 경우만)
