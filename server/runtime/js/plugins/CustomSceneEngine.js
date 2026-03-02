@@ -2435,7 +2435,8 @@
       p = p._parent;
     }
     var myId = this._id || this._def && this._def.id || '?';
-    var prevVisible = this._decoSprite ? this._decoSprite.visible : (this._labelSprite ? this._labelSprite.visible : null);
+    var prevVisible = this._transitionOverlay ? this._transitionOverlay.visible
+      : (this._decoSprite ? this._decoSprite.visible : (this._labelSprite ? this._labelSprite.visible : null));
     if (prevVisible !== null && prevVisible !== parentVisible) {
       console.log('[BTN_VIS] id=' + myId +
         ' ' + prevVisible + ' → ' + parentVisible +
@@ -2444,12 +2445,14 @@
     if (this._hideOnKeyboard) {
       var showBtn = parentVisible && typeof TouchInput !== 'undefined' && typeof Input !== 'undefined'
         ? TouchInput.date > Input.date : false;
-      if (this._displayObject) this._displayObject.visible = showBtn;
-      if (this._decoSprite)    this._decoSprite.visible    = showBtn;
-      if (this._labelSprite)   this._labelSprite.visible   = showBtn;
+      if (this._displayObject)     this._displayObject.visible     = showBtn;
+      if (this._decoSprite)        this._decoSprite.visible        = showBtn;
+      if (this._transitionOverlay) this._transitionOverlay.visible = showBtn;
+      if (this._labelSprite)       this._labelSprite.visible       = showBtn;
     } else {
-      if (this._decoSprite)  this._decoSprite.visible  = parentVisible;
-      if (this._labelSprite) this._labelSprite.visible = parentVisible;
+      if (this._decoSprite)        this._decoSprite.visible        = parentVisible;
+      if (this._transitionOverlay) this._transitionOverlay.visible = parentVisible;
+      if (this._labelSprite)       this._labelSprite.visible       = parentVisible;
     }
   };
   // 매 프레임 hover/pressed 상태 감지 및 효과 갱신
@@ -4101,8 +4104,10 @@
     var origCreateAllWindows = Klass.prototype.createAllWindows;
     Klass.prototype.createAllWindows = function() {
       var sceneDef = this._getSceneDef();
+      console.log('[CSE:battle] createAllWindows — sceneDef=' + !!sceneDef + ' hasRoot=' + !!(sceneDef && sceneDef.root));
       if (sceneDef && sceneDef.root) {
         this._createWidgetTree(sceneDef);
+        console.log('[CSE:battle] _createWidgetTree done — widgetMap:', Object.keys(this._widgetMap || {}));
       }
       origCreateAllWindows.call(this);
     };
