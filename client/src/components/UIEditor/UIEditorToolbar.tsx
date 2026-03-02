@@ -51,6 +51,7 @@ export default function UIEditorToolbar() {
   const setUiNavVisual = useEditorStore((s) => s.setUiNavVisual);
 
   const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
+  const customSceneSelectedWidget = useEditorStore((s) => s.customSceneSelectedWidget);
   const [showHelp, setShowHelp] = useState(false);
   const [forceShowSelected, setForceShowSelected] = useState(true);
   const [showOnlySelected, setShowOnlySelected] = useState(false);
@@ -63,9 +64,11 @@ export default function UIEditorToolbar() {
     );
   };
 
+  // Window_ 창 선택 또는 커스텀 씬 위젯 선택 중 하나를 강제 표시 대상으로 사용
+  const effectiveSelectedId = uiEditorSelectedWindowId ?? customSceneSelectedWidget;
   useEffect(() => {
-    sendViewSettings(uiEditorSelectedWindowId, forceShowSelected, showOnlySelected);
-  }, [uiEditorSelectedWindowId, forceShowSelected, showOnlySelected]);
+    sendViewSettings(effectiveSelectedId, forceShowSelected, showOnlySelected);
+  }, [effectiveSelectedId, forceShowSelected, showOnlySelected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFontSave = async () => {
     if (!projectPath) return;
