@@ -2811,6 +2811,9 @@
   // 첫 표시 시 초기 빌드
   Widget_List.prototype.show = function() {
     Widget_Base.prototype.show.call(this);
+    if (this._def && this._def.cursorOnly) {
+      console.log('[CSE:' + this._id + '] show() → _window.visible=' + (this._window ? this._window.visible : 'n/a'));
+    }
     if (!this._builtOnce && this._dataScript) {
       this._builtOnce = true;
       this._rebuildFromScript();
@@ -2855,6 +2858,18 @@
     // active 여부와 무관하게 visible + 인덱스 선택 시 커서 표시
     // active=true → 깜박임(인터랙티브), active=false → 반투명 고정(인디케이터)
     var visible = win.visible && idx >= 0;
+    // 상태 변화 시에만 로그
+    var _prevVis = this._csLastVisible;
+    var _prevIdx = this._csLastIdx;
+    var _prevActive = this._csLastActive;
+    if (_prevVis !== visible || _prevIdx !== idx || _prevActive !== win.active) {
+      console.log('[CSE:' + this._id + '] cursorOverlay: visible=' + visible
+        + ' (win.visible=' + win.visible + ' idx=' + idx + ' active=' + win.active + ')'
+        + ' rowOverlay.visible=' + (this._rowOverlay ? this._rowOverlay.visible : 'n/a'));
+      this._csLastVisible = visible;
+      this._csLastIdx = idx;
+      this._csLastActive = win.active;
+    }
     cursorSpr.visible = visible;
     if (visible) {
       cursorSpr.x = idx * this._csCursorSlotW;
@@ -2874,7 +2889,15 @@
   };
 
   // DELEGATE 호환: select/deselect 를 _window에 위임
-  Widget_List.prototype.select   = function(i) { if (this._window) this._window.select(i); };
+  Widget_List.prototype.select   = function(i) {
+    if (this._def && this._def.cursorOnly) {
+      console.log('[CSE:' + this._id + '] select(' + i + ') → _window.index before=' + (this._window ? this._window.index() : 'n/a'));
+    }
+    if (this._window) this._window.select(i);
+    if (this._def && this._def.cursorOnly) {
+      console.log('[CSE:' + this._id + '] select(' + i + ') → _window.index after=' + (this._window ? this._window.index() : 'n/a') + ' visible=' + (this._window ? this._window.visible : 'n/a'));
+    }
+  };
   Widget_List.prototype.deselect = function()  { if (this._window) this._window.deselect(); };
 
   window.Widget_List = Widget_List;
@@ -4397,23 +4420,32 @@
     };
 
     // startPartyCommandSelection: 파티 커맨드 단계 → actorWindow 인디케이터 숨김
-    var origSPCS = SCB.startPartyCommandSelection;
+    var origSPCS = SCB.startPartyCommandSelection || function() {};
     Klass.prototype.startPartyCommandSelection = function() {
+      console.log('[CSE:battle] startPartyCommandSelection()');
       origSPCS.call(this);
       var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      console.log('[CSE:battle] startPartyCommandSelection: actorWidget=' + (actorWidget ? 'OK' : 'MISSING'));
       if (actorWidget && actorWidget.hide) actorWidget.hide();
     };
 
     // startActorCommandSelection: 액터 커맨드 단계 → actorWindow 인디케이터 표시 (비활성)
-    var origSACS = SCB.startActorCommandSelection;
+    var origSACS = SCB.startActorCommandSelection || function() {};
     Klass.prototype.startActorCommandSelection = function() {
+      console.log('[CSE:battle] startActorCommandSelection()');
       origSACS.call(this);
       var actorWidget = this._widgetMap && this._widgetMap['actorWindow'];
+      var actor = BattleManager.actor();
+      console.log('[CSE:battle] startActorCommandSelection: actorWidget=' + (actorWidget ? 'OK' : 'MISSING')
+        + ' actor=' + (actor ? actor.name() + '[' + actor.index() + ']' : 'null'));
       if (actorWidget) {
         actorWidget.show();
-        var actor = BattleManager.actor();
         if (actor) actorWidget.select(actor.index());
         // activate하지 않음 — 인터랙티브 아닌 인디케이터 전용
+        console.log('[CSE:battle] startActorCommandSelection: after show+select → _window.visible='
+          + (actorWidget._window ? actorWidget._window.visible : 'n/a')
+          + ' _window.index=' + (actorWidget._window ? actorWidget._window.index() : 'n/a')
+          + ' _rowOverlay.visible=' + (actorWidget._rowOverlay ? actorWidget._rowOverlay.visible : 'n/a'));
       }
     };
 
