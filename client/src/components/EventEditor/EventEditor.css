@@ -269,6 +269,26 @@
   flex: 1;
 }
 
+.event-editor-trigger-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.event-editor-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.event-editor-radio-label input[type="radio"] {
+  accent-color: #2675bf;
+  cursor: pointer;
+}
+
 /* Condition rows */
 .event-editor-condition-row {
   display: flex;

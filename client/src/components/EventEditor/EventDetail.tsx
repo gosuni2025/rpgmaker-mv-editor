@@ -284,9 +284,20 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
 
               <fieldset className="event-editor-fieldset">
                 <legend>{t('eventDetail.trigger', '발동')}</legend>
-                <select value={page.trigger} onChange={e => updatePage(activePage, { trigger: Number(e.target.value) })} className="event-editor-select" style={{ width: '100%' }}>
-                  {TRIGGER_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
-                </select>
+                <div className="event-editor-trigger-radios">
+                  {TRIGGER_TYPES.map((label, i) => (
+                    <label key={i} className="event-editor-radio-label">
+                      <input
+                        type="radio"
+                        name={`trigger-${activePage}`}
+                        value={i}
+                        checked={page.trigger === i}
+                        onChange={() => updatePage(activePage, { trigger: i })}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
               </fieldset>
             </div>
 
