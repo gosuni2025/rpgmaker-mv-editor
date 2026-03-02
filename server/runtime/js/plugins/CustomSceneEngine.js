@@ -2895,6 +2895,7 @@
   // 첫 표시 시 초기 빌드 + _rowOverlay(cursorOnly) visible 동기화
   Widget_List.prototype.show = function() {
     Widget_Base.prototype.show.call(this);
+    this._csCursorOverlayVisible = true;
     if (this._rowOverlay) this._rowOverlay.visible = true;
     if (!this._builtOnce && this._dataScript) {
       this._builtOnce = true;
@@ -2904,6 +2905,7 @@
 
   Widget_List.prototype.hide = function() {
     Widget_Base.prototype.hide.call(this);
+    this._csCursorOverlayVisible = false;
     if (this._rowOverlay) this._rowOverlay.visible = false;
   };
 
@@ -2911,6 +2913,11 @@
     Widget_TextList.prototype.update.call(this);
     if (this._def && this._def.cursorOnly) {
       this._updateCursorOverlay();
+      // Widget_TextList.update()가 _rowOverlay.visible을 _window.visible로 매 프레임 덮어씀
+      // cursorOnly 모드에서는 hide()/show()로 설정한 _csCursorOverlayVisible로 복원
+      if (this._rowOverlay && this._csCursorOverlayVisible !== undefined) {
+        this._rowOverlay.visible = this._csCursorOverlayVisible;
+      }
     }
   };
 
