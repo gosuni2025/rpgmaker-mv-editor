@@ -652,10 +652,12 @@
             var _c = TouchInput.isCancelled() || Input.isTriggered('cancel');
             var _o = TouchInput.isTriggered() || Input.isTriggered('ok');
             if (_c || _o) {
+                var _ov = this._detailOverlay;
                 console.log('[ID] input c=' + _c + ' o=' + _o +
                     ' | fs.vis=' + (fs ? fs.visible : 'null') +
                     ' dw.vis=' + (dw ? dw.visible : 'null') +
-                    ' aw.vis=' + (aw ? aw.visible : 'null'));
+                    ' aw.vis=' + (aw ? aw.visible : 'null') +
+                    ' overlay.vis=' + (_ov ? _ov.visible : 'null'));
             }
 
             var fsOpen = !!(fs && fs.visible);
