@@ -13,7 +13,7 @@ function saveToolbarPartial(partial: Record<string, unknown>) {
 
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastQueue' |
-  'showGrid' | 'showPassability' | 'showTileInfo' | 'showRegion' |
+  'showGrid' | 'showPassability' | 'showTileInfo' | 'showRegion' | 'showStats' |
   'transparentColor' | 'maxUndo' | 'zoomStep' | 'rendererInitError' |
   'uninitializedProjectPath' | 'setUninitializedProjectPath' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
@@ -22,7 +22,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showUpdateCheckDialog' | 'showMCPStatusDialog' | 'showWebpConvertDialog' | 'showPngConvertDialog' | 'useWebp' | 'webpConverting' |
   'showToast' | 'dismissToast' | 'dismissAllToasts' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
-  'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' |
+  'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' | 'setShowStats' |
   'setMode3d' | 'setShadowLight' | 'setDisableFow' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
@@ -44,6 +44,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showPassability: false,
   showRegion: false,
   showTileInfo: (() => { try { const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY); return raw ? JSON.parse(raw).showTileInfo ?? true : true; } catch { return true; } })(),
+  showStats: (() => { try { const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY); return raw ? JSON.parse(raw).showStats ?? true : true; } catch { return true; } })(),
   postProcessConfig: {},
   paletteTab: 'A',
   toastQueue: [],
@@ -128,6 +129,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowTileInfo: (show: boolean) => {
     set({ showTileInfo: show });
     saveToolbarPartial({ showTileInfo: show });
+  },
+  setShowStats: (show: boolean) => {
+    set({ showStats: show });
+    saveToolbarPartial({ showStats: show });
   },
   setMode3d: (enabled: boolean) => {
     const ConfigManager = (window as any).ConfigManager;

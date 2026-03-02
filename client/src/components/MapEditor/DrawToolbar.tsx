@@ -34,6 +34,7 @@ export default function DrawToolbar() {
     setShowEventSearchDialog,
     showGrid, setShowGrid, showRegion, setShowRegion,
     showPassability, setShowPassability,
+    showStats, setShowStats,
     objectSubMode, setObjectSubMode,
     passageTool, passageShape, setPassageTool, setPassageShape,
   } = useEditorStore(useShallow((s) => ({
@@ -50,6 +51,7 @@ export default function DrawToolbar() {
     showGrid: s.showGrid, setShowGrid: s.setShowGrid,
     showRegion: s.showRegion, setShowRegion: s.setShowRegion,
     showPassability: s.showPassability, setShowPassability: s.setShowPassability,
+    showStats: s.showStats, setShowStats: s.setShowStats,
     objectSubMode: s.objectSubMode, setObjectSubMode: s.setObjectSubMode,
     passageTool: s.passageTool, passageShape: s.passageShape,
     setPassageTool: s.setPassageTool, setPassageShape: s.setPassageShape,
@@ -237,6 +239,17 @@ export default function DrawToolbar() {
       </div>
 
       <div className="draw-toolbar-spacer" />
+
+      <label className="draw-toolbar-checkbox-label" title="렌더러 성능 통계 표시 (FPS / DC / Tri 등)">
+        <input
+          type="checkbox"
+          checked={showStats}
+          onChange={(e) => setShowStats(e.target.checked)}
+        />
+        Stats
+      </label>
+
+      <div className="draw-toolbar-sep" />
 
       {!demoMode && (
         <button className="draw-toolbar-save-btn" onClick={saveCurrentMap}>{t('toolbar.save')}</button>

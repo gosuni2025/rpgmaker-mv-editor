@@ -20,6 +20,7 @@ import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, useP
 import { useMapScrollPersistence } from './useMapScrollPersistence';
 import TileInfoTooltip from './TileInfoTooltip';
 import Camera3DGizmo from './Camera3DGizmo';
+import RendererStats from './RendererStats';
 import './MapCanvas.css';
 
 
@@ -51,6 +52,7 @@ export default function MapCanvas() {
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
   const showTileInfo = useEditorStore((s) => s.showTileInfo);
+  const showStats = useEditorStore((s) => s.showStats);
   const mode3d = useEditorStore((s) => s.mode3d);
   const objectBrushTiles = useEditorStore((s) => s.objectBrushTiles);
 
@@ -264,6 +266,7 @@ export default function MapCanvas() {
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <Camera3DGizmo />
+      <RendererStats rendererObjRef={rendererObjRef} visible={showStats} />
       <div ref={containerRef} style={containerStyle}>
       <div style={{
         position: 'relative',

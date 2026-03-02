@@ -41,6 +41,8 @@ export default function UIEditorToolbar() {
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
   const uiNavVisual = useEditorStore((s) => s.uiNavVisual);
+  const showStats = useEditorStore((s) => s.showStats);
+  const setShowStats = useEditorStore((s) => s.setShowStats);
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
   const setUiShowSkinLabels = useEditorStore((s) => s.setUiShowSkinLabels);
@@ -308,6 +310,17 @@ export default function UIEditorToolbar() {
         )}
 
         <div className="draw-toolbar-spacer" />
+
+        <label className="draw-toolbar-checkbox-label" title="렌더러 성능 통계 표시 (FPS)">
+          <input
+            type="checkbox"
+            checked={showStats}
+            onChange={(e) => setShowStats(e.target.checked)}
+          />
+          Stats
+        </label>
+
+        <div className="draw-toolbar-sep" style={{ margin: '0 4px' }} />
 
         {/* 저장 / 플레이테스트 — 오른쪽 */}
         <button
