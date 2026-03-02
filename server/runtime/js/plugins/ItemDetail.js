@@ -667,13 +667,13 @@
                     SoundManager.playCancel();
                     dw.hide();
                     Input.clear(); TouchInput.clear();
-                    self._pendingActivateId = (self._pendingHandler && self._pendingHandler.itemListWidget) || 'item_list';
+                    this._pendingActivateId = (this._pendingHandler && this._pendingHandler.itemListWidget) || 'item_list';
                     this._popupInputCooldown = 3;
                 } else if ((TouchInput.isTriggered() && dw.isTouchedInsideFrame && dw.isTouchedInsideFrame()) ||
                            Input.isTriggered('ok')) {
                     if (dw._detail && dw._detail.image) {
                         SoundManager.playOk();
-                        self._itemDetailFullscreen.open(dw._item, dw._detail);
+                        this._itemDetailFullscreen.open(dw._item, dw._detail);
                     } else {
                         SoundManager.playBuzzer();
                     }
