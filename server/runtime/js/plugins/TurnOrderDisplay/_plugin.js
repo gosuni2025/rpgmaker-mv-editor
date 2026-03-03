@@ -253,8 +253,13 @@
         var battlers = [];
         if (!BattleManager._surprise) battlers = battlers.concat($gameParty.members());
         if (!BattleManager._preemptive) battlers = battlers.concat($gameTroop.members());
-        battlers.forEach(function (b) { b._speed = _calcSpeedDeterministic(b); });
-        battlers.sort(function (a, b) { return b._speed - a._speed; });
+        battlers.forEach(function (b, i) {
+            b._speed = _calcSpeedDeterministic(b);
+            b._sortIndex = i; // 안정 정렬용 원래 인덱스
+        });
+        battlers.sort(function (a, b) {
+            return b._speed - a._speed || a._sortIndex - b._sortIndex;
+        });
         _inputPreviewOrder = battlers.filter(function (b) {
             return b.isBattleMember() && b.isAlive();
         });
