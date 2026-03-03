@@ -345,12 +345,171 @@
         _BM_endAction.call(this);
     };
 
-    // 피격 알림 — 아군이 피해를 받으면 턴 순서 아이콘에 흔들림 + 타격 이펙트 + 데미지 숫자
+    // 피격 알림 — 아군이 피해를 받으면 턴 순서 아이콘 + 하단 상태창에 흔들림/이펙트/데미지
     var _GA_performDamage = Game_Actor.prototype.performDamage;
     Game_Actor.prototype.performDamage = function () {
         _GA_performDamage.call(this);
         _damageNotifications.push({ battler: this, damage: this.result().hpDamage });
     };
+
+    //=========================================================================
+    // 하단 상태창 얼굴 피격 이펙트
+    //=========================================================================
+    var _statusFaceEffects = [];
+
+    function _getShakeWrapper(container) {
+        if (container._todShakeWrapper) return container._todShakeWrapper;
+        var wrapper = new Sprite();
+        while (container.children.length > 0) wrapper.addChild(container.removeChildAt(0));
+        container.addChild(wrapper);
+        container._todShakeWrapper = wrapper;
+        return wrapper;
+    }
+
+    function _addStatusFaceEffect(battler, damage) {
+        var scene = SceneManager._scene;
+        var wmap = scene && scene._widgetMap;
+        var sw = wmap && wmap['statusWindow'];
+        if (!sw || !sw._rowWidgets) return;
+
+        var actorIndex = battler.index();
+        if (actorIndex < 0 || actorIndex >= sw._rowWidgets.length) return;
+        var rw = sw._rowWidgets[actorIndex];
+        if (!rw || !rw._container) return;
+
+        var wrapper = _getShakeWrapper(rw._container);
+
+        var faceW = 143, faceH = 144;
+        var overlaySize = Math.max(faceW, faceH) + 80;
+        var overlayBmp = new Bitmap(overlaySize, overlaySize);
+        var overlay = new Sprite(overlayBmp);
+        overlay.anchor.x = 0.5;
+        overlay.anchor.y = 0.5;
+        overlay.x = 2 + Math.round(faceW / 2);
+        overlay.y = Math.round(faceH / 2);
+        wrapper.addChild(overlay);
+
+        _statusFaceEffects.push({
+            wrapper: wrapper,
+            overlay: overlay,
+            bitmap: overlayBmp,
+            timer: 36, maxTimer: 36,
+            shakeTimer: 24, shakeMaxTimer: 24, shakePower: 8,
+            damage: damage,
+            faceW: faceW, faceH: faceH,
+            halfOverlay: Math.round(overlaySize / 2),
+            seed: Math.random() * Math.PI * 2
+        });
+    }
+
+    function _updateStatusFaceEffects() {
+        for (var i = _statusFaceEffects.length - 1; i >= 0; i--) {
+            var eff = _statusFaceEffects[i];
+
+            if (!eff.wrapper.parent) {
+                if (eff.overlay.parent) eff.overlay.parent.removeChild(eff.overlay);
+                _statusFaceEffects.splice(i, 1);
+                continue;
+            }
+
+            // 흔들림 (wrapper offset)
+            eff.wrapper.x = 0; eff.wrapper.y = 0;
+            if (eff.shakeTimer > 0) {
+                eff.shakeTimer--;
+                var power = eff.shakePower * (eff.shakeTimer / eff.shakeMaxTimer);
+                eff.wrapper.x = Math.round((Math.random() - 0.5) * 2 * power);
+                eff.wrapper.y = Math.round((Math.random() - 0.5) * 2 * power);
+            }
+
+            eff.timer--;
+            if (eff.timer <= 0) {
+                eff.wrapper.x = 0; eff.wrapper.y = 0;
+                if (eff.overlay.parent) eff.overlay.parent.removeChild(eff.overlay);
+                _statusFaceEffects.splice(i, 1);
+                continue;
+            }
+
+            _drawStatusFaceOverlay(eff);
+        }
+    }
+
+    function _drawStatusFaceOverlay(eff) {
+        var bmp = eff.bitmap, ctx = bmp._context;
+        bmp.clear();
+
+        var progress = 1 - (eff.timer / eff.maxTimer);
+        var cx = eff.halfOverlay, cy = eff.halfOverlay;
+        var halfW = Math.round(eff.faceW / 2);
+        var halfH = Math.round(eff.faceH / 2);
+
+        // 빨간/흰 플래시
+        if (progress < 0.35) {
+            var p = progress / 0.35;
+            ctx.save();
+            ctx.fillStyle = 'rgba(255,50,20,' + (0.45 * (1 - p)).toFixed(2) + ')';
+            ctx.fillRect(cx - halfW, cy - halfH, eff.faceW, eff.faceH);
+            if (p < 0.5) {
+                ctx.fillStyle = 'rgba(255,255,255,' + (0.6 * (1 - p / 0.5)).toFixed(2) + ')';
+                ctx.fillRect(cx - halfW, cy - halfH, eff.faceW, eff.faceH);
+            }
+            ctx.restore();
+        }
+
+        // 충격선
+        var burstCount = 10;
+        ctx.save(); ctx.lineCap = 'round';
+        for (var j = 0; j < burstCount; j++) {
+            var angle = (j / burstCount) * Math.PI * 2 + eff.seed;
+            var innerR = halfW * 0.3 + halfW * 0.5 * progress;
+            var outerR = halfW * (0.6 + 1.2 * progress);
+            var alpha = Math.max(0, 0.7 * (1 - progress));
+            if (alpha <= 0) continue;
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+            ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+            ctx.strokeStyle = 'rgba(255,160,60,' + alpha.toFixed(2) + ')';
+            ctx.lineWidth = Math.max(0.5, 3 * (1 - progress * 0.7));
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // 스파크
+        var sparkCount = 8;
+        for (var k = 0; k < sparkCount; k++) {
+            var sa = (k / sparkCount) * Math.PI * 2 + eff.seed * 1.7;
+            var sd = halfW * (0.4 + 1.5 * progress);
+            var sparkAlpha = Math.max(0, 0.8 * (1 - progress * 1.1));
+            if (sparkAlpha <= 0) continue;
+            var sparkR = Math.max(0.5, 3 * (1 - progress));
+            ctx.beginPath();
+            ctx.arc(cx + Math.cos(sa) * sd, cy + Math.sin(sa) * sd, sparkR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,240,180,' + sparkAlpha.toFixed(2) + ')';
+            ctx.fill();
+        }
+
+        // 데미지 숫자
+        if (eff.damage != null && eff.damage > 0) {
+            var numProgress = Math.min(1, progress * 1.3);
+            var numAlpha = numProgress < 0.7 ? 1.0 : Math.max(0, 1 - (numProgress - 0.7) / 0.3);
+            if (numAlpha > 0) {
+                var numY = cy - halfH - 10 - numProgress * 30;
+                var fontSize = 24;
+                if (progress < 0.12) fontSize = Math.round(fontSize * (1 + 0.4 * (1 - progress / 0.12)));
+                ctx.save();
+                ctx.font = 'bold ' + fontSize + 'px Arial';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                var text = String(eff.damage);
+                ctx.strokeStyle = 'rgba(0,0,0,' + (numAlpha * 0.9).toFixed(2) + ')';
+                ctx.lineWidth = 4; ctx.lineJoin = 'round';
+                ctx.strokeText(text, cx, numY);
+                ctx.fillStyle = 'rgba(255,230,220,' + numAlpha.toFixed(2) + ')';
+                ctx.fillText(text, cx, numY);
+                ctx.restore();
+            }
+        }
+
+        bmp._setDirty();
+    }
 
     //=========================================================================
     // 설정
@@ -723,7 +882,7 @@
         this.visible = true;
         this._frame++;
 
-        // 피격 알림 처리
+        // 피격 알림 처리 (턴 순서 아이콘 + 하단 상태창)
         while (_damageNotifications.length > 0) {
             var dmg = _damageNotifications.shift();
             var dmgEntry = this._findEntry(dmg.battler, 'cur');
@@ -736,6 +895,7 @@
                     damage: dmg.damage
                 });
             }
+            _addStatusFaceEffect(dmg.battler, dmg.damage);
         }
 
         var ck = [Config.direction, Config.position, Config.iconSize, Config.gap,
@@ -763,6 +923,7 @@
         this._updateIndicatorPos();
         this._updateOverlay();
         this._cleanExiting();
+        _updateStatusFaceEffects();
     };
 
     //=========================================================================
