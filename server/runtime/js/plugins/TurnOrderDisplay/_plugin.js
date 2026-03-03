@@ -318,20 +318,19 @@
 
     var _BM_startTurn = BattleManager.startTurn;
     BattleManager.startTurn = function () {
-        // input 미리보기 속도 저장
-        var savedSpeeds = [];
-        if (_inputPreviewOrder) {
-            _inputPreviewOrder.forEach(function (b) {
-                savedSpeeds.push({ b: b, s: b._speed });
-            });
-        }
+        // input 미리보기 순서 + 속도 저장
+        var savedOrder = _inputPreviewOrder ? _inputPreviewOrder.slice() : null;
         _inputPreviewOrder = null;
         _BM_startTurn.call(this); // makeActionOrders → makeSpeed 재랜덤
-        // 미리보기 속도 복원 → 표시된 순서 = 실제 순서
-        if (savedSpeeds.length > 0) {
-            savedSpeeds.forEach(function (e) { e.b._speed = e.s; });
-            this._actionBattlers.sort(function (a, b) {
-                return b.speed() - a.speed();
+        // 미리보기 순서 그대로 적용 → 표시된 순서 = 실제 순서
+        if (savedOrder) {
+            var actionSet = this._actionBattlers;
+            this._actionBattlers = savedOrder.filter(function (b) {
+                return actionSet.indexOf(b) >= 0;
+            });
+            // 속도도 복원 (다른 코드가 speed() 참조할 수 있으므로)
+            savedOrder.forEach(function (b) {
+                b._speed = _calcSpeedDeterministic(b);
             });
         }
     };
