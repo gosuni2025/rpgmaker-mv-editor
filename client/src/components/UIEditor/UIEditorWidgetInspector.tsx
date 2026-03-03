@@ -52,6 +52,54 @@ function SectionDetails({ title, open, badge, children }: {
   );
 }
 
+// ── useTextInsert — textarea 커서 위치에 코드 삽입 훅 ──
+function useTextInsert(text: string, update: (u: any) => void) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const insert = useCallback((code: string) => {
+    const ta = ref.current;
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    update({ text: text.slice(0, s) + code + text.slice(e) });
+    requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
+  }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { ref, insert };
+}
+
+// ── ColorInput — 컬러피커 + 텍스트 + × 버튼 콤보 ──
+function ColorInput({ value, placeholder = '없음', onChange, clearable = true }: {
+  value: string | undefined; placeholder?: string;
+  onChange: (v: string | undefined) => void; clearable?: boolean;
+}) {
+  return <>
+    <input type="color" value={value || '#ffffff'} onChange={(e) => onChange(e.target.value)} style={colorPickerInputStyle} />
+    <input style={{ ...inputStyle, flex: 1 }} value={value || ''} placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value || undefined)} />
+    {clearable && value && <button style={smallBtnStyle} onClick={() => onChange(undefined)}>×</button>}
+  </>;
+}
+
+// ── AlignSelects — 가로/세로 정렬 select 쌍 ──
+function AlignSelects({ align, verticalAlign, defVAlign = 'middle', update }: {
+  align?: string; verticalAlign?: string; defVAlign?: string; update: (u: any) => void;
+}) {
+  return <>
+    <div style={rowStyle}>
+      <span style={{ ...inlineLabelStyle, width: 50 }}>가로정렬</span>
+      <select style={{ ...selectStyle, flex: 1 }} value={align || 'left'}
+        onChange={(e) => update({ align: e.target.value })}>
+        <option value="left">왼쪽</option><option value="center">가운데</option><option value="right">오른쪽</option>
+      </select>
+    </div>
+    <div style={rowStyle}>
+      <span style={{ ...inlineLabelStyle, width: 50 }}>세로정렬</span>
+      <select style={{ ...selectStyle, flex: 1 }} value={verticalAlign || defVAlign}
+        onChange={(e) => update({ verticalAlign: e.target.value })}>
+        <option value="top">위</option><option value="middle">가운데</option><option value="bottom">아래</option>
+      </select>
+    </div>
+  </>;
+}
+
 // ── 위젯 경로 계산 헬퍼 ──
 function findWidgetPath(root: WidgetDef | undefined, targetId: string): string[] | null {
   if (!root) return null;
@@ -220,47 +268,17 @@ export function ActionHandlerEditor({ handler, onChange }: {
 const WINDOW_BASED_TYPES: WidgetType[] = ['panel', 'button', 'list', 'textList', 'options'];
 
 function LabelTypeSection({ widget, update }: { widget: WidgetDef_Label; update: (u: Partial<WidgetDef>) => void }) {
-  const labelTextRef = useRef<HTMLTextAreaElement>(null);
-  const insertLabelText = useCallback((code: string) => {
-    const ta = labelTextRef.current;
-    if (!ta) return;
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    update({ text: widget.text.slice(0, s) + code + widget.text.slice(e) } as any);
-    requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
-  }, [widget.text]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { ref, insert } = useTextInsert(widget.text, update as any);
   return (
     <div>
       <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
-        <ExpressionPickerButton mode="text" onInsert={insertLabelText} />
+        <span style={inlineLabelStyle}>텍스트</span>
+        <ExpressionPickerButton mode="text" onInsert={insert} />
       </div>
-      <textarea
-        ref={labelTextRef}
-        style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-        value={widget.text}
-        placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
-        onChange={(e) => update({ text: e.target.value } as any)}
-      />
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>가로정렬</span>
-        <select style={{ ...selectStyle, flex: 1 }}
-          value={widget.align || 'left'}
-          onChange={(e) => update({ align: e.target.value as any } as any)}>
-          <option value="left">왼쪽</option>
-          <option value="center">가운데</option>
-          <option value="right">오른쪽</option>
-        </select>
-      </div>
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>세로정렬</span>
-        <select style={{ ...selectStyle, flex: 1 }}
-          value={widget.verticalAlign || 'middle'}
-          onChange={(e) => update({ verticalAlign: e.target.value as any } as any)}>
-          <option value="top">위</option>
-          <option value="middle">가운데</option>
-          <option value="bottom">아래</option>
-        </select>
-      </div>
+      <textarea ref={ref} style={{ ...inputStyle, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+        value={widget.text} placeholder="{actor[0].name}, {gold}, {var:1} 사용 가능"
+        onChange={(e) => update({ text: e.target.value } as any)} />
+      <AlignSelects align={widget.align} verticalAlign={widget.verticalAlign} defVAlign="middle" update={update as any} />
       <label style={checkboxLabelStyle}>
         <input type="checkbox" checked={widget.useTextEx === true}
           onChange={(e) => update({ useTextEx: e.target.checked || undefined } as any)}
@@ -269,74 +287,29 @@ function LabelTypeSection({ widget, update }: { widget: WidgetDef_Label; update:
         <HelpButton text={'true로 설정하면 \\c[N], \\i[N] 등 확장 텍스트 코드를 지원합니다.\n일반 텍스트보다 렌더링 비용이 높습니다.'} />
       </label>
       <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>텍스트 색</span>
-        <input type="color"
-          value={widget.color || '#ffffff'}
-          onChange={(e) => update({ color: e.target.value } as any)}
-          style={colorPickerInputStyle} />
-        <input style={{ ...inputStyle, flex: 1 }}
-          value={widget.color || ''}
-          placeholder="없음 (기본색)"
-          onChange={(e) => update({ color: e.target.value || undefined } as any)} />
-        {widget.color && (
-          <button style={smallBtnStyle} onClick={() => update({ color: undefined } as any)}>×</button>
-        )}
+        <span style={{ ...inlineLabelStyle, width: 50 }}>텍스트 색</span>
+        <ColorInput value={widget.color} onChange={(v) => update({ color: v } as any)} />
       </div>
     </div>
   );
 }
 
 function TextAreaTypeSection({ widget, update }: { widget: WidgetDef_TextArea; update: (u: Partial<WidgetDef>) => void }) {
-  const taTextRef = useRef<HTMLTextAreaElement>(null);
-  const insertTaText = useCallback((code: string) => {
-    const ta = taTextRef.current;
-    if (!ta) return;
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    update({ text: widget.text.slice(0, s) + code + widget.text.slice(e) } as any);
-    requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + code.length; ta.focus(); });
-  }, [widget.text]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { ref, insert } = useTextInsert(widget.text, update as any);
   return (
     <div>
       <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 11, color: '#888' }}>텍스트</span>
-        <ExpressionPickerButton mode="text" onInsert={insertTaText} />
+        <span style={inlineLabelStyle}>텍스트</span>
+        <ExpressionPickerButton mode="text" onInsert={insert} />
       </div>
-      <textarea
-        ref={taTextRef}
-        style={{ ...inputStyle, height: 80, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-        value={widget.text}
-        placeholder="{$ctx.item&&$ctx.item.description||''} 등 표현식 사용 가능"
-        onChange={(e) => update({ text: e.target.value } as any)}
-      />
+      <textarea ref={ref} style={{ ...inputStyle, height: 80, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+        value={widget.text} placeholder="{$ctx.item&&$ctx.item.description||''} 등 표현식 사용 가능"
+        onChange={(e) => update({ text: e.target.value } as any)} />
+      <AlignSelects align={widget.align} verticalAlign={widget.verticalAlign} defVAlign="top" update={update as any} />
       <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>가로정렬</span>
-        <select style={{ ...selectStyle, flex: 1 }}
-          value={widget.align || 'left'}
-          onChange={(e) => update({ align: e.target.value as any } as any)}>
-          <option value="left">왼쪽</option>
-          <option value="center">가운데</option>
-          <option value="right">오른쪽</option>
-        </select>
-      </div>
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>세로정렬</span>
-        <select style={{ ...selectStyle, flex: 1 }}
-          value={widget.verticalAlign || 'top'}
-          onChange={(e) => update({ verticalAlign: e.target.value as any } as any)}>
-          <option value="top">위</option>
-          <option value="middle">가운데</option>
-          <option value="bottom">아래</option>
-        </select>
-      </div>
-      <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', width: 50 }}>줄 높이</span>
-        <input style={{ ...inputStyle, width: 60 }} type="number"
-          value={widget.lineHeight ?? ''}
-          placeholder="기본"
-          onChange={(e) => {
-            const v = e.target.value.trim();
-            update({ lineHeight: v === '' ? undefined : (parseInt(v) || undefined) } as any);
-          }} />
+        <span style={{ ...inlineLabelStyle, width: 50 }}>줄 높이</span>
+        <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.lineHeight ?? ''} placeholder="기본"
+          onChange={(e) => { const v = e.target.value.trim(); update({ lineHeight: v === '' ? undefined : (parseInt(v) || undefined) } as any); }} />
         <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
       </div>
     </div>
@@ -664,17 +637,8 @@ function ButtonWidgetInspector({ sceneId: _sceneId, widget, update }: {
             </label>
           </div>
           <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 60 }}>색상</span>
-            <input type="color" value={widget.color || '#ffffff'}
-              onChange={(e) => update({ color: e.target.value } as any)}
-              style={{ width: 32, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }} />
-            <input style={{ ...inputStyle, flex: 1, marginLeft: 4 }}
-              value={widget.color || ''}
-              placeholder="#ffffff"
-              onChange={(e) => update({ color: e.target.value || undefined } as any)} />
-            {widget.color && (
-              <button style={smallBtnStyle} onClick={() => update({ color: undefined } as any)}>×</button>
-            )}
+            <span style={{ ...inlineLabelStyle, width: 60 }}>색상</span>
+            <ColorInput value={widget.color} placeholder="#ffffff" onChange={(v) => update({ color: v } as any)} />
           </div>
           <div style={rowStyle}>
             <span style={{ fontSize: 11, color: '#888', width: 60 }}>정렬</span>
@@ -691,24 +655,24 @@ function ButtonWidgetInspector({ sceneId: _sceneId, widget, update }: {
       <label style={{ ...labelStyle, marginTop: 6 }}>OK 동작</label>
       <ActionHandlerEditor handler={currentAction}
         onChange={(updates) => update({ action: { ...currentAction, ...updates } } as any)} />
-      <label style={{ ...labelStyle, marginTop: 6 }}>◀ 동작 (좌 키, 볼륨 감소 등)</label>
-      <ActionHandlerEditor handler={widget.leftAction || { action: 'popScene' as CommandActionType }}
-        onChange={(updates) => update({ leftAction: { ...(widget.leftAction || { action: 'popScene' as CommandActionType }), ...updates } } as any)} />
-      {widget.leftAction && (
-        <button className="ui-canvas-toolbar-btn" style={{ fontSize: 11, color: '#f88', marginTop: 2 }}
-          onClick={() => update({ leftAction: undefined } as any)}>
-          ◀ 동작 제거
-        </button>
-      )}
-      <label style={{ ...labelStyle, marginTop: 6 }}>▶ 동작 (우 키, 볼륨 증가 등)</label>
-      <ActionHandlerEditor handler={widget.rightAction || { action: 'popScene' as CommandActionType }}
-        onChange={(updates) => update({ rightAction: { ...(widget.rightAction || { action: 'popScene' as CommandActionType }), ...updates } } as any)} />
-      {widget.rightAction && (
-        <button className="ui-canvas-toolbar-btn" style={{ fontSize: 11, color: '#f88', marginTop: 2 }}
-          onClick={() => update({ rightAction: undefined } as any)}>
-          ▶ 동작 제거
-        </button>
-      )}
+      {(['left', 'right'] as const).map((dir) => {
+        const key = dir === 'left' ? 'leftAction' : 'rightAction';
+        const lbl = dir === 'left' ? '◀ 동작 (좌 키, 볼륨 감소 등)' : '▶ 동작 (우 키, 볼륨 증가 등)';
+        const cur = (widget as any)[key] || { action: 'popScene' as CommandActionType };
+        return (
+          <div key={dir}>
+            <label style={{ ...labelStyle, marginTop: 6 }}>{lbl}</label>
+            <ActionHandlerEditor handler={cur}
+              onChange={(updates) => update({ [key]: { ...cur, ...updates } } as any)} />
+            {(widget as any)[key] && (
+              <button className="ui-canvas-toolbar-btn" style={{ fontSize: 11, color: '#f88', marginTop: 2 }}
+                onClick={() => update({ [key]: undefined } as any)}>
+                {dir === 'left' ? '◀' : '▶'} 동작 제거
+              </button>
+            )}
+          </div>
+        );
+      })}
       <div style={{ marginTop: 8 }}>
         <ButtonTransitionSection widget={widget} update={update} />
       </div>
@@ -1336,64 +1300,31 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
 
       <SectionDetails title="스타일 (배경 / 테두리)">
         <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', width: 60 }}>배경색</span>
-          <input type="color"
-            value={widget.bgColor || '#000000'}
-            onChange={(e) => update({ bgColor: e.target.value } as any)}
-            style={colorPickerInputStyle} />
-          <input style={{ ...inputStyle, flex: 1 }}
-            value={widget.bgColor || ''}
-            placeholder="없음"
-            onChange={(e) => update({ bgColor: e.target.value || undefined } as any)} />
-          {widget.bgColor && (
-            <button style={smallBtnStyle} onClick={() => update({ bgColor: undefined } as any)}>×</button>
-          )}
+          <span style={{ ...inlineLabelStyle, width: 60 }}>배경색</span>
+          <ColorInput value={widget.bgColor} onChange={(v) => update({ bgColor: v } as any)} />
         </div>
         <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', width: 60 }}>불투명도</span>
-          <input type="range" min="0" max="1" step="0.01"
-            value={widget.bgAlpha ?? 1}
-            onChange={(e) => {
-              const v = parseFloat(e.target.value);
-              update({ bgAlpha: v >= 1 ? undefined : v } as any);
-            }}
-            style={{ flex: 1 }} />
-          <span style={{ fontSize: 11, color: '#ccc', width: 32, textAlign: 'right' }}>
-            {Math.round((widget.bgAlpha ?? 1) * 100)}%
-          </span>
+          <span style={{ ...inlineLabelStyle, width: 60 }}>불투명도</span>
+          <input type="range" min="0" max="1" step="0.01" value={widget.bgAlpha ?? 1} style={{ flex: 1 }}
+            onChange={(e) => { const v = parseFloat(e.target.value); update({ bgAlpha: v >= 1 ? undefined : v } as any); }} />
+          <span style={{ fontSize: 11, color: '#ccc', width: 32, textAlign: 'right' }}>{Math.round((widget.bgAlpha ?? 1) * 100)}%</span>
         </div>
         <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 두께</span>
-          <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
-            value={widget.borderWidth ?? ''}
-            placeholder="없음"
-            onChange={(e) => {
-              const v = e.target.value.trim();
-              update({ borderWidth: v === '' ? undefined : (parseInt(v) || 0) } as any);
-            }} />
+          <span style={{ ...inlineLabelStyle, width: 60 }}>테두리 두께</span>
+          <input style={{ ...inputStyle, width: 55 }} type="number" min="0" value={widget.borderWidth ?? ''} placeholder="없음"
+            onChange={(e) => { const v = e.target.value.trim(); update({ borderWidth: v === '' ? undefined : (parseInt(v) || 0) } as any); }} />
         </div>
         {!!(widget.borderWidth && widget.borderWidth > 0) && (
           <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 색</span>
-            <input type="color"
-              value={widget.borderColor || '#ffffff'}
-              onChange={(e) => update({ borderColor: e.target.value } as any)}
-              style={colorPickerInputStyle} />
-            <input style={{ ...inputStyle, flex: 1 }}
-              value={widget.borderColor || '#ffffff'}
-              onChange={(e) => update({ borderColor: e.target.value } as any)} />
+            <span style={{ ...inlineLabelStyle, width: 60 }}>테두리 색</span>
+            <ColorInput value={widget.borderColor} clearable={false} onChange={(v) => update({ borderColor: v } as any)} />
           </div>
         )}
         {(widget.bgColor || (widget.borderWidth && widget.borderWidth > 0)) && (
           <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 60 }}>모서리 곡률</span>
-            <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
-              value={widget.borderRadius ?? ''}
-              placeholder="0"
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                update({ borderRadius: v === '' ? undefined : (parseInt(v) || 0) } as any);
-              }} />
+            <span style={{ ...inlineLabelStyle, width: 60 }}>모서리 곡률</span>
+            <input style={{ ...inputStyle, width: 55 }} type="number" min="0" value={widget.borderRadius ?? ''} placeholder="0"
+              onChange={(e) => { const v = e.target.value.trim(); update({ borderRadius: v === '' ? undefined : (parseInt(v) || 0) } as any); }} />
             <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
           </div>
         )}
