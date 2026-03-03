@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { collectFiles, fileHash, MigrationFile } from './helpers';
+import { isDirectoryPlugin, bundleDirectoryPlugin, listPluginNames } from '../../services/pluginBundler';
 
 let runtimePath = path.join(__dirname, '..', '..', 'runtime');
 
@@ -73,12 +74,41 @@ export function checkEditorPlugins(projectPath: string): { files: MigrationFile[
 
   if (!fs.existsSync(editorPluginsDir)) return { files, needsMigration };
 
-  for (const epFile of fs.readdirSync(editorPluginsDir).filter(f => f.endsWith('.js'))) {
+  // 단일 .js 파일 비교
+  for (const epFile of fs.readdirSync(editorPluginsDir, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.js')).map(e => e.name)) {
     const editorFile = path.join(editorPluginsDir, epFile);
     const projectFile = path.join(projectPluginsDir, epFile);
     const mf = compareFile(editorFile, projectFile, `js/plugins/${epFile}`);
     files.push(mf);
     if (mf.status !== 'same') needsMigration = true;
+  }
+
+  // 디렉토리 플러그인 비교 (번들 해시 vs 프로젝트 단일 파일 해시)
+  for (const e of fs.readdirSync(editorPluginsDir, { withFileTypes: true }).filter(e => e.isDirectory())) {
+    const dirPath = path.join(editorPluginsDir, e.name);
+    if (!isDirectoryPlugin(dirPath)) continue;
+    const name = e.name;
+    const { content, hash: editorHash } = bundleDirectoryPlugin(dirPath);
+    const projectFile = path.join(projectPluginsDir, `${name}.js`);
+    const displayPath = `js/plugins/${name}.js`;
+
+    if (!fs.existsSync(projectFile)) {
+      files.push({ file: displayPath, status: 'add', editorSize: content.length, editorMtime: new Date().toISOString() });
+      needsMigration = true;
+    } else {
+      const projectHash = fileHash(projectFile);
+      if (editorHash !== projectHash) {
+        const projectStat = fs.statSync(projectFile);
+        files.push({ file: displayPath, status: 'update', editorSize: content.length, projectSize: projectStat.size,
+          editorMtime: new Date().toISOString(), projectMtime: projectStat.mtime.toISOString() });
+        needsMigration = true;
+      } else {
+        const projectStat = fs.statSync(projectFile);
+        files.push({ file: displayPath, status: 'same', editorSize: content.length, projectSize: projectStat.size,
+          editorMtime: new Date().toISOString(), projectMtime: projectStat.mtime.toISOString() });
+      }
+    }
   }
 
   return { files, needsMigration };
@@ -99,6 +129,16 @@ export function copyMigrationFile(projectRoot: string, file: string): { from: st
     dest = path.join(projectRoot, 'js', relFile);
   } else if (file.startsWith('js/plugins/')) {
     const relFile = file.replace(/^js\/plugins\//, '');
+    const pluginName = relFile.replace(/\.js$/, '');
+    const editorDir = path.join(runtimePath, 'js', 'plugins', pluginName);
+    // 디렉토리 플러그인인 경우 번들
+    if (fs.existsSync(editorDir) && isDirectoryPlugin(editorDir)) {
+      dest = path.join(projectRoot, 'js', 'plugins', relFile);
+      if (!fs.existsSync(path.dirname(dest))) fs.mkdirSync(path.dirname(dest), { recursive: true });
+      const { content } = bundleDirectoryPlugin(editorDir);
+      fs.writeFileSync(dest, content, 'utf8');
+      return { from: editorDir, to: dest };
+    }
     src = path.join(runtimePath, 'js', 'plugins', relFile);
     dest = path.join(projectRoot, 'js', 'plugins', relFile);
   } else {
@@ -131,8 +171,7 @@ export function registerPluginsInJs(projectRoot: string): boolean {
 
   const registeredNames = new Set(pluginList.map(p => p.name));
   let modified = false;
-  for (const epFile of fs.readdirSync(editorPluginsDir).filter(f => f.endsWith('.js'))) {
-    const pluginName = epFile.replace('.js', '');
+  for (const pluginName of listPluginNames(editorPluginsDir)) {
     if (!registeredNames.has(pluginName)) {
       pluginList.push({ name: pluginName, status: true, description: '', parameters: {} });
       modified = true;
@@ -212,14 +251,29 @@ export function migrateFiles(projectRoot: string, selectedFiles?: string[]): str
   const projectPluginsDir = path.join(projectRoot, 'js', 'plugins');
   if (fs.existsSync(editorPluginsDir)) {
     fs.mkdirSync(projectPluginsDir, { recursive: true });
-    for (const epFile of fs.readdirSync(editorPluginsDir).filter(f => f.endsWith('.js'))) {
-      const src = path.join(editorPluginsDir, epFile);
-      const dest = path.join(projectPluginsDir, epFile);
+
+    // 단일 .js 파일 복사
+    for (const e of fs.readdirSync(editorPluginsDir, { withFileTypes: true }).filter(e => e.isFile() && e.name.endsWith('.js'))) {
+      const src = path.join(editorPluginsDir, e.name);
+      const dest = path.join(projectPluginsDir, e.name);
       if (!fs.existsSync(dest) || fileHash(src) !== fileHash(dest)) {
         fs.copyFileSync(src, dest);
-        copied.push(`js/plugins/${epFile}`);
+        copied.push(`js/plugins/${e.name}`);
       }
     }
+
+    // 디렉토리 플러그인: 번들하여 단일 파일로 복사
+    for (const e of fs.readdirSync(editorPluginsDir, { withFileTypes: true }).filter(e => e.isDirectory())) {
+      const dirPath = path.join(editorPluginsDir, e.name);
+      if (!isDirectoryPlugin(dirPath)) continue;
+      const { content, hash: editorHash } = bundleDirectoryPlugin(dirPath);
+      const dest = path.join(projectPluginsDir, `${e.name}.js`);
+      if (!fs.existsSync(dest) || fileHash(dest) !== editorHash) {
+        fs.writeFileSync(dest, content, 'utf8');
+        copied.push(`js/plugins/${e.name}.js`);
+      }
+    }
+
     registerPluginsInJs(projectRoot);
   }
 

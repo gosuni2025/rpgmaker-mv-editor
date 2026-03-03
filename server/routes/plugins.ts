@@ -5,6 +5,12 @@ import path from 'path';
 import { exec } from 'child_process';
 import projectManager from '../services/projectManager';
 import { parsePluginMetadata, type PluginMetadata } from './pluginMetadataParser';
+import {
+  isDirectoryPlugin,
+  bundleDirectoryPlugin,
+  listPluginNames,
+  resolvePlugin,
+} from '../services/pluginBundler';
 
 const router = express.Router();
 const runtimePath = path.join(__dirname, '..', 'runtime');
@@ -31,8 +37,8 @@ router.get('/', (req: Request, res: Response) => {
       }
     }
 
-    // List all .js files in plugins/
-    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith('.js')).map(f => f.replace('.js', ''));
+    // List all .js files and directory plugins in plugins/
+    const files = listPluginNames(pluginsDir);
 
     res.json({ files, list: pluginList });
   } catch (err: unknown) {
@@ -48,13 +54,28 @@ router.get('/metadata', (req: Request, res: Response) => {
     if (!fs.existsSync(pluginsDir)) return res.json({});
 
     const locale = req.query.locale as string | undefined;
-    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith('.js'));
     const result: Record<string, PluginMetadata> = {};
 
-    for (const file of files) {
+    // 단일 .js 파일 처리
+    const jsFiles = fs.readdirSync(pluginsDir, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.js'))
+      .map(e => e.name);
+
+    for (const file of jsFiles) {
       const name = file.replace('.js', '');
       const content = fs.readFileSync(path.join(pluginsDir, file), 'utf8');
       result[name] = parsePluginMetadata(content, locale);
+    }
+
+    // 디렉토리 플러그인 처리 (_plugin.js에서 메타데이터 추출)
+    const dirEntries = fs.readdirSync(pluginsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory());
+    for (const e of dirEntries) {
+      const dirPath = path.join(pluginsDir, e.name);
+      if (!isDirectoryPlugin(dirPath)) continue;
+      const pluginJs = path.join(dirPath, '_plugin.js');
+      const content = fs.readFileSync(pluginJs, 'utf8');
+      result[e.name] = parsePluginMetadata(content, locale);
     }
 
     res.json(result);
@@ -93,30 +114,33 @@ router.post('/open-folder', (_req: Request, res: Response) => {
 
 // POST /api/plugins/open-vscode - Open plugin file in VSCode
 // Body: { name: string }
-// 프로젝트 js/plugins/<name>.js 를 우선하고, 없으면 에디터 런타임 plugins/<name>.js 를 연다.
+// 프로젝트 js/plugins/<name>.js 를 우선하고, 없으면 에디터 런타임 plugins/<name>.js 또는 디렉토리를 연다.
 router.post('/open-vscode', (req: Request, res: Response) => {
   try {
     const name = (req.body?.name as string || '').replace(/[^\w-]/g, '');
     if (!name) return res.status(400).json({ error: 'name required' });
 
-    const projectFile = path.join(projectManager.getJsPath(), 'plugins', `${name}.js`);
-    const runtimeFile = path.join(runtimePath, 'js', 'plugins', `${name}.js`);
-    const filePath = fs.existsSync(projectFile) ? projectFile : runtimeFile;
+    const runtimePluginsDir = path.join(runtimePath, 'js', 'plugins');
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: `Plugin file not found: ${name}.js` });
+    // 프로젝트 파일/디렉토리 우선
+    const projectPluginsDir = path.join(projectManager.getJsPath(), 'plugins');
+    const projectResolved = resolvePlugin(projectPluginsDir, name);
+    // 없으면 런타임 확인
+    const runtimeResolved = resolvePlugin(runtimePluginsDir, name);
+
+    const target = projectResolved || runtimeResolved;
+    if (!target) {
+      return res.status(404).json({ error: `Plugin not found: ${name}` });
     }
 
+    const openPath = target.path;
     const cmd = process.platform === 'darwin'
-      ? `open -a "Visual Studio Code" "${filePath}"`
-      : `code "${filePath}"`;
+      ? `open -a "Visual Studio Code" "${openPath}"`
+      : `code "${openPath}"`;
     exec(cmd, (err) => {
-      if (err) {
-        // fallback: try plain `code` command on macOS too
-        exec(`code "${filePath}"`);
-      }
+      if (err) exec(`code "${openPath}"`);
     });
-    res.json({ success: true, path: filePath });
+    res.json({ success: true, path: openPath, type: target.type });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -284,8 +308,12 @@ router.get('/editor-plugins', (req: Request, res: Response) => {
     if (!fs.existsSync(editorPluginsDir)) return res.json([]);
 
     const projectPluginsDir = path.join(projectManager.getJsPath(), 'plugins');
-    const epFiles = fs.readdirSync(editorPluginsDir).filter(f => f.endsWith('.js'));
     const result: { name: string; hasUpdate: boolean }[] = [];
+
+    // 단일 .js 파일
+    const epFiles = fs.readdirSync(editorPluginsDir, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.js'))
+      .map(e => e.name);
 
     for (const epFile of epFiles) {
       const name = epFile.replace('.js', '');
@@ -295,7 +323,27 @@ router.get('/editor-plugins', (req: Request, res: Response) => {
       if (fs.existsSync(projectFile)) {
         hasUpdate = pluginFileHash(editorFile) !== pluginFileHash(projectFile);
       } else {
-        hasUpdate = true; // not yet copied
+        hasUpdate = true;
+      }
+      result.push({ name, hasUpdate });
+    }
+
+    // 디렉토리 플러그인
+    const dirEntries = fs.readdirSync(editorPluginsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory());
+    for (const e of dirEntries) {
+      const dirPath = path.join(editorPluginsDir, e.name);
+      if (!isDirectoryPlugin(dirPath)) continue;
+      const name = e.name;
+      const { hash: editorHash } = bundleDirectoryPlugin(dirPath);
+      // 프로젝트에는 번들된 단일 파일로 존재
+      const projectFile = path.join(projectPluginsDir, `${name}.js`);
+      let hasUpdate = false;
+      if (fs.existsSync(projectFile)) {
+        const projectHash = pluginFileHash(projectFile);
+        hasUpdate = editorHash !== projectHash;
+      } else {
+        hasUpdate = true;
       }
       result.push({ name, hasUpdate });
     }
@@ -312,15 +360,24 @@ router.post('/upgrade', (req: Request, res: Response) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
 
-    const editorFile = path.join(runtimePath, 'js', 'plugins', `${name}.js`);
-    if (!fs.existsSync(editorFile)) {
-      return res.status(404).json({ error: `Editor plugin not found: ${name}` });
-    }
-
+    const editorPluginsDir = path.join(runtimePath, 'js', 'plugins');
     const projectPluginsDir = path.join(projectManager.getJsPath(), 'plugins');
     fs.mkdirSync(projectPluginsDir, { recursive: true });
+
+    const editorFile = path.join(editorPluginsDir, `${name}.js`);
+    const editorDir = path.join(editorPluginsDir, name);
     const dest = path.join(projectPluginsDir, `${name}.js`);
-    fs.copyFileSync(editorFile, dest);
+
+    if (fs.existsSync(editorFile)) {
+      // 단일 파일 복사
+      fs.copyFileSync(editorFile, dest);
+    } else if (fs.existsSync(editorDir) && isDirectoryPlugin(editorDir)) {
+      // 디렉토리 플러그인: 번들하여 단일 파일로 저장
+      const { content } = bundleDirectoryPlugin(editorDir);
+      fs.writeFileSync(dest, content, 'utf8');
+    } else {
+      return res.status(404).json({ error: `Editor plugin not found: ${name}` });
+    }
 
     res.json({ success: true });
   } catch (err: unknown) {

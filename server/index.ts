@@ -10,6 +10,7 @@ import { mcpManager } from './services/mcpManager';
 
 import projectRoutes from './routes/project';
 import { setRuntimePath } from './routes/project/migrationUtils';
+import { createPluginBundleMiddleware } from './services/pluginBundler';
 import mapsRoutes from './routes/maps';
 import databaseRoutes from './routes/database';
 import resourcesRoutes from './routes/resources';
@@ -122,7 +123,12 @@ export function createApp(options: AppOptions = {}) {
   app.use('/plugins', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
     res.set('Cache-Control', 'no-store');
-    express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
+    const pluginsDir = path.join(projectManager.currentPath!, 'js', 'plugins');
+    // 단일 파일 우선 서빙, 없으면 런타임 디렉토리 플러그인 번들 시도
+    express.static(pluginsDir)(req, res, () => {
+      const runtimePluginsDir = path.join(resolvedRuntimePath, 'js', 'plugins');
+      createPluginBundleMiddleware(runtimePluginsDir)(req, res, next);
+    });
   });
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));

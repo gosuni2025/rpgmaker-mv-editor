@@ -4,6 +4,7 @@ import path from 'path';
 import projectManager from '../services/projectManager';
 import bundleRoutes from './bundles';
 import { buildGameHtml, buildPixiGameHtml } from './gameHtmlTemplates';
+import { createPluginBundleMiddleware } from '../services/pluginBundler';
 
 // ── 인메모리 플레이테스트 세션 ────────────────────────────────────────────────
 interface PlaytestSession {
@@ -94,7 +95,12 @@ export function createGameRouter(resolvedRuntimePath: string): express.Router {
   router.use('/js/plugins', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
     res.set('Cache-Control', 'no-store');
-    express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
+    const projectPluginsDir = path.join(projectManager.currentPath!, 'js', 'plugins');
+    const runtimePluginsDir = path.join(resolvedRuntimePath, 'js', 'plugins');
+    // 프로젝트 단일 파일 우선, 없으면 런타임 디렉토리 플러그인 번들 시도
+    express.static(projectPluginsDir)(req, res, () => {
+      createPluginBundleMiddleware(runtimePluginsDir)(req, res, next);
+    });
   });
   router.get('/js/plugins.js', (req, res) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
