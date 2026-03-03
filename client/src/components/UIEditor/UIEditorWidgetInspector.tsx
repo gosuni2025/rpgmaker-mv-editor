@@ -18,6 +18,40 @@ import { ScriptEditor } from '../EventEditor/ScriptEditor';
 import UIEditorScenePickerDialog from './UIEditorScenePickerDialog';
 import { AnimEffectSection } from './UIEditorAnimEffectSection';
 
+// ── 공통 인라인 스타일 상수 ──
+const detailsSummaryStyle: React.CSSProperties = {
+  ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none',
+};
+const checkboxLabelStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0',
+  fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none',
+};
+const colorPickerInputStyle: React.CSSProperties = {
+  width: 28, height: 22, padding: 1, border: '1px solid #555',
+  background: 'none', cursor: 'pointer', borderRadius: 2, flexShrink: 0,
+};
+const inlineLabelStyle: React.CSSProperties = { fontSize: 11, color: '#888', whiteSpace: 'nowrap' };
+const accentCheckboxStyle: React.CSSProperties = { accentColor: '#4af', cursor: 'pointer' };
+const badgeStyle: React.CSSProperties = {
+  background: '#2675bf', color: '#fff', fontSize: 9, padding: '1px 5px',
+  borderRadius: 8, marginLeft: 4, verticalAlign: 'middle',
+};
+
+// ── SectionDetails — <details><summary> 반복 패턴 헬퍼 ──
+function SectionDetails({ title, open, badge, children }: {
+  title: string; open?: boolean; badge?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <details open={open}>
+      <summary style={detailsSummaryStyle}>
+        {title}
+        {badge && <span style={badgeStyle}>설정됨</span>}
+      </summary>
+      <div style={sectionStyle}>{children}</div>
+    </details>
+  );
+}
+
 // ── 위젯 경로 계산 헬퍼 ──
 function findWidgetPath(root: WidgetDef | undefined, targetId: string): string[] | null {
   if (!root) return null;
@@ -30,7 +64,6 @@ function findWidgetPath(root: WidgetDef | undefined, targetId: string): string[]
 }
 
 // ── ScriptPreviewField — 헤더(레이블+편집) + 코드 미리보기 블록 ──
-
 function ScriptPreviewField({ label, helpText, value, onChange, initialSampleTab }: {
   label: string; helpText: string;
   value: string; onChange: (v: string) => void;
@@ -93,7 +126,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
   return (
     <div>
       <div style={rowStyle}>
-        <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>동작:</span>
+        <span style={inlineLabelStyle}>동작:</span>
         <select style={{ ...selectStyle, flex: 1 }} value={action}
           onChange={(e) => onChange({ action: e.target.value as CommandActionType })}>
           <option value="popScene">씬 닫기</option>
@@ -113,7 +146,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
       </div>
       {(action === 'gotoScene' || action === 'customScene' || action === 'focusWidget') && (
         <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>대상:</span>
+          <span style={inlineLabelStyle}>대상:</span>
           <input style={{ ...inputStyle, flex: 1 }}
             placeholder={action === 'focusWidget' ? '위젯 ID' : '씬 이름'}
             value={handler.target || ''}
@@ -122,7 +155,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
       )}
       {(action === 'selectActor' || action === 'formation') && (
         <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>위젯 ID:</span>
+          <span style={inlineLabelStyle}>위젯 ID:</span>
           <input style={{ ...inputStyle, flex: 1 }}
             placeholder="actor_select"
             value={handler.widget || ''}
@@ -133,7 +166,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
         <div>
           <label style={{ ...labelStyle, marginTop: 4 }}>액터 선택 후 이동할 씬</label>
           <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>씬:</span>
+            <span style={inlineLabelStyle}>씬:</span>
             <input style={{ ...inputStyle, flex: 1 }}
               placeholder="Scene_Skill"
               value={handler.thenAction?.target || ''}
@@ -144,7 +177,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
       {(action === 'toggleConfig' || action === 'incrementConfig' || action === 'decrementConfig') && (
         <div>
           <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>configKey:</span>
+            <span style={inlineLabelStyle}>configKey:</span>
             <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 11 }}
               placeholder="alwaysDash / bgmVolume …"
               value={handler.configKey || ''}
@@ -152,7 +185,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
           </div>
           {(action === 'incrementConfig' || action === 'decrementConfig') && (
             <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>step:</span>
+              <span style={inlineLabelStyle}>step:</span>
               <input style={{ ...inputStyle, width: 60 }} type="number"
                 placeholder="20"
                 value={handler.step ?? ''}
@@ -163,7 +196,7 @@ export function ActionHandlerEditor({ handler, onChange }: {
       )}
       {action === 'callCommonEvent' && (
         <div style={rowStyle}>
-          <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>이벤트 ID:</span>
+          <span style={inlineLabelStyle}>이벤트 ID:</span>
           <input style={{ ...inputStyle, width: 60 }} type="number"
             value={handler.eventId || ''}
             onChange={(e) => onChange({ eventId: parseInt(e.target.value) || 0 })} />
@@ -228,10 +261,10 @@ function LabelTypeSection({ widget, update }: { widget: WidgetDef_Label; update:
           <option value="bottom">아래</option>
         </select>
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+      <label style={checkboxLabelStyle}>
         <input type="checkbox" checked={widget.useTextEx === true}
           onChange={(e) => update({ useTextEx: e.target.checked || undefined } as any)}
-          style={{ accentColor: '#4af', cursor: 'pointer' }} />
+          style={accentCheckboxStyle} />
         확장 텍스트 (\c[N] 지원)
         <HelpButton text={'true로 설정하면 \\c[N], \\i[N] 등 확장 텍스트 코드를 지원합니다.\n일반 텍스트보다 렌더링 비용이 높습니다.'} />
       </label>
@@ -240,7 +273,7 @@ function LabelTypeSection({ widget, update }: { widget: WidgetDef_Label; update:
         <input type="color"
           value={widget.color || '#ffffff'}
           onChange={(e) => update({ color: e.target.value } as any)}
-          style={{ width: 28, height: 22, padding: 1, border: '1px solid #555', background: 'none', cursor: 'pointer', borderRadius: 2, flexShrink: 0 }} />
+          style={colorPickerInputStyle} />
         <input style={{ ...inputStyle, flex: 1 }}
           value={widget.color || ''}
           placeholder="없음 (기본색)"
@@ -748,11 +781,10 @@ function ListCommonSection({ widget, update }: {
         </div>
       )}
 
-      {/* autoRefresh */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+      <label style={{ ...checkboxLabelStyle, padding: '4px 0 2px' }}>
         <input type="checkbox" checked={widget.autoRefresh !== false}
           onChange={(e) => update({ autoRefresh: e.target.checked ? undefined : false } as any)}
-          style={{ accentColor: '#4af', cursor: 'pointer' }} />
+          style={accentCheckboxStyle} />
         자동 새로고침 (6프레임마다 rebuild)
         <HelpButton text={'true (기본): dataScript를 6프레임마다 재실행하여 목록을 갱신합니다.\nfalse: 자동 갱신 비활성화 (수동으로 refresh 호출 시에만 갱신).'} />
       </label>
@@ -782,18 +814,18 @@ function FocusableNavigationSection({ widget, update }: {
 
   return (
     <details open={effectiveFocusable || hasNavTargets}>
-      <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>
+      <summary style={detailsSummaryStyle}>
         네비게이션
-        {hasNavTargets && <span style={{ background: '#2675bf', color: '#fff', fontSize: 9, padding: '1px 5px', borderRadius: 8, marginLeft: 4, verticalAlign: 'middle' }}>설정됨</span>}
+        {hasNavTargets && <span style={badgeStyle}>설정됨</span>}
       </summary>
       <div style={sectionStyle}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+        <label style={checkboxLabelStyle}>
           <input type="checkbox" checked={effectiveFocusable}
             onChange={(e) => {
               const newVal = e.target.checked;
               update({ focusable: newVal === isFocusableByDefault ? undefined : newVal } as any);
             }}
-            style={{ accentColor: '#4af', cursor: 'pointer' }} />
+            style={accentCheckboxStyle} />
           포커스 가능 (Focusable)
           <HelpButton text={
             '이 위젯이 키보드 포커스를 받을 수 있는지 여부입니다.\n' +
@@ -870,22 +902,17 @@ function WidgetScriptsSection({ widget, update }: {
   };
 
   return (
-    <details>
-      <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>
-        스크립트 {hasAny && <span style={{ background: '#2675bf', color: '#fff', fontSize: 9, padding: '1px 5px', borderRadius: 8, marginLeft: 4, verticalAlign: 'middle' }}>설정됨</span>}
-      </summary>
-      <div style={sectionStyle}>
-        {LIFECYCLE_EVENTS.map(ev => (
-          <ScriptPreviewField
-            key={ev.key}
-            label={ev.label}
-            helpText={ev.help}
-            value={scripts?.[ev.key] ?? ''}
-            onChange={(v) => setScript(ev.key, v)}
-          />
-        ))}
-      </div>
-    </details>
+    <SectionDetails title="스크립트" badge={hasAny}>
+      {LIFECYCLE_EVENTS.map(ev => (
+        <ScriptPreviewField
+          key={ev.key}
+          label={ev.label}
+          helpText={ev.help}
+          value={scripts?.[ev.key] ?? ''}
+          onChange={(v) => setScript(ev.key, v)}
+        />
+      ))}
+    </SectionDetails>
   );
 }
 
@@ -1059,16 +1086,16 @@ function GaugeWidgetContent({ widget, update, gaugeSkinNames }: {
           {gaugeSkinNames.map(n => <option key={n} value={n}>{n}</option>)}
         </select>
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+      <label style={{ ...checkboxLabelStyle, padding: '2px 0 2px' }}>
         <input type="checkbox" checked={widget.showLabel !== false}
           onChange={(e) => update({ showLabel: e.target.checked } as any)}
-          style={{ accentColor: '#4af', cursor: 'pointer' }} />
+          style={accentCheckboxStyle} />
         레이블 표시
       </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+      <label style={{ ...checkboxLabelStyle, padding: '2px 0 2px' }}>
         <input type="checkbox" checked={widget.showValue !== false}
           onChange={(e) => update({ showValue: e.target.checked } as any)}
-          style={{ accentColor: '#4af', cursor: 'pointer' }} />
+          style={accentCheckboxStyle} />
         수치 표시 (현재/최대)
       </label>
     </div>
@@ -1226,215 +1253,190 @@ export function WidgetInspector({ sceneId, widget }: { sceneId: string; widget: 
         >경로 복사</button>
       </div>
 
-      {/* ── 섹션: 기본 속성 ── */}
-      <details open>
-        <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>기본 속성</summary>
-        <div style={sectionStyle}>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 50 }}>표시이름</span>
-            <input
-              style={{ ...inputStyle, flex: 1 }}
-              value={(widget as any).displayName || ''}
-              placeholder="(id 사용)"
-              onChange={(e) => update({ displayName: e.target.value || undefined } as any)}
-              title="에디터 트리에 표시할 이름. 비우면 id가 표시됩니다."
-            />
-          </div>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
-            <input
-              style={{ ...inputStyle, flex: 1, outline: idDraft !== widget.id ? '1px solid #f84' : undefined }}
-              value={idDraft}
-              onChange={(e) => setIdDraft(e.target.value)}
-              onBlur={applyRename}
-              onKeyDown={(e) => { if (e.key === 'Enter') { applyRename(); (e.target as HTMLInputElement).blur(); } else if (e.key === 'Escape') { setIdDraft(widget.id); } }}
-              title="Enter로 확정. 모든 참조(nav 타겟, navigation 설정)가 함께 갱신됩니다."
-            />
-          </div>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 50 }}>X</span>
-            <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.x}
-              onChange={(e) => update({ x: parseInt(e.target.value) || 0 } as any)} />
-            <span style={{ fontSize: 11, color: '#888', width: 20 }}>Y</span>
-            <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.y}
-              onChange={(e) => update({ y: parseInt(e.target.value) || 0 } as any)} />
-          </div>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 50 }}>W</span>
-            <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.width}
-              onChange={(e) => update({ width: parseInt(e.target.value) || 0 } as any)} />
-            <span style={{ fontSize: 11, color: '#888', width: 20 }}>H</span>
-            <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.height ?? ''}
-              placeholder="auto"
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                update({ height: v === '' ? undefined : (parseInt(v) || 0) } as any);
-              }} />
-          </div>
-          <div style={{ ...rowStyle, flexWrap: 'wrap', gap: 4 }}>
-            {alignButtons.map(({ label, action }) => (
-              <button key={label} style={smallBtnStyle} onClick={action}>{label}</button>
-            ))}
-          </div>
-          <div style={rowStyle}>
-            <label style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <input type="checkbox" checked={widget.visible !== false}
-                onChange={(e) => update({ visible: e.target.checked } as any)} />
-              표시
-              <HelpButton text={
-                '런타임(게임)에서 이 위젯을 표시할지 여부입니다.\n\n' +
-                '체크 해제 시 위젯이 화면에 보이지 않습니다.\n' +
-                '스크립트로 나중에 동적으로 보이게 할 위젯에 사용합니다.'
-              } />
-            </label>
-            <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
-              <input type="checkbox" checked={widget.previewSelectable !== false}
-                onChange={(e) => update({ previewSelectable: e.target.checked ? undefined : false } as any)} />
-              preview 선택
-              <HelpButton text={
-                '에디터 preview에서 클릭으로 이 위젯을 선택할 수 있는지 여부입니다.\n\n' +
-                '체크 해제 시 preview에서 클릭해도 이 위젯이 선택되지 않아,\n' +
-                '뒤에 있는 다른 위젯을 쉽게 선택할 수 있습니다.\n\n' +
-                '배경(background) 위젯처럼 클릭을 통해 실수로 선택될 경우에 유용합니다.'
-              } />
-            </label>
-            <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
-              <input type="checkbox" checked={!!widget.topLayer}
-                onChange={(e) => update({ topLayer: e.target.checked || undefined } as any)} />
-              최상단(topLayer)
-              <HelpButton text={
-                'rowOverlay / windowLayer 위에 직접 렌더링합니다.\n\n' +
-                '팝업, 전체화면 오버레이 등 항상 다른 위젯 위에 표시되어야 하는 위젯에 사용합니다.'
-              } />
-            </label>
-          </div>
+      <SectionDetails title="기본 속성" open>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>표시이름</span>
+          <input
+            style={{ ...inputStyle, flex: 1 }}
+            value={(widget as any).displayName || ''}
+            placeholder="(id 사용)"
+            onChange={(e) => update({ displayName: e.target.value || undefined } as any)}
+            title="에디터 트리에 표시할 이름. 비우면 id가 표시됩니다."
+          />
         </div>
-      </details>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>ID</span>
+          <input
+            style={{ ...inputStyle, flex: 1, outline: idDraft !== widget.id ? '1px solid #f84' : undefined }}
+            value={idDraft}
+            onChange={(e) => setIdDraft(e.target.value)}
+            onBlur={applyRename}
+            onKeyDown={(e) => { if (e.key === 'Enter') { applyRename(); (e.target as HTMLInputElement).blur(); } else if (e.key === 'Escape') { setIdDraft(widget.id); } }}
+            title="Enter로 확정. 모든 참조(nav 타겟, navigation 설정)가 함께 갱신됩니다."
+          />
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>X</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.x}
+            onChange={(e) => update({ x: parseInt(e.target.value) || 0 } as any)} />
+          <span style={{ fontSize: 11, color: '#888', width: 20 }}>Y</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.y}
+            onChange={(e) => update({ y: parseInt(e.target.value) || 0 } as any)} />
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 50 }}>W</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.width}
+            onChange={(e) => update({ width: parseInt(e.target.value) || 0 } as any)} />
+          <span style={{ fontSize: 11, color: '#888', width: 20 }}>H</span>
+          <input style={{ ...inputStyle, width: 60 }} type="number" value={widget.height ?? ''}
+            placeholder="auto"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              update({ height: v === '' ? undefined : (parseInt(v) || 0) } as any);
+            }} />
+        </div>
+        <div style={{ ...rowStyle, flexWrap: 'wrap', gap: 4 }}>
+          {alignButtons.map(({ label, action }) => (
+            <button key={label} style={smallBtnStyle} onClick={action}>{label}</button>
+          ))}
+        </div>
+        <div style={rowStyle}>
+          <label style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <input type="checkbox" checked={widget.visible !== false}
+              onChange={(e) => update({ visible: e.target.checked } as any)} />
+            표시
+            <HelpButton text={
+              '런타임(게임)에서 이 위젯을 표시할지 여부입니다.\n\n' +
+              '체크 해제 시 위젯이 화면에 보이지 않습니다.\n' +
+              '스크립트로 나중에 동적으로 보이게 할 위젯에 사용합니다.'
+            } />
+          </label>
+          <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <input type="checkbox" checked={widget.previewSelectable !== false}
+              onChange={(e) => update({ previewSelectable: e.target.checked ? undefined : false } as any)} />
+            preview 선택
+            <HelpButton text={
+              '에디터 preview에서 클릭으로 이 위젯을 선택할 수 있는지 여부입니다.\n\n' +
+              '체크 해제 시 preview에서 클릭해도 이 위젯이 선택되지 않아,\n' +
+              '뒤에 있는 다른 위젯을 쉽게 선택할 수 있습니다.\n\n' +
+              '배경(background) 위젯처럼 클릭을 통해 실수로 선택될 경우에 유용합니다.'
+            } />
+          </label>
+          <label style={{ fontSize: 11, color: '#aaa', marginLeft: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <input type="checkbox" checked={!!widget.topLayer}
+              onChange={(e) => update({ topLayer: e.target.checked || undefined } as any)} />
+            최상단(topLayer)
+            <HelpButton text={
+              'rowOverlay / windowLayer 위에 직접 렌더링합니다.\n\n' +
+              '팝업, 전체화면 오버레이 등 항상 다른 위젯 위에 표시되어야 하는 위젯에 사용합니다.'
+            } />
+          </label>
+        </div>
+      </SectionDetails>
 
-      {/* ── 섹션: 스타일 (배경/테두리) ── */}
-      <details>
-        <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>스타일 (배경 / 테두리)</summary>
-        <div style={sectionStyle}>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 60 }}>배경색</span>
-            <input type="color"
-              value={widget.bgColor || '#000000'}
-              onChange={(e) => update({ bgColor: e.target.value } as any)}
-              style={{ width: 28, height: 22, padding: 1, border: '1px solid #555', background: 'none', cursor: 'pointer', borderRadius: 2, flexShrink: 0 }} />
-            <input style={{ ...inputStyle, flex: 1 }}
-              value={widget.bgColor || ''}
-              placeholder="없음"
-              onChange={(e) => update({ bgColor: e.target.value || undefined } as any)} />
-            {widget.bgColor && (
-              <button style={smallBtnStyle} onClick={() => update({ bgColor: undefined } as any)}>×</button>
-            )}
-          </div>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 60 }}>불투명도</span>
-            <input type="range" min="0" max="1" step="0.01"
-              value={widget.bgAlpha ?? 1}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                update({ bgAlpha: v >= 1 ? undefined : v } as any);
-              }}
-              style={{ flex: 1 }} />
-            <span style={{ fontSize: 11, color: '#ccc', width: 32, textAlign: 'right' }}>
-              {Math.round((widget.bgAlpha ?? 1) * 100)}%
-            </span>
-          </div>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 두께</span>
-            <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
-              value={widget.borderWidth ?? ''}
-              placeholder="없음"
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                update({ borderWidth: v === '' ? undefined : (parseInt(v) || 0) } as any);
-              }} />
-          </div>
-          {!!(widget.borderWidth && widget.borderWidth > 0) && (<>
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 색</span>
-              <input type="color"
-                value={widget.borderColor || '#ffffff'}
-                onChange={(e) => update({ borderColor: e.target.value } as any)}
-                style={{ width: 28, height: 22, padding: 1, border: '1px solid #555', background: 'none', cursor: 'pointer', borderRadius: 2, flexShrink: 0 }} />
-              <input style={{ ...inputStyle, flex: 1 }}
-                value={widget.borderColor || '#ffffff'}
-                onChange={(e) => update({ borderColor: e.target.value } as any)} />
-            </div>
-          </>)}
-          {(widget.bgColor || (widget.borderWidth && widget.borderWidth > 0)) && (
-            <div style={rowStyle}>
-              <span style={{ fontSize: 11, color: '#888', width: 60 }}>모서리 곡률</span>
-              <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
-                value={widget.borderRadius ?? ''}
-                placeholder="0"
-                onChange={(e) => {
-                  const v = e.target.value.trim();
-                  update({ borderRadius: v === '' ? undefined : (parseInt(v) || 0) } as any);
-                }} />
-              <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
-            </div>
+      <SectionDetails title="스타일 (배경 / 테두리)">
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 60 }}>배경색</span>
+          <input type="color"
+            value={widget.bgColor || '#000000'}
+            onChange={(e) => update({ bgColor: e.target.value } as any)}
+            style={colorPickerInputStyle} />
+          <input style={{ ...inputStyle, flex: 1 }}
+            value={widget.bgColor || ''}
+            placeholder="없음"
+            onChange={(e) => update({ bgColor: e.target.value || undefined } as any)} />
+          {widget.bgColor && (
+            <button style={smallBtnStyle} onClick={() => update({ bgColor: undefined } as any)}>×</button>
           )}
         </div>
-      </details>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 60 }}>불투명도</span>
+          <input type="range" min="0" max="1" step="0.01"
+            value={widget.bgAlpha ?? 1}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              update({ bgAlpha: v >= 1 ? undefined : v } as any);
+            }}
+            style={{ flex: 1 }} />
+          <span style={{ fontSize: 11, color: '#ccc', width: 32, textAlign: 'right' }}>
+            {Math.round((widget.bgAlpha ?? 1) * 100)}%
+          </span>
+        </div>
+        <div style={rowStyle}>
+          <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 두께</span>
+          <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
+            value={widget.borderWidth ?? ''}
+            placeholder="없음"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              update({ borderWidth: v === '' ? undefined : (parseInt(v) || 0) } as any);
+            }} />
+        </div>
+        {!!(widget.borderWidth && widget.borderWidth > 0) && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 60 }}>테두리 색</span>
+            <input type="color"
+              value={widget.borderColor || '#ffffff'}
+              onChange={(e) => update({ borderColor: e.target.value } as any)}
+              style={colorPickerInputStyle} />
+            <input style={{ ...inputStyle, flex: 1 }}
+              value={widget.borderColor || '#ffffff'}
+              onChange={(e) => update({ borderColor: e.target.value } as any)} />
+          </div>
+        )}
+        {(widget.bgColor || (widget.borderWidth && widget.borderWidth > 0)) && (
+          <div style={rowStyle}>
+            <span style={{ fontSize: 11, color: '#888', width: 60 }}>모서리 곡률</span>
+            <input style={{ ...inputStyle, width: 55 }} type="number" min="0"
+              value={widget.borderRadius ?? ''}
+              placeholder="0"
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                update({ borderRadius: v === '' ? undefined : (parseInt(v) || 0) } as any);
+              }} />
+            <span style={{ fontSize: 10, color: '#666', marginLeft: 4 }}>px</span>
+          </div>
+        )}
+      </SectionDetails>
 
-      {/* ── 섹션: 창 스타일 (window-based 위젯만) ── */}
       {WINDOW_BASED_TYPES.includes(widget.type) && (
-        <details>
-          <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>창 스타일</summary>
-          <div style={sectionStyle}>
-            <WindowStyleSection widget={widget} update={update} />
-          </div>
-        </details>
+        <SectionDetails title="창 스타일">
+          <WindowStyleSection widget={widget} update={update} />
+        </SectionDetails>
       )}
 
-      {/* ── 섹션: 콘텐츠 (타입별 속성) ── */}
       {widget.type !== 'panel' && (
-        <details open>
-          <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>
-            콘텐츠 ({widget.type})
-          </summary>
-          <div style={sectionStyle}>
-            {widget.type === 'label' && <LabelTypeSection widget={widget as WidgetDef_Label} update={update} />}
-            {widget.type === 'textArea' && <TextAreaTypeSection widget={widget as WidgetDef_TextArea} update={update} />}
-            {widget.type === 'gauge' && <GaugeWidgetContent widget={widget as WidgetDef_Gauge} update={update} gaugeSkinNames={gaugeSkinNames} />}
-            {widget.type === 'image' && <ImageWidgetContent widget={widget as WidgetDef_Image} update={update} />}
-            {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
-            {isListLike && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
-            {widget.type === 'scene' && <SceneWidgetInspector widget={widget as WidgetDef_Scene} update={update} />}
-            {widget.type === 'options' && <OptionsWidgetInspector widget={widget as WidgetDef_Options} update={update} />}
-          </div>
-        </details>
+        <SectionDetails title={`콘텐츠 (${widget.type})`} open>
+          {widget.type === 'label' && <LabelTypeSection widget={widget as WidgetDef_Label} update={update} />}
+          {widget.type === 'textArea' && <TextAreaTypeSection widget={widget as WidgetDef_TextArea} update={update} />}
+          {widget.type === 'gauge' && <GaugeWidgetContent widget={widget as WidgetDef_Gauge} update={update} gaugeSkinNames={gaugeSkinNames} />}
+          {widget.type === 'image' && <ImageWidgetContent widget={widget as WidgetDef_Image} update={update} />}
+          {widget.type === 'button' && <ButtonWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_Button} update={update} />}
+          {isListLike && <ListWidgetInspector sceneId={sceneId} widget={widget as WidgetDef_List} update={update} />}
+          {widget.type === 'scene' && <SceneWidgetInspector widget={widget as WidgetDef_Scene} update={update} />}
+          {widget.type === 'options' && <OptionsWidgetInspector widget={widget as WidgetDef_Options} update={update} />}
+        </SectionDetails>
       )}
 
-      {/* ── 섹션: 네비게이션 ── */}
       <FocusableNavigationSection widget={widget} update={update} />
-
-      {/* ── 섹션: 스크립트 ── */}
       <WidgetScriptsSection widget={widget} update={update} />
 
-      {/* ── 섹션: 애니메이션 ── */}
-      <details>
-        <summary style={{ ...labelStyle, cursor: 'pointer', padding: '5px 10px', background: '#252525', userSelect: 'none' }}>애니메이션</summary>
-        <div style={sectionStyle}>
-          <AnimEffectSection
-            label="등장 효과"
-            value={widget.enterAnimation ?? []}
-            onChange={(v) => update({ enterAnimation: v.length > 0 ? v : undefined })}
-            onUndoPush={pushCustomSceneUndo}
-          />
-          <AnimEffectSection
-            label="퇴장 효과"
-            isExit
-            value={widget.exitAnimation ?? []}
-            onChange={(v) => update({ exitAnimation: v.length > 0 ? v : undefined })}
-            onUndoPush={pushCustomSceneUndo}
-            entranceValue={widget.enterAnimation ?? []}
-          />
-        </div>
-      </details>
+      <SectionDetails title="애니메이션">
+        <AnimEffectSection
+          label="등장 효과"
+          value={widget.enterAnimation ?? []}
+          onChange={(v) => update({ enterAnimation: v.length > 0 ? v : undefined })}
+          onUndoPush={pushCustomSceneUndo}
+        />
+        <AnimEffectSection
+          label="퇴장 효과"
+          isExit
+          value={widget.exitAnimation ?? []}
+          onChange={(v) => update({ exitAnimation: v.length > 0 ? v : undefined })}
+          onUndoPush={pushCustomSceneUndo}
+          entranceValue={widget.enterAnimation ?? []}
+        />
+      </SectionDetails>
     </div>
   );
 }
