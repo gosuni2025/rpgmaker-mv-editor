@@ -237,7 +237,8 @@
     var _turnTransitionPending = false;
     var _inputPreviewOrder = null;
     var _enemyTargetPreview = null; // { enemyIndex: [target battlers] }
-    var _damageNotifications = []; // battler[] — 피격 알림 큐
+    var _damageNotifications = []; // { battler, damage } — 피격 알림 큐
+    var _animationNotifications = []; // { battler, animationId, mirror } — 애니메이션 알림 큐
 
     // 랜덤 없이 결정적 속도 계산 (agi + 스킬속도 + 공격속도)
     function _calcSpeedDeterministic(battler) {
@@ -350,6 +351,15 @@
     Game_Actor.prototype.performDamage = function () {
         _GA_performDamage.call(this);
         _damageNotifications.push({ battler: this, damage: this.result().hpDamage });
+    };
+
+    // 아군에게 재생되는 배틀 애니메이션 캡처 → 하단 상태창 얼굴에도 재생
+    var _GB_startAnimation = Game_Battler.prototype.startAnimation;
+    Game_Battler.prototype.startAnimation = function (animationId, mirror, delay) {
+        _GB_startAnimation.call(this, animationId, mirror, delay);
+        if (this.isActor()) {
+            _animationNotifications.push({ battler: this, animationId: animationId, mirror: mirror || false });
+        }
     };
 
     //=========================================================================
@@ -509,6 +519,47 @@
         }
 
         bmp._setDirty();
+    }
+
+    //=========================================================================
+    // 하단 상태창 배틀 애니메이션 재생
+    //=========================================================================
+    function _ensureAnimHost(rw) {
+        if (rw._container._todAnimHost) return rw._container._todAnimHost;
+        var wrapper = _getShakeWrapper(rw._container);
+        var host = new Sprite_Base();
+        // 프레임 크기 설정 — 애니메이션 position 계산에 사용됨
+        host._frame.width = 143;
+        host._frame.height = 144;
+        // x = 얼굴 중앙, y = 얼굴 하단 (MV 애니메이션은 feet 기준)
+        host.x = 2 + Math.round(143 / 2);
+        host.y = 144;
+        wrapper.addChild(host);
+        rw._container._todAnimHost = host;
+        return host;
+    }
+
+    function _playStatusFaceAnimation(battler, animationId, mirror) {
+        var scene = SceneManager._scene;
+        var wmap = scene && scene._widgetMap;
+        var sw = wmap && wmap['statusWindow'];
+        if (!sw || !sw._rowWidgets) return;
+
+        var actorIndex = battler.index();
+        if (actorIndex < 0 || actorIndex >= sw._rowWidgets.length) return;
+        var rw = sw._rowWidgets[actorIndex];
+        if (!rw || !rw._container) return;
+
+        var animation = $dataAnimations[animationId];
+        if (!animation) return;
+
+        var host = _ensureAnimHost(rw);
+        host.startAnimation(animation, mirror, 0);
+        // SE 중복 방지 — 원본 배틀 스프라이트에서 이미 재생됨
+        var sprites = host._animationSprites;
+        if (sprites.length > 0) {
+            sprites[sprites.length - 1]._duplicated = true;
+        }
     }
 
     //=========================================================================
@@ -896,6 +947,12 @@
                 });
             }
             _addStatusFaceEffect(dmg.battler, dmg.damage);
+        }
+
+        // 배틀 애니메이션 알림 처리 → 하단 상태창 얼굴에 재생
+        while (_animationNotifications.length > 0) {
+            var animNotif = _animationNotifications.shift();
+            _playStatusFaceAnimation(animNotif.battler, animNotif.animationId, animNotif.mirror);
         }
 
         var ck = [Config.direction, Config.position, Config.iconSize, Config.gap,
