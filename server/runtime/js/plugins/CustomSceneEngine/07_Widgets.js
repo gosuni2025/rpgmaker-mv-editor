@@ -34,7 +34,7 @@
   Widget_Panel.prototype.update = function() {
     Widget_Base.prototype.update.call(this); if (!this._displayObject) return; var dispVis = this._displayObject._visible !== false;    for (var vi = 0; vi < this._children.length; vi++) {
       var vch = this._children[vi]; var vobj = vch && vch.displayObject && vch.displayObject();
-      if (vobj && (vobj instanceof Window_Base) && vobj._visible !== dispVis) vobj.visible = dispVis;
+      if (vobj && (vobj instanceof Window_Base) && !vch._windowed && vobj._visible !== dispVis) vobj.visible = dispVis;
     }
     if (!this._windowed) return; var linked = this._def && this._def.linkedFocus;    if (!linked || !linked.length) return; var navMgr = SceneManager._scene && SceneManager._scene._navManager;    if (!navMgr) return; var aw = navMgr._activeIndex >= 0 ? navMgr._focusables[navMgr._activeIndex] : null; var aid = aw ? aw._id : null;    var isLinked = aid && linked.indexOf(aid) >= 0; var dimAlpha = isLinked ? 1.0 : 0.63;
     if (Math.abs((this._displayObject.alpha || 1) - dimAlpha) > 0.005) {
