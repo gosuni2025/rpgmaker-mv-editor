@@ -296,7 +296,7 @@
           break;
         }
         var ilId = handler.itemListWidget; var ilWidget = this._widgetMap && this._widgetMap[ilId];
-        if (!ilWidget || !ilWidget._window) break; var useItem = ilWidget._window.item(); if (!useItem) break;
+        if (!ilWidget || !ilWidget._window) break; var useItem = ilWidget._window.item(); if (!useItem) { if (ilWidget.activate) ilWidget.activate(); break; }
         if (!$gameParty.canUse(useItem)) {
           if (typeof SoundManager !== 'undefined') SoundManager.playBuzzer(); if (ilWidget.activate) ilWidget.activate(); break;
         }

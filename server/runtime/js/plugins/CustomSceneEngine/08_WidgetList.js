@@ -240,7 +240,7 @@
     if (this._defaultFocusId) {
       var dfid = this._defaultFocusId; var dfSimple = dfid.indexOf('/') >= 0 ? dfid.split('/').pop() : dfid;
       for (var i = 0; i < this._focusables.length; i++) {
-        var w = this._focusables[i]; if (w._id === dfid || w._fullPath === dfid || (dfid.indexOf('/') >= 0 && w._id === dfSimple)) startIdx = i; break;
+        var w = this._focusables[i]; if (w._id === dfid || w._fullPath === dfid || (dfid.indexOf('/') >= 0 && w._id === dfSimple)) { startIdx = i; break; }
       }
     }
     this._activateAt(startIdx);
@@ -255,7 +255,7 @@
   NavigationManager.prototype.focusWidget = function(id) {
     var simpleId = id.indexOf('/') >= 0 ? id.split('/').pop() : id;
     for (var i = 0; i < this._focusables.length; i++) {
-      var w = this._focusables[i]; if (w._id === id || w._fullPath === id || (id.indexOf('/') >= 0 && w._id === simpleId)) this._activateAt(i); return;
+      var w = this._focusables[i]; if (w._id === id || w._fullPath === id || (id.indexOf('/') >= 0 && w._id === simpleId)) { this._activateAt(i); return; }
     }
   };
   NavigationManager.prototype.clearFocus = function() {
