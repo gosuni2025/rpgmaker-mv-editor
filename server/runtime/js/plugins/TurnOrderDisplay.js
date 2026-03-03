@@ -550,9 +550,18 @@
             var fi   = this._battler.faceIndex();
             var fx   = (fi % 4) * 96;
             var fy   = Math.floor(fi / 4) * 96;
-            var zoom = Config.faceZoom;
-            var dw   = size * zoom, dh = size * zoom;
-            ctx.drawImage(src._canvas, fx, fy, 96, 96, (size-dw)/2, (size-dh)/2, dw, dh);
+            if (shape === 'circle') {
+                // 원형: 얼굴을 원에 내접하는 정사각형 크기로 그린 뒤 원형 테두리로 마감
+                var r = size / 2 - 1;
+                var inscribed = r * Math.sqrt(2); // 원에 내접하는 정사각형 한변
+                var fd = inscribed * Config.faceZoom;
+                ctx.drawImage(src._canvas, fx, fy, 96, 96,
+                    (size - fd) / 2, (size - fd) / 2, fd, fd);
+            } else {
+                var zoom = Config.faceZoom;
+                var dw   = size * zoom, dh = size * zoom;
+                ctx.drawImage(src._canvas, fx, fy, 96, 96, (size-dw)/2, (size-dh)/2, dw, dh);
+            }
         } else {
             var sw  = src.width, sh  = src.height;
             var fit = Math.min((size * 0.9) / sw, (size * 0.9) / sh);
