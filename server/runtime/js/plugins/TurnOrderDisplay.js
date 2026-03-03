@@ -350,7 +350,7 @@
     var _GA_performDamage = Game_Actor.prototype.performDamage;
     Game_Actor.prototype.performDamage = function () {
         _GA_performDamage.call(this);
-        _damageNotifications.push({ battler: this, damage: this.result().hpDamage });
+        _damageNotifications.push({ battler: this, damage: this.result().hpDamage, critical: this.result().critical });
     };
 
     // 아군에게 재생되는 배틀 애니메이션 캡처 → 하단 상태창 얼굴에도 재생
@@ -376,7 +376,9 @@
         return wrapper;
     }
 
-    function _addStatusFaceEffect(battler, damage) {
+    var _statusFaceDmgSprites = [];
+
+    function _addStatusFaceEffect(battler, damage, critical) {
         var scene = SceneManager._scene;
         var wmap = scene && scene._widgetMap;
         var sw = wmap && wmap['statusWindow'];
@@ -399,13 +401,21 @@
         overlay.y = Math.round(faceH / 2);
         wrapper.addChild(overlay);
 
+        // Sprite_Damage 생성 — 얼굴 위에 데미지 숫자 표시
+        var dmgSprite = new Sprite_Damage();
+        dmgSprite.createDigits(0, damage);
+        if (critical) dmgSprite.setupCriticalEffect();
+        dmgSprite.x = 2 + Math.round(faceW / 2);
+        dmgSprite.y = Math.round(faceH / 2);
+        wrapper.addChild(dmgSprite);
+        _statusFaceDmgSprites.push(dmgSprite);
+
         _statusFaceEffects.push({
             wrapper: wrapper,
             overlay: overlay,
             bitmap: overlayBmp,
             timer: 36, maxTimer: 36,
             shakeTimer: 24, shakeMaxTimer: 24, shakePower: 8,
-            damage: damage,
             faceW: faceW, faceH: faceH,
             halfOverlay: Math.round(overlaySize / 2),
             seed: Math.random() * Math.PI * 2
@@ -440,6 +450,14 @@
             }
 
             _drawStatusFaceOverlay(eff);
+        }
+        // Sprite_Damage 정리
+        for (var j = _statusFaceDmgSprites.length - 1; j >= 0; j--) {
+            var ds = _statusFaceDmgSprites[j];
+            if (!ds.isPlaying()) {
+                if (ds.parent) ds.parent.removeChild(ds);
+                _statusFaceDmgSprites.splice(j, 1);
+            }
         }
     }
 
@@ -495,27 +513,6 @@
             ctx.arc(cx + Math.cos(sa) * sd, cy + Math.sin(sa) * sd, sparkR, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(255,240,180,' + sparkAlpha.toFixed(2) + ')';
             ctx.fill();
-        }
-
-        // 데미지 숫자
-        if (eff.damage != null && eff.damage > 0) {
-            var numProgress = Math.min(1, progress * 1.3);
-            var numAlpha = numProgress < 0.7 ? 1.0 : Math.max(0, 1 - (numProgress - 0.7) / 0.3);
-            if (numAlpha > 0) {
-                var numY = cy - halfH - 10 - numProgress * 30;
-                var fontSize = 24;
-                if (progress < 0.12) fontSize = Math.round(fontSize * (1 + 0.4 * (1 - progress / 0.12)));
-                ctx.save();
-                ctx.font = 'bold ' + fontSize + 'px Arial';
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                var text = String(eff.damage);
-                ctx.strokeStyle = 'rgba(0,0,0,' + (numAlpha * 0.9).toFixed(2) + ')';
-                ctx.lineWidth = 4; ctx.lineJoin = 'round';
-                ctx.strokeText(text, cx, numY);
-                ctx.fillStyle = 'rgba(255,230,220,' + numAlpha.toFixed(2) + ')';
-                ctx.fillText(text, cx, numY);
-                ctx.restore();
-            }
         }
 
         bmp._setDirty();
@@ -901,6 +898,7 @@
         this._configKey    = '';
         this._frame        = 0;
         this._hitEffects   = [];
+        this._damageSprites = [];
 
         this._bgBitmap = new Bitmap(Graphics.width, Graphics.height);
         this._bgSprite = new Sprite(this._bgBitmap);
@@ -942,11 +940,18 @@
                 this._hitEffects.push({
                     icon: dmgEntry.ic,
                     timer: 36, maxTimer: 36,
-                    seed: Math.random() * Math.PI * 2,
-                    damage: dmg.damage
+                    seed: Math.random() * Math.PI * 2
                 });
+                // 턴 순서 아이콘 위에 Sprite_Damage
+                var tdSprite = new Sprite_Damage();
+                tdSprite.createDigits(0, dmg.damage);
+                if (dmg.critical) tdSprite.setupCriticalEffect();
+                tdSprite.x = dmgEntry.ic.x;
+                tdSprite.y = dmgEntry.ic.y - Config.iconSize / 2;
+                this.addChild(tdSprite);
+                this._damageSprites.push(tdSprite);
             }
-            _addStatusFaceEffect(dmg.battler, dmg.damage);
+            _addStatusFaceEffect(dmg.battler, dmg.damage, dmg.critical);
         }
 
         // 배틀 애니메이션 알림 처리 → 하단 상태창 얼굴에 재생
@@ -980,7 +985,17 @@
         this._updateIndicatorPos();
         this._updateOverlay();
         this._cleanExiting();
+        this._cleanDamageSprites();
         _updateStatusFaceEffects();
+    };
+
+    Sprite_TurnOrderBar.prototype._cleanDamageSprites = function () {
+        for (var i = this._damageSprites.length - 1; i >= 0; i--) {
+            if (!this._damageSprites[i].isPlaying()) {
+                this.removeChild(this._damageSprites[i]);
+                this._damageSprites.splice(i, 1);
+            }
+        }
     };
 
     //=========================================================================
@@ -1516,33 +1531,6 @@
                 ctx.fill();
             }
 
-            // 5. Damage number (floats upward)
-            if (eff.damage != null && eff.damage > 0) {
-                var numProgress = Math.min(1, progress * 1.3);
-                var numAlpha = numProgress < 0.7 ? 1.0 : Math.max(0, 1 - (numProgress - 0.7) / 0.3);
-                if (numAlpha > 0) {
-                    var numY = cy - half - 6 - numProgress * 28;
-                    var fontSize = Math.round(size * 0.38);
-                    // pop effect: scale briefly at start
-                    if (progress < 0.12) {
-                        fontSize = Math.round(fontSize * (1 + 0.4 * (1 - progress / 0.12)));
-                    }
-                    ctx.save();
-                    ctx.font = 'bold ' + fontSize + 'px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    var text = String(eff.damage);
-                    // dark outline
-                    ctx.strokeStyle = 'rgba(0,0,0,' + (numAlpha * 0.9).toFixed(2) + ')';
-                    ctx.lineWidth = 4;
-                    ctx.lineJoin = 'round';
-                    ctx.strokeText(text, cx, numY);
-                    // white fill with slight red tint
-                    ctx.fillStyle = 'rgba(255,230,220,' + numAlpha.toFixed(2) + ')';
-                    ctx.fillText(text, cx, numY);
-                    ctx.restore();
-                }
-            }
         }
     };
 
