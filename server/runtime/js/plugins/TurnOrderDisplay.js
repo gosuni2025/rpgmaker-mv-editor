@@ -322,20 +322,19 @@
 
     var _BM_startTurn = BattleManager.startTurn;
     BattleManager.startTurn = function () {
-        // input 미리보기 속도 저장
-        var savedSpeeds = [];
-        if (_inputPreviewOrder) {
-            _inputPreviewOrder.forEach(function (b) {
-                savedSpeeds.push({ b: b, s: b._speed });
-            });
-        }
+        // input 미리보기 순서 + 속도 저장
+        var savedOrder = _inputPreviewOrder ? _inputPreviewOrder.slice() : null;
         _inputPreviewOrder = null;
         _BM_startTurn.call(this); // makeActionOrders → makeSpeed 재랜덤
-        // 미리보기 속도 복원 → 표시된 순서 = 실제 순서
-        if (savedSpeeds.length > 0) {
-            savedSpeeds.forEach(function (e) { e.b._speed = e.s; });
-            this._actionBattlers.sort(function (a, b) {
-                return b.speed() - a.speed();
+        // 미리보기 순서 그대로 적용 → 표시된 순서 = 실제 순서
+        if (savedOrder) {
+            var actionSet = this._actionBattlers;
+            this._actionBattlers = savedOrder.filter(function (b) {
+                return actionSet.indexOf(b) >= 0;
+            });
+            // 속도도 복원 (다른 코드가 speed() 참조할 수 있으므로)
+            savedOrder.forEach(function (b) {
+                b._speed = _calcSpeedDeterministic(b);
             });
         }
     };
@@ -554,13 +553,17 @@
             var fi   = this._battler.faceIndex();
             var fx   = (fi % 4) * 96;
             var fy   = Math.floor(fi / 4) * 96;
+            // 스프라이트 시트에서 96x96 얼굴을 먼저 잘라냄
+            var faceCanvas = document.createElement('canvas');
+            faceCanvas.width = 96; faceCanvas.height = 96;
+            faceCanvas.getContext('2d').drawImage(src._canvas, fx, fy, 96, 96, 0, 0, 96, 96);
             if (shape === 'circle') {
-                // 원에 외접하는 정사각형(= 원 지름)으로 얼굴을 그려서 원을 꽉 채움
-                ctx.drawImage(src._canvas, fx, fy, 96, 96, 0, 0, size, size);
+                // 원에 외접하는 정사각형(= 원 지름)으로 그려서 원을 꽉 채움
+                ctx.drawImage(faceCanvas, 0, 0, 96, 96, 0, 0, size, size);
             } else {
                 var zoom = Config.faceZoom;
                 var dw   = size * zoom, dh = size * zoom;
-                ctx.drawImage(src._canvas, fx, fy, 96, 96, (size-dw)/2, (size-dh)/2, dw, dh);
+                ctx.drawImage(faceCanvas, 0, 0, 96, 96, (size-dw)/2, (size-dh)/2, dw, dh);
             }
         } else {
             var sw  = src.width, sh  = src.height;
