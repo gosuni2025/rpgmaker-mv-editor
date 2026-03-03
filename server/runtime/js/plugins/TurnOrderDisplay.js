@@ -547,11 +547,21 @@
 
         if (isActor) {
             var fi   = this._battler.faceIndex();
-            var fx   = (fi % 4) * 96;
-            var fy   = Math.floor(fi / 4) * 96;
-            var zoom = Config.faceZoom;
-            var dw   = size * zoom, dh = size * zoom;
-            ctx.drawImage(src._canvas, fx, fy, 96, 96, (size-dw)/2, (size-dh)/2, dw, dh);
+            var pw   = Math.floor(src._canvas.width / 4);   // 얼굴 셀 너비 (보통 144)
+            var ph   = Math.floor(src._canvas.height / 2);  // 얼굴 셀 높이 (보통 144)
+            var fx   = (fi % 4) * pw;
+            var fy   = Math.floor(fi / 4) * ph;
+            // 스프라이트 시트에서 얼굴 한 칸을 먼저 잘라냄
+            var faceCanvas = document.createElement('canvas');
+            faceCanvas.width = pw; faceCanvas.height = ph;
+            faceCanvas.getContext('2d').drawImage(src._canvas, fx, fy, pw, ph, 0, 0, pw, ph);
+            if (shape === 'circle') {
+                ctx.drawImage(faceCanvas, 0, 0, pw, ph, 0, 0, size, size);
+            } else {
+                var zoom = Config.faceZoom;
+                var dw   = size * zoom, dh = size * zoom;
+                ctx.drawImage(faceCanvas, 0, 0, pw, ph, (size-dw)/2, (size-dh)/2, dw, dh);
+            }
         } else {
             var sw  = src.width, sh  = src.height;
             var fit = Math.min((size * 0.9) / sw, (size * 0.9) / sh);
