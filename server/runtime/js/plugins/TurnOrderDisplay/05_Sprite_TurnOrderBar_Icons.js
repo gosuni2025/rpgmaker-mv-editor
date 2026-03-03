@@ -132,8 +132,6 @@
     //=========================================================================
     Sprite_TurnOrderBar.prototype._updateIconStatuses = function () {
         var subject = BattleManager._subject;
-        var phase   = BattleManager._phase;
-        var inTurn  = (phase === 'turn' || phase === 'action' || phase === 'turnEnd');
 
         this._iconEntries.forEach(function (e) {
             if (e.role === 'next') {
@@ -144,8 +142,9 @@
             var b = e.b;
             if (b === subject) {
                 if (e.ic._status !== 'active') e.ic.setStatus('active');
-            } else if (inTurn && _doneThisTurn.indexOf(b) >= 0) {
-                // 이번 턴에 행동 완료 → 반투명 유지
+            } else if (_doneThisTurn.indexOf(b) >= 0) {
+                // 이번 턴에 행동 완료 → 반투명 유지 (phase 무관)
+                // inTurn 조건을 제거해야 input phase에서도 done이 유지됨
                 if (e.ic._status !== 'done') e.ic.setStatus('done');
             } else {
                 if (e.ic._status !== 'pending') e.ic.setStatus('pending');

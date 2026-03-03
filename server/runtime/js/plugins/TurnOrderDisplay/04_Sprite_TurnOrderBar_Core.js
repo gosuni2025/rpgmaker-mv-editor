@@ -99,7 +99,12 @@
     // curOrder 규칙:
     //   turn/action/turnEnd: done(반투명) + subject(active) + pending — 모두 유지
     //     done 판별: _doneThisTurn 배열 (BattleManager.endAction hook으로 기록)
-    //   input/기타: AGI 기반 예측 순서 표시 (모두 pending, done 없음)
+    //   input/기타: done 배틀러 유지 + AGI 기반 pending (순서 안정화)
+    //     ※ 이전 코드는 input에서 AGI 전체 재정렬 → 아이콘이 이동하는 버그 있었음
+    //     ※ done 유지로 turnEnd→input 전환 시 아이콘 이동 없음
+    //
+    // next는 turn/action/turnEnd에서만 표시
+    //   input에서 next=[]이면 _syncIcons에서 next 아이콘들이 cur로 자연스럽게 승격됨
     //=========================================================================
     Sprite_TurnOrderBar.prototype._calcTurnOrder = function () {
         var phase   = BattleManager._phase;
@@ -132,14 +137,22 @@
             curSubject = subject;
             curPending = pending;
         } else {
-            // input / 기타: AGI 기반 예측 순서 표시 (커맨드 선택 중 참고용)
-            curOrder   = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
+            // input / 기타: done 배틀러 유지 + AGI 기반 pending
+            // done을 유지해야 turnEnd→input 전환 시 아이콘이 이동하지 않음
+            var done2 = allAlive.filter(function (b) {
+                return _doneThisTurn.indexOf(b) >= 0;
+            });
+            var pending2 = allAlive.filter(function (b) {
+                return _doneThisTurn.indexOf(b) < 0;
+            }).sort(function (a, b) { return b.agi - a.agi; });
+            curOrder   = done2.concat(pending2);
             curSubject = null;
-            curPending = curOrder.slice();
+            curPending = pending2;
         }
 
         // 다음 턴 예측: turn/action/turnEnd에서만 표시
-        // input phase에서는 curOrder가 이미 전체 배틀러를 포함하므로 next를 비워 중복 방지
+        // input에서 next=[]로 하면 _syncIcons에서 next 아이콘들이 cur로 승격되어
+        // 크기가 작게→크게 자연스럽게 전환됨 (새 아이콘 생성 없음)
         var next;
         if (phase === 'turn' || phase === 'action' || phase === 'turnEnd') {
             next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
