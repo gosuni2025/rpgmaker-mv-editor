@@ -174,12 +174,16 @@
                                 if (this._navManager) this._navManager.focusWidget('id_action');
                             }
                         } else {
+                            var dm = this._widgetMap['id_popup_dim'];
+                            if (dm) dm.displayObject().visible = true;
                             var pp = this._widgetMap['id_popup'];
                             var pc = this._widgetMap['id_popup_ctrl'];
                             if (pp) pp.displayObject().visible = true;
                             if (pc) pc.displayObject().visible = true;
                             var img = this._widgetMap['id_popup_img'];
                             if (img && img.refresh) img.refresh();
+                            var txt = this._widgetMap['id_popup_text'];
+                            if (txt && txt.refresh) txt.refresh();
                             if (this._navManager) this._navManager.focusWidget('id_popup_ctrl');
                         }
                         return;
