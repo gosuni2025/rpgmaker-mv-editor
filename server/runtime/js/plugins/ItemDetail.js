@@ -174,8 +174,6 @@
                                 if (this._navManager) this._navManager.focusWidget('id_action');
                             }
                         } else {
-                            var dm = this._widgetMap['id_popup_dim'];
-                            if (dm) dm.displayObject().visible = true;
                             var pp = this._widgetMap['id_popup'];
                             var pc = this._widgetMap['id_popup_ctrl'];
                             if (pp) pp.displayObject().visible = true;
