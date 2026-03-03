@@ -18,7 +18,7 @@
       if (typeof cmd.enabledCondition === 'string' && cmd.enabledCondition) {
         try { isEnabled = !!(new Function('return ' + cmd.enabledCondition)()); }
         catch(e) { isEnabled = true; }
-      } else isEnabled = cmd.enabled !== false; var name = resolveTemplate(cmd.name);
+      } else isEnabled = cmd.enabled !== false; var name = resolveTemplate(cmd.name || cmd.text);
       this.addCommand(name, cmd.symbol, isEnabled, cmd.ext !== undefined ? cmd.ext : null);
     }
   };
