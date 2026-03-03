@@ -321,7 +321,6 @@
             });
         }
         _inputPreviewOrder = null;
-        _enemyTargetPreview = null;
         _BM_startTurn.call(this); // makeActionOrders → makeSpeed 재랜덤
         // 미리보기 속도 복원 → 표시된 순서 = 실제 순서
         if (savedSpeeds.length > 0) {

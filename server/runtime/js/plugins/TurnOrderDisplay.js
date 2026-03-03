@@ -321,7 +321,6 @@
             });
         }
         _inputPreviewOrder = null;
-        _enemyTargetPreview = null;
         _BM_startTurn.call(this); // makeActionOrders → makeSpeed 재랜덤
         // 미리보기 속도 복원 → 표시된 순서 = 실제 순서
         if (savedSpeeds.length > 0) {
@@ -1324,12 +1323,16 @@
     };
 
     Sprite_TurnOrderBar.prototype._drawEnemyTargetPreview = function (ctx) {
-        if (BattleManager._phase !== 'input' || !_enemyTargetPreview) return;
+        if (!_enemyTargetPreview) return;
         var self = this;
         var isH  = Config.direction === 'horizontal';
         var half = Math.round(Config.iconSize / 2);
+        var subject = BattleManager._subject;
 
         $gameTroop.aliveMembers().forEach(function (enemy) {
+            // 행동 완료했거나 현재 행동중인 적은 건너뛰기
+            if (_doneThisTurn.indexOf(enemy) >= 0) return;
+            if (subject === enemy && BattleManager._phase === 'action') return;
             var info = _enemyTargetPreview[enemy.index()];
             if (!info || !info.targets.length) return;
             var eEntry = self._findEntry(enemy, 'cur');

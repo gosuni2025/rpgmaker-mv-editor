@@ -189,12 +189,16 @@
     };
 
     Sprite_TurnOrderBar.prototype._drawEnemyTargetPreview = function (ctx) {
-        if (BattleManager._phase !== 'input' || !_enemyTargetPreview) return;
+        if (!_enemyTargetPreview) return;
         var self = this;
         var isH  = Config.direction === 'horizontal';
         var half = Math.round(Config.iconSize / 2);
+        var subject = BattleManager._subject;
 
         $gameTroop.aliveMembers().forEach(function (enemy) {
+            // 행동 완료했거나 현재 행동중인 적은 건너뛰기
+            if (_doneThisTurn.indexOf(enemy) >= 0) return;
+            if (subject === enemy && BattleManager._phase === 'action') return;
             var info = _enemyTargetPreview[enemy.index()];
             if (!info || !info.targets.length) return;
             var eEntry = self._findEntry(enemy, 'cur');
