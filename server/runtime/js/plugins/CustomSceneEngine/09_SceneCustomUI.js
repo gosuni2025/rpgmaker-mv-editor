@@ -75,18 +75,15 @@
       if (wT._decoSprite) { if (wT._decoSprite.parent) wT._decoSprite.parent.removeChild(wT._decoSprite); this.addChild(wT._decoSprite); }
       if (tObj.parent) tObj.parent.removeChild(tObj); this.addChild(tObj);
       // topLayer 위젯의 Window_Base 자식을 scene에 추가 (비-topLayer 루프에서 건너뛴 것들)
-      var _topVis = tObj._visible !== false;
-      var _addWinChildren = function(sc, widget, pVis) {
+      // 초기 visible 상태는 Widget_Panel.update()가 관리 (첫 렌더 전에 동기화됨)
+      var _addWinChildren = function(sc, widget) {
         for (var ci = 0; ci < widget._children.length; ci++) {
           var ch = widget._children[ci]; var chObj = ch.displayObject();
-          if (chObj instanceof Window_Base && !chObj.parent) {
-            sc.addChild(chObj);
-            if (!pVis) chObj.visible = false;
-          }
-          _addWinChildren(sc, ch, pVis);
+          if (chObj instanceof Window_Base && !chObj.parent) sc.addChild(chObj);
+          _addWinChildren(sc, ch);
         }
       };
-      _addWinChildren(this, wT, _topVis);
+      _addWinChildren(this, wT);
     }
     this._setupWidgetHandlers(this._rootWidget);
     if (sceneDef.navigation) {
