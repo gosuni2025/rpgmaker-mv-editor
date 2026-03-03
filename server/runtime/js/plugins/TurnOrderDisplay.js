@@ -237,6 +237,7 @@
     var _turnTransitionPending = false;
     var _inputPreviewOrder = null;
     var _enemyTargetPreview = null; // { enemyIndex: [target battlers] }
+    var _damageNotifications = []; // battler[] — 피격 알림 큐
 
     // 랜덤 없이 결정적 속도 계산 (agi + 스킬속도 + 공격속도)
     function _calcSpeedDeterministic(battler) {
@@ -344,6 +345,13 @@
         _BM_endAction.call(this);
     };
 
+    // 피격 알림 — 아군이 피해를 받으면 턴 순서 아이콘에 흔들림 + 타격 이펙트 + 데미지 숫자
+    var _GA_performDamage = Game_Actor.prototype.performDamage;
+    Game_Actor.prototype.performDamage = function () {
+        _GA_performDamage.call(this);
+        _damageNotifications.push({ battler: this, damage: this.result().hpDamage });
+    };
+
     //=========================================================================
     // 설정
     //=========================================================================
@@ -446,6 +454,11 @@
         this._isNew     = true;
         this._exiting   = false;
         this._exitDone  = false;
+        this._shakeTimer    = 0;
+        this._shakeMaxTimer = 0;
+        this._shakePower    = 0;
+        this._shakeOffsetX  = 0;
+        this._shakeOffsetY  = 0;
         this.anchor.x   = 0.5;
         this.anchor.y   = 0.5;
 
@@ -474,8 +487,10 @@
             this._redraw();
         }
 
-        // 위치 lerp
+        // 위치 lerp (이전 흔들림 오프셋 제거 후 계산)
         if (this._targetX !== null) {
+            this.x -= this._shakeOffsetX;
+            this.y -= this._shakeOffsetY;
             var dx = this._targetX - this.x;
             var dy = this._targetY - this.y;
             if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
@@ -485,6 +500,18 @@
                 this.x = this._targetX;
                 this.y = this._targetY;
             }
+        }
+
+        // 피격 흔들림
+        this._shakeOffsetX = 0;
+        this._shakeOffsetY = 0;
+        if (this._shakeTimer > 0) {
+            this._shakeTimer--;
+            var shakePow = this._shakePower * (this._shakeTimer / this._shakeMaxTimer);
+            this._shakeOffsetX = Math.round((Math.random() - 0.5) * 2 * shakePow);
+            this._shakeOffsetY = Math.round((Math.random() - 0.5) * 2 * shakePow);
+            this.x += this._shakeOffsetX;
+            this.y += this._shakeOffsetY;
         }
 
         // opacity
@@ -500,6 +527,12 @@
                 this.opacity = targetOp;
             }
         }
+    };
+
+    Sprite_TurnOrderIcon.prototype.startShake = function () {
+        this._shakeTimer    = 24;
+        this._shakeMaxTimer = 24;
+        this._shakePower    = 6;
     };
 
     Sprite_TurnOrderIcon.prototype.setStatus = function (status) {
@@ -657,6 +690,7 @@
         this._orderKey     = '';
         this._configKey    = '';
         this._frame        = 0;
+        this._hitEffects   = [];
 
         this._bgBitmap = new Bitmap(Graphics.width, Graphics.height);
         this._bgSprite = new Sprite(this._bgBitmap);
@@ -688,6 +722,21 @@
         }
         this.visible = true;
         this._frame++;
+
+        // 피격 알림 처리
+        while (_damageNotifications.length > 0) {
+            var dmg = _damageNotifications.shift();
+            var dmgEntry = this._findEntry(dmg.battler, 'cur');
+            if (dmgEntry && !dmgEntry.ic._exiting) {
+                dmgEntry.ic.startShake();
+                this._hitEffects.push({
+                    icon: dmgEntry.ic,
+                    timer: 36, maxTimer: 36,
+                    seed: Math.random() * Math.PI * 2,
+                    damage: dmg.damage
+                });
+            }
+        }
 
         var ck = [Config.direction, Config.position, Config.iconSize, Config.gap,
                   Config.dividerWidth, Config.dividerColor, Config.dividerGap,
@@ -1155,7 +1204,8 @@
     // 오버레이 (촉수 + 연결선)
     //=========================================================================
     Sprite_TurnOrderBar.prototype._updateOverlay = function () {
-        if (!Config.showTentacle && !Config.showCurves) {
+        var hasHit = this._hitEffects.length > 0;
+        if (!Config.showTentacle && !Config.showCurves && !hasHit) {
             this._overlayBitmap.clear();
             return;
         }
@@ -1166,8 +1216,116 @@
         if (Config.showTentacle) this._drawTentacles(ctx);
         if (Config.showCurves)   this._drawActionCurves(ctx);
         if (Config.showCurves)   this._drawEnemyTargetPreview(ctx);
+        if (hasHit) this._drawHitEffects(ctx);
 
         bmp._setDirty();
+    };
+
+    Sprite_TurnOrderBar.prototype._drawHitEffects = function (ctx) {
+        var size = Config.iconSize;
+        var half = size / 2;
+
+        for (var i = this._hitEffects.length - 1; i >= 0; i--) {
+            var eff = this._hitEffects[i];
+            eff.timer--;
+            if (eff.timer <= 0) {
+                this._hitEffects.splice(i, 1);
+                continue;
+            }
+
+            var progress = 1 - (eff.timer / eff.maxTimer); // 0→1
+            var cx = eff.icon.x;
+            var cy = eff.icon.y;
+
+            // 1. Red/white flash overlay on icon face
+            if (progress < 0.35) {
+                var p = progress / 0.35;
+                ctx.save();
+                ctx.translate(cx - half, cy - half);
+                applyClipPath(ctx, size, Config.clipShape);
+                ctx.clip();
+                ctx.fillStyle = 'rgba(255,50,20,' + (0.55 * (1 - p)).toFixed(2) + ')';
+                ctx.fillRect(0, 0, size, size);
+                if (p < 0.5) {
+                    ctx.fillStyle = 'rgba(255,255,255,' + (0.7 * (1 - p / 0.5)).toFixed(2) + ')';
+                    ctx.fillRect(0, 0, size, size);
+                }
+                ctx.restore();
+            }
+
+            // 2. Red border flash
+            if (progress < 0.45) {
+                var bp = progress / 0.45;
+                ctx.save();
+                ctx.translate(cx - half, cy - half);
+                applyClipPath(ctx, size, Config.clipShape);
+                ctx.strokeStyle = 'rgba(255,40,20,' + (0.9 * (1 - bp)).toFixed(2) + ')';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 3. Impact burst lines
+            var burstCount = 8;
+            ctx.save();
+            ctx.lineCap = 'round';
+            for (var j = 0; j < burstCount; j++) {
+                var angle = (j / burstCount) * Math.PI * 2 + eff.seed;
+                var innerR = half * 0.3 + half * 0.5 * progress;
+                var outerR = half * (0.6 + 1.0 * progress);
+                var alpha = Math.max(0, 0.75 * (1 - progress));
+                if (alpha <= 0) continue;
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+                ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+                ctx.strokeStyle = 'rgba(255,160,60,' + alpha.toFixed(2) + ')';
+                ctx.lineWidth = Math.max(0.5, 2.5 * (1 - progress * 0.7));
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 4. Spark particles
+            var sparkCount = 6;
+            for (var k = 0; k < sparkCount; k++) {
+                var sa = (k / sparkCount) * Math.PI * 2 + eff.seed * 1.7;
+                var sd = half * (0.4 + 1.4 * progress);
+                var sparkAlpha = Math.max(0, 0.85 * (1 - progress * 1.1));
+                if (sparkAlpha <= 0) continue;
+                var sparkR = Math.max(0.5, 2.5 * (1 - progress));
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(sa) * sd, cy + Math.sin(sa) * sd, sparkR, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,240,180,' + sparkAlpha.toFixed(2) + ')';
+                ctx.fill();
+            }
+
+            // 5. Damage number (floats upward)
+            if (eff.damage != null && eff.damage > 0) {
+                var numProgress = Math.min(1, progress * 1.3);
+                var numAlpha = numProgress < 0.7 ? 1.0 : Math.max(0, 1 - (numProgress - 0.7) / 0.3);
+                if (numAlpha > 0) {
+                    var numY = cy - half - 6 - numProgress * 28;
+                    var fontSize = Math.round(size * 0.38);
+                    // pop effect: scale briefly at start
+                    if (progress < 0.12) {
+                        fontSize = Math.round(fontSize * (1 + 0.4 * (1 - progress / 0.12)));
+                    }
+                    ctx.save();
+                    ctx.font = 'bold ' + fontSize + 'px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    var text = String(eff.damage);
+                    // dark outline
+                    ctx.strokeStyle = 'rgba(0,0,0,' + (numAlpha * 0.9).toFixed(2) + ')';
+                    ctx.lineWidth = 4;
+                    ctx.lineJoin = 'round';
+                    ctx.strokeText(text, cx, numY);
+                    // white fill with slight red tint
+                    ctx.fillStyle = 'rgba(255,230,220,' + numAlpha.toFixed(2) + ')';
+                    ctx.fillText(text, cx, numY);
+                    ctx.restore();
+                }
+            }
+        }
     };
 
     Sprite_TurnOrderBar.prototype._drawTentacles = function (ctx) {
