@@ -8,8 +8,7 @@ import type { EditorPointLight } from '../../types/rpgMakerMV';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { highlightMatch } from '../../utils/highlightMatch';
 import { PointLightMarkers, PointLightList } from './MapLocationPickerParts';
-
-const TILE_SIZE = 48;
+import { TILE_SIZE } from '../../utils/tileHelper';
 
 interface BaseProps {
   mapId: number; x: number; y: number;

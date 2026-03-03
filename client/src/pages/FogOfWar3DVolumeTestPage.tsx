@@ -6,7 +6,7 @@ declare const THREE: any;
 declare const FogOfWar: any;
 declare const FogOfWar3DVolume: any;
 
-const TILE_SIZE = 48;
+import { TILE_SIZE } from '../utils/tileHelper';
 const MAP_W = 20;
 const MAP_H = 15;
 

@@ -12,7 +12,7 @@ export const VN_W = 700;
 export const VN_H = 520;
 export const VN_OVERLAY_ALPHA = 120 / 255;
 export const VN_SPEAKER_COLOR = '#ffe066';
-export const TILE_SIZE = 48;
+export { TILE_SIZE } from '../../utils/tileHelper';
 
 // ─── 레이아웃 ───
 export interface Layout {

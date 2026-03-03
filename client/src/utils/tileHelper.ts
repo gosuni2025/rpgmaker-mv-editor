@@ -1,5 +1,6 @@
 // RPG Maker MV tile constants
 export const TILE_SIZE_PX = 48;
+export const TILE_SIZE = TILE_SIZE_PX;
 const HALF = TILE_SIZE_PX / 2; // 24px quarter-tile
 
 // Tile ID ranges (from rpg_core.js Tilemap)

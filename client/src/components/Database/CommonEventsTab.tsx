@@ -1,89 +1,41 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CommonEvent, EventCommand } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
 import DatabaseList from './DatabaseList';
+import { useDatabaseTab } from './useDatabaseTab';
 
 interface CommonEventsTabProps {
   data: (CommonEvent | null)[] | undefined;
   onChange: (data: (CommonEvent | null)[]) => void;
 }
 
+function createNewCommonEvent(id: number): CommonEvent {
+  return {
+    id,
+    name: '',
+    trigger: 0,
+    switchId: 1,
+    list: [{ code: 0, indent: 0, parameters: [] }],
+  };
+}
+
+function deepCopyCommonEvent(source: CommonEvent): Partial<CommonEvent> {
+  return { list: source.list.map(c => ({ ...c, parameters: [...c.parameters] })) };
+}
+
 export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps) {
   const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState(1);
   const TRIGGER_OPTIONS = [t('triggerOptions.none'), t('triggerOptions.autorun'), t('triggerOptions.parallel')];
-  const selectedItem = data?.find((item) => item && item.id === selectedId);
 
-  const handleFieldChange = (field: keyof CommonEvent, value: unknown) => {
-    if (!data) return;
-    const newData = data.map((item) => {
-      if (item && item.id === selectedId) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    onChange(newData);
-  };
+  const {
+    selectedId, setSelectedId, selectedItem,
+    handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder,
+  } = useDatabaseTab(data, onChange, createNewCommonEvent, deepCopyCommonEvent);
 
   const handleCommandsChange = (commands: EventCommand[]) => {
     handleFieldChange('list', commands);
   };
-
-  const handleAddNew = useCallback(() => {
-    if (!data) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newId = maxId + 1;
-    const newItem: CommonEvent = {
-      id: newId,
-      name: '',
-      trigger: 0,
-      switchId: 1,
-      list: [{ code: 0, indent: 0, parameters: [] }],
-    };
-    const newData = [...data, newItem];
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleDelete = useCallback((id: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as CommonEvent[];
-    if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== id);
-    onChange(newData);
-    if (id === selectedId) {
-      const remaining = newData.filter(Boolean) as CommonEvent[];
-      if (remaining.length > 0) setSelectedId(remaining[0].id);
-    }
-  }, [data, onChange, selectedId]);
-
-  const handleDuplicate = useCallback((id: number) => {
-    if (!data) return;
-    const source = data.find((item) => item && item.id === id);
-    if (!source) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newId = maxId + 1;
-    const newData = [...data, { ...source, id: newId, list: source.list.map(c => ({ ...c, parameters: [...c.parameters] })) }];
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleReorder = useCallback((fromId: number, toId: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as CommonEvent[];
-    const fromIdx = items.findIndex(item => item.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = items.splice(fromIdx, 1);
-    if (toId === -1) {
-      items.push(moved);
-    } else {
-      const toIdx = items.findIndex(item => item.id === toId);
-      if (toIdx < 0) items.push(moved);
-      else items.splice(toIdx, 0, moved);
-    }
-    onChange([null, ...items]);
-  }, [data, onChange]);
 
   return (
     <div className="db-tab-layout">
@@ -91,7 +43,7 @@ export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps
         items={data}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onAdd={handleAddNew}
+        onAdd={handleAdd}
         onDelete={handleDelete}
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}

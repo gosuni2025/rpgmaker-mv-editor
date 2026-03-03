@@ -205,6 +205,13 @@ export function createApp(options: AppOptions = {}) {
     next(err);
   });
 
+  // 글로벌 에러 핸들러 (asyncHandler에서 전달된 에러 포함)
+  app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const status = (err as NodeJS.ErrnoException).code === 'ENOENT' ? 404 : 500;
+    console.error(`[Error] ${req.method} ${req.path} — ${err.message}`);
+    res.status(status).json({ error: err.message });
+  });
+
   return app;
 }
 

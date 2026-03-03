@@ -1,8 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EditorPointLight } from '../../types/rpgMakerMV';
-
-const TILE_SIZE = 48;
+import { TILE_SIZE } from '../../utils/tileHelper';
 
 interface MapEvent {
   id: number; name: string; x: number; y: number;

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { TILE_SIZE } from '../utils/tileHelper';
 
 declare const THREE: any;
 declare const FogOfWar: any;
 
 const MAP_W = 20;
 const MAP_H = 15;
-const TILE_SIZE = 48;
 
 export type TestMode = 'live' | 'grow' | 'fade';
 

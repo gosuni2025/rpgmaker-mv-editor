@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { TILE_SIZE } from '../../utils/tileHelper';
 
 // Flag bits
 const FLAG_DOWN = 0x01;
@@ -34,8 +35,6 @@ export const MODES = [
 ] as const;
 
 export type Mode = typeof MODES[number]['value'];
-
-const TILE_SIZE = 48; // Display size (same as source)
 
 function getTabConfig(tab: TabName) {
   switch (tab) {
