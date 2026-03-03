@@ -632,7 +632,7 @@ Scene_Map.prototype.isFastForward = function() {
 Scene_Map.prototype.stop = function() {
     Scene_Base.prototype.stop.call(this);
     $gamePlayer.straighten();
-    this._mapNameWindow.close();
+    if (this._mapNameWindow) this._mapNameWindow.close();
     if (this.needsSlowFadeOut()) {
         this.startFadeOut(this.slowFadeSpeed(), false);
     } else if (SceneManager.isNextScene(Scene_Map)) {
@@ -651,8 +651,8 @@ Scene_Map.prototype.isBusy = function() {
 Scene_Map.prototype.terminate = function() {
     Scene_Base.prototype.terminate.call(this);
     if (!SceneManager.isNextScene(Scene_Battle)) {
-        this._spriteset.update();
-        this._mapNameWindow.hide();
+        if (this._spriteset) this._spriteset.update();
+        if (this._mapNameWindow) this._mapNameWindow.hide();
         SceneManager.snapForBackground();
     } else {
         ImageManager.clearRequest();
@@ -867,7 +867,7 @@ Scene_Map.prototype.launchBattle = function() {
     this.stopAudioOnBattleStart();
     SoundManager.playBattleStart();
     this.startEncounterEffect();
-    this._mapNameWindow.hide();
+    if (this._mapNameWindow) this._mapNameWindow.hide();
 };
 
 Scene_Map.prototype.stopAudioOnBattleStart = function() {
