@@ -644,8 +644,14 @@
             curPending = curOrder.slice();
         }
 
-        // 다음 턴 예측: AGI 정렬 (버프/디버프 반영)
-        var next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
+        // 다음 턴 예측: turn/action/turnEnd에서만 표시
+        // input phase에서는 curOrder가 이미 전체 배틀러를 포함하므로 next를 비워 중복 방지
+        var next;
+        if (phase === 'turn' || phase === 'action' || phase === 'turnEnd') {
+            next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
+        } else {
+            next = [];
+        }
 
         return { curOrder: curOrder, curSubject: curSubject, curPending: curPending, next: next };
     };
@@ -764,9 +770,21 @@
             newEntries.push(entry);
         });
 
-        // ── 남은 old 항목 → 퇴장 애니메이션 ──
+        // ── 남은 old 항목 처리 ──
+        // cur: turn/action 중 alive 배틀러는 강제 done 유지 (순서 변경으로 curOrder에서 빠져도 보존)
+        var activeTurn = (BattleManager._phase === 'turn' || BattleManager._phase === 'action');
         var k;
-        for (k in oldCur)  { oldCur[k].ic.startExit(isH);  self._exitingIcons.push(oldCur[k].ic);  }
+        for (k in oldCur) {
+            var oe = oldCur[k];
+            if (activeTurn && oe.b.isAlive && oe.b.isAlive()) {
+                oe.ic.setStatus('done');
+                oe.ic.scale.x = 1.0; oe.ic.scale.y = 1.0;
+                newEntries.push(oe);
+            } else {
+                oe.ic.startExit(isH);
+                self._exitingIcons.push(oe.ic);
+            }
+        }
         for (k in oldNext) { oldNext[k].ic.startExit(isH); self._exitingIcons.push(oldNext[k].ic); }
 
         self._iconEntries = newEntries;
