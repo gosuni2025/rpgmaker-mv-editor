@@ -229,6 +229,27 @@
     'use strict';
 
     //=========================================================================
+    // 이번 턴에 행동 완료한 배틀러 직접 추적
+    // BattleManager 추론(_actionBattlers) 대신 hook으로 정확히 기록
+    //=========================================================================
+    var _doneThisTurn = [];
+
+    var _BM_startTurn = BattleManager.startTurn;
+    BattleManager.startTurn = function () {
+        _doneThisTurn = [];
+        _BM_startTurn.call(this);
+    };
+
+    var _BM_endAction = BattleManager.endAction;
+    BattleManager.endAction = function () {
+        var subj = this._subject;
+        if (subj && _doneThisTurn.indexOf(subj) < 0) {
+            _doneThisTurn.push(subj);
+        }
+        _BM_endAction.call(this);
+    };
+
+    //=========================================================================
     // 설정
     //=========================================================================
     var _p = PluginManager.parameters('TurnOrderDisplay');
@@ -603,17 +624,13 @@
     // 반환: { curOrder, curSubject, curPending, next }
     //
     // curOrder 규칙:
-    //   turn/action: done(반투명) + subject(active) + pending — 모두 유지
-    //   turnEnd: allAlive를 done(반투명)으로 유지 (아이콘 퇴장 없음)
-    //   input/기타: AGI 기반 예측 순서 표시 (모두 pending)
-    //
-    // next: AGI 기반 다음 턴 예측 (항상 계산)
-    // SPD UP 등으로 AGI 변경 시 next 순서 자동 반영
+    //   turn/action/turnEnd: done(반투명) + subject(active) + pending — 모두 유지
+    //     done 판별: _doneThisTurn 배열 (BattleManager.endAction hook으로 기록)
+    //   input/기타: AGI 기반 예측 순서 표시 (모두 pending, done 없음)
     //=========================================================================
     Sprite_TurnOrderBar.prototype._calcTurnOrder = function () {
         var phase   = BattleManager._phase;
         var subject = BattleManager._subject;
-        var pending = (BattleManager._actionBattlers || []).slice();
 
         var partyAlive = $gameParty.battleMembers().filter(function (b) { return b.isAlive(); });
         var troopAlive = ($gameTroop.aliveMembers
@@ -623,24 +640,26 @@
 
         var curOrder, curSubject, curPending;
 
-        if (phase === 'turn' || phase === 'action') {
-            // done(반투명 유지) + subject(active) + pending
-            // SPD UP 등으로 pending 순서 변경 시 즉시 반영
+        if (phase === 'turn' || phase === 'action' || phase === 'turnEnd') {
+            // done: 이번 턴에 이미 endAction을 마친 배틀러
             var done = allAlive.filter(function (b) {
-                return pending.indexOf(b) < 0 && b !== subject;
+                return _doneThisTurn.indexOf(b) >= 0;
+            });
+            // pending: done도 아니고 active(subject)도 아닌 배틀러
+            // _actionBattlers 순서를 따르되, 없으면 allAlive 순서
+            var actionBattlers = BattleManager._actionBattlers || [];
+            var pending = allAlive.filter(function (b) {
+                return _doneThisTurn.indexOf(b) < 0 && b !== subject;
+            }).sort(function (a, b) {
+                var ai = actionBattlers.indexOf(a); if (ai < 0) ai = 9999;
+                var bi = actionBattlers.indexOf(b); if (bi < 0) bi = 9999;
+                return ai - bi;
             });
             curOrder   = done.concat(subject ? [subject] : []).concat(pending);
             curSubject = subject;
             curPending = pending;
-        } else if (phase === 'turnEnd') {
-            // 턴 종료: 모든 생존 배틀러를 done(반투명)으로 유지
-            // curOrder=[]로 비우면 isBusy() 중 여러 프레임 동안 done 아이콘이 퇴장됨 → 버그
-            curOrder   = allAlive.slice();
-            curSubject = null;
-            curPending = [];
         } else {
             // input / 기타: AGI 기반 예측 순서 표시 (커맨드 선택 중 참고용)
-            // 실제 턴 시작 시 makeActionOrders 결과로 재정렬될 수 있음
             curOrder   = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
             curSubject = null;
             curPending = curOrder.slice();
@@ -773,12 +792,11 @@
         });
 
         // ── 남은 old 항목 처리 ──
-        // cur: turn/action 중 alive 배틀러는 강제 done 유지 (순서 변경으로 curOrder에서 빠져도 보존)
-        var activeTurn = (BattleManager._phase === 'turn' || BattleManager._phase === 'action');
+        // curOrder에서 빠진 cur 아이콘: 살아있으면 done 유지, 죽었으면 퇴장
         var k;
         for (k in oldCur) {
             var oe = oldCur[k];
-            if (activeTurn && oe.b.isAlive && oe.b.isAlive()) {
+            if (oe.b.isAlive && oe.b.isAlive()) {
                 oe.ic.setStatus('done');
                 oe.ic.scale.x = 1.0; oe.ic.scale.y = 1.0;
                 newEntries.push(oe);
@@ -812,9 +830,8 @@
     //=========================================================================
     Sprite_TurnOrderBar.prototype._updateIconStatuses = function () {
         var subject = BattleManager._subject;
-        var pending = BattleManager._actionBattlers || [];
         var phase   = BattleManager._phase;
-        var inTurn  = (phase === 'turn' || phase === 'action');
+        var inTurn  = (phase === 'turn' || phase === 'action' || phase === 'turnEnd');
 
         this._iconEntries.forEach(function (e) {
             if (e.role === 'next') {
@@ -824,14 +841,12 @@
             // cur role
             var b = e.b;
             if (b === subject) {
-                e.ic.setStatus('active');
-            } else if (!inTurn) {
-                // input 단계: 모두 pending
-                if (e.ic._status !== 'pending') e.ic.setStatus('pending');
-            } else if (pending.indexOf(b) >= 0) {
-                if (e.ic._status !== 'pending') e.ic.setStatus('pending');
-            } else {
+                if (e.ic._status !== 'active') e.ic.setStatus('active');
+            } else if (inTurn && _doneThisTurn.indexOf(b) >= 0) {
+                // 이번 턴에 행동 완료 → 반투명 유지
                 if (e.ic._status !== 'done') e.ic.setStatus('done');
+            } else {
+                if (e.ic._status !== 'pending') e.ic.setStatus('pending');
             }
         });
     };
