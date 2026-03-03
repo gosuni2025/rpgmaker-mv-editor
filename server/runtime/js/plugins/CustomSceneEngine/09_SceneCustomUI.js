@@ -72,6 +72,7 @@
     }
     for (var idT in this._widgetMap) {
       var wT = this._widgetMap[idT]; if (!wT._topLayer) continue; var tObj = wT.displayObject(); if (!tObj) continue;
+      if (wT._decoSprite) { if (wT._decoSprite.parent) wT._decoSprite.parent.removeChild(wT._decoSprite); this.addChild(wT._decoSprite); }
       if (tObj.parent) tObj.parent.removeChild(tObj); this.addChild(tObj);
     }
     this._setupWidgetHandlers(this._rootWidget);
@@ -107,6 +108,7 @@
     widget.initialize(def, parentWidget); if (def.topLayer) widget._topLayer = true;
     if (def.visible === false) {
       var dObj = widget.displayObject(); if (dObj) dObj.visible = false;
+      if (widget._decoSprite) widget._decoSprite.visible = false;
     }
     if (def.children && def.children.length) {
       for (var i = 0; i < def.children.length; i++) {
