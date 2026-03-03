@@ -288,6 +288,10 @@
             var action = enemy.currentAction();
             if (!action || !action.item()) return;
             var targets = action.makeTargets();
+            // 랜덤 타겟이면 결과를 고정 — 실행 시에도 같은 대상 공격
+            if (action._targetIndex < 0 && targets.length > 0 && action.isForOpponent()) {
+                action._targetIndex = targets[0].index();
+            }
             // 중복 제거
             var unique = [];
             targets.forEach(function (t) {
