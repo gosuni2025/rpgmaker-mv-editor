@@ -158,10 +158,26 @@
     function showDimOverlay(scene) {
         ensureDimOverlay(scene);
         scene._dimOverlay.visible = true;
+        // scene에서 제거된 경우 다시 추가
+        if (!scene._dimOverlay.parent) {
+            var pp = scene._widgetMap && scene._widgetMap['id_popup'];
+            if (pp) {
+                var ppObj = pp.displayObject();
+                var idx = scene.children.indexOf(ppObj);
+                if (idx >= 0) { scene.addChildAt(scene._dimOverlay, idx); return; }
+            }
+            scene.addChild(scene._dimOverlay);
+        }
     }
 
     function hideDimOverlay(scene) {
-        if (scene._dimOverlay) scene._dimOverlay.visible = false;
+        if (scene._dimOverlay) {
+            scene._dimOverlay.visible = false;
+            // visible=false가 Three.js에서 불확실할 수 있으므로 scene에서 완전 제거
+            if (scene._dimOverlay.parent) {
+                scene._dimOverlay.parent.removeChild(scene._dimOverlay);
+            }
+        }
     }
 
     //=========================================================================
