@@ -1328,7 +1328,18 @@
   };
   Widget_Panel.prototype.update = function() {
     Widget_Base.prototype.update.call(this);
-    if (!this._windowed || !this._displayObject) return;
+    if (!this._displayObject) return;
+    // Window_Base 자식(useTextEx 등)은 addWindow로 windowLayer에 별도 추가되어
+    // 패널 ThreeContainer 계층 밖에 있음. 패널 visibility 변경 시 함께 동기화.
+    var dispVis = this._displayObject._visible !== false;
+    for (var vi = 0; vi < this._children.length; vi++) {
+      var vch = this._children[vi];
+      var vobj = vch && vch.displayObject && vch.displayObject();
+      if (vobj && (vobj instanceof Window_Base) && vobj._visible !== dispVis) {
+        vobj.visible = dispVis;
+      }
+    }
+    if (!this._windowed) return;
     var linked = this._def && this._def.linkedFocus;
     if (!linked || !linked.length) return;
     var navMgr = SceneManager._scene && SceneManager._scene._navManager;
