@@ -169,7 +169,12 @@
         // 다음 턴 예측: 항상 표시
         // startTurn 시 턴 전환 애니메이션으로 next→cur 승격이 필요하므로
         // input phase에서도 next를 유지해야 함
-        var next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
+        var next = allAlive.slice().sort(function (a, b) {
+            if (b.agi !== a.agi) return b.agi - a.agi;
+            var aKey = a.isActor() ? a.index() : 1000 + a.index();
+            var bKey = b.isActor() ? b.index() : 1000 + b.index();
+            return aKey - bKey;
+        });
 
         return { curOrder: curOrder, curSubject: curSubject, curPending: curPending, next: next };
     };
