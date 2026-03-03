@@ -227,17 +227,109 @@
 
 (function () {
     'use strict';
+    console.log('[TOD] v7 loaded');
 
     //=========================================================================
     // 이번 턴에 행동 완료한 배틀러 직접 추적
     // BattleManager 추론(_actionBattlers) 대신 hook으로 정확히 기록
     //=========================================================================
     var _doneThisTurn = [];
+    var _turnTransitionPending = false;
+    var _inputPreviewOrder = null;
+    var _enemyTargetPreview = null; // { enemyIndex: [target battlers] }
+
+    // 랜덤 없이 결정적 속도 계산 (agi + 스킬속도 + 공격속도)
+    function _calcSpeedDeterministic(battler) {
+        var action = battler.currentAction();
+        if (!action || !action.item()) return battler.agi;
+        var speed = battler.agi;
+        if (action.item()) speed += action.item().speed;
+        if (action.isAttack && action.isAttack()) speed += battler.attackSpeed();
+        return speed;
+    }
+
+    // 커맨드 입력 중 속도 미리보기 계산 (랜덤 없음 → 안정적 순서)
+    function _recalcInputPreview() {
+        var battlers = [];
+        if (!BattleManager._surprise) battlers = battlers.concat($gameParty.members());
+        if (!BattleManager._preemptive) battlers = battlers.concat($gameTroop.members());
+        battlers.forEach(function (b) { b._speed = _calcSpeedDeterministic(b); });
+        battlers.sort(function (a, b) { return b._speed - a._speed; });
+        _inputPreviewOrder = battlers.filter(function (b) {
+            return b.isBattleMember() && b.isAlive();
+        });
+    }
+
+    // startInput: 턴 종료 후 커맨드 입력 진입 시 턴 전환 애니메이션 트리거
+    var _BM_startInput = BattleManager.startInput;
+    BattleManager.startInput = function () {
+        if (_doneThisTurn.length > 0) {
+            _turnTransitionPending = true;
+        }
+        _doneThisTurn = [];
+        _BM_startInput.call(this);
+        // makeActions() 이후 초기 속도 미리보기 + 적 타겟 미리보기
+        if (this._phase === 'input') {
+            _recalcInputPreview();
+            _calcEnemyTargets();
+        }
+    };
+
+    function _calcEnemyTargets() {
+        _enemyTargetPreview = {};
+        $gameTroop.aliveMembers().forEach(function (enemy) {
+            var action = enemy.currentAction();
+            if (!action || !action.item()) return;
+            var targets = action.makeTargets();
+            // 중복 제거
+            var unique = [];
+            targets.forEach(function (t) {
+                if (unique.indexOf(t) < 0) unique.push(t);
+            });
+            _enemyTargetPreview[enemy.index()] = {
+                targets: unique,
+                action: action
+            };
+        });
+    }
+
+    // selectNextCommand: 각 액터 커맨드 확정 시 속도 재계산
+    var _BM_selectNextCommand = BattleManager.selectNextCommand;
+    BattleManager.selectNextCommand = function () {
+        _BM_selectNextCommand.call(this);
+        if (this._phase === 'input') {
+            _recalcInputPreview();
+        }
+    };
+
+    // selectPreviousCommand: 커맨드 취소 시 속도 재계산
+    var _BM_selectPreviousCommand = BattleManager.selectPreviousCommand;
+    BattleManager.selectPreviousCommand = function () {
+        _BM_selectPreviousCommand.call(this);
+        if (this._phase === 'input') {
+            _recalcInputPreview();
+        }
+    };
 
     var _BM_startTurn = BattleManager.startTurn;
     BattleManager.startTurn = function () {
-        _doneThisTurn = [];
-        _BM_startTurn.call(this);
+        // input 미리보기 속도 저장
+        var savedSpeeds = [];
+        if (_inputPreviewOrder) {
+            _inputPreviewOrder.forEach(function (b) {
+                savedSpeeds.push({ b: b, s: b._speed });
+            });
+        }
+        _inputPreviewOrder = null;
+        _enemyTargetPreview = null;
+        _BM_startTurn.call(this); // makeActionOrders → makeSpeed 재랜덤
+        // 미리보기 속도 복원 → 표시된 순서 = 실제 순서
+        if (savedSpeeds.length > 0) {
+            savedSpeeds.forEach(function (e) { e.b._speed = e.s; });
+            this._actionBattlers.sort(function (a, b) {
+                return b.speed() - a.speed();
+            });
+        }
     };
 
     var _BM_endAction = BattleManager.endAction;

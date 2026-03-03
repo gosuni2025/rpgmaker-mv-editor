@@ -27,6 +27,18 @@
             else                   oldNext[k] = e;
         });
 
+        // ── 턴 전환 애니메이션 ──
+        // startTurn 시: 이전 cur 아이콘을 모두 왼쪽으로 exit,
+        // oldCur를 비워서 next→cur 승격이 발생하도록 함
+        if (this._turnTransition) {
+            this._turnTransition = false;
+            for (var tk in oldCur) {
+                oldCur[tk].ic.startExit(isH);
+                self._exitingIcons.push(oldCur[tk].ic);
+            }
+            oldCur = {};
+        }
+
         var newEntries = [];
         var sc_next = Config.nextScale;
 
@@ -138,14 +150,13 @@
                 if (e.ic._status !== 'next') e.ic.setStatus('next');
                 return;
             }
-            // cur role
+            // cur role — done이 active보다 우선
+            // (endAction 직후 subject가 아직 남아있어도 done으로 처리)
             var b = e.b;
-            if (b === subject) {
-                if (e.ic._status !== 'active') e.ic.setStatus('active');
-            } else if (_doneThisTurn.indexOf(b) >= 0) {
-                // 이번 턴에 행동 완료 → 반투명 유지 (phase 무관)
-                // inTurn 조건을 제거해야 input phase에서도 done이 유지됨
+            if (_doneThisTurn.indexOf(b) >= 0) {
                 if (e.ic._status !== 'done') e.ic.setStatus('done');
+            } else if (b === subject) {
+                if (e.ic._status !== 'active') e.ic.setStatus('active');
             } else {
                 if (e.ic._status !== 'pending') e.ic.setStatus('pending');
             }

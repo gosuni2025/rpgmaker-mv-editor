@@ -57,6 +57,13 @@
             this._orderKey = '';
         }
 
+        // 턴 전환 감지
+        if (_turnTransitionPending) {
+            _turnTransitionPending = false;
+            this._turnTransition = true;
+            this._orderKey = ''; // 강제 _syncIcons 호출
+        }
+
         // 매 프레임 순서 계산 (캐시 — _updateOrder/_updateLayout 공유)
         this._order = this._calcTurnOrder();
         this._updateOrder();
@@ -119,9 +126,9 @@
         var curOrder, curSubject, curPending;
 
         if (phase === 'turn' || phase === 'action' || phase === 'turnEnd') {
-            // done: 이번 턴에 이미 endAction을 마친 배틀러
-            var done = allAlive.filter(function (b) {
-                return _doneThisTurn.indexOf(b) >= 0;
+            // done: 이번 턴에 이미 endAction을 마친 배틀러 (행동 완료 순서 유지)
+            var done = _doneThisTurn.filter(function (b) {
+                return allAlive.indexOf(b) >= 0;
             });
             // pending: done도 아니고 active(subject)도 아닌 배틀러
             // _actionBattlers 순서를 따르되, 없으면 allAlive 순서
@@ -133,32 +140,36 @@
                 var bi = actionBattlers.indexOf(b); if (bi < 0) bi = 9999;
                 return ai - bi;
             });
-            curOrder   = done.concat(subject ? [subject] : []).concat(pending);
-            curSubject = subject;
+            // subject가 이미 done에 포함되면 중복 추가하지 않음
+            // (endAction 직후 subject가 아직 남아있어 중복 발생 방지)
+            var subjectSlot = (subject && _doneThisTurn.indexOf(subject) < 0) ? [subject] : [];
+            curOrder   = done.concat(subjectSlot).concat(pending);
+            curSubject = (subject && _doneThisTurn.indexOf(subject) < 0) ? subject : null;
             curPending = pending;
         } else {
-            // input / 기타: done 배틀러 유지 + AGI 기반 pending
-            // done을 유지해야 turnEnd→input 전환 시 아이콘이 이동하지 않음
-            var done2 = allAlive.filter(function (b) {
-                return _doneThisTurn.indexOf(b) >= 0;
+            // input / 기타: 속도 미리보기 순서 사용 (없으면 AGI 순서)
+            var done2 = _doneThisTurn.filter(function (b) {
+                return allAlive.indexOf(b) >= 0;
             });
-            var pending2 = allAlive.filter(function (b) {
-                return _doneThisTurn.indexOf(b) < 0;
-            }).sort(function (a, b) { return b.agi - a.agi; });
+            var pending2;
+            if (_inputPreviewOrder && _inputPreviewOrder.length > 0) {
+                pending2 = _inputPreviewOrder.filter(function (b) {
+                    return allAlive.indexOf(b) >= 0 && _doneThisTurn.indexOf(b) < 0;
+                });
+            } else {
+                pending2 = allAlive.filter(function (b) {
+                    return _doneThisTurn.indexOf(b) < 0;
+                }).sort(function (a, b) { return b.agi - a.agi; });
+            }
             curOrder   = done2.concat(pending2);
             curSubject = null;
             curPending = pending2;
         }
 
-        // 다음 턴 예측: turn/action/turnEnd에서만 표시
-        // input에서 next=[]로 하면 _syncIcons에서 next 아이콘들이 cur로 승격되어
-        // 크기가 작게→크게 자연스럽게 전환됨 (새 아이콘 생성 없음)
-        var next;
-        if (phase === 'turn' || phase === 'action' || phase === 'turnEnd') {
-            next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
-        } else {
-            next = [];
-        }
+        // 다음 턴 예측: 항상 표시
+        // startTurn 시 턴 전환 애니메이션으로 next→cur 승격이 필요하므로
+        // input phase에서도 next를 유지해야 함
+        var next = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
 
         return { curOrder: curOrder, curSubject: curSubject, curPending: curPending, next: next };
     };

@@ -64,7 +64,7 @@
             this.opacity -= 16;
             if (this.opacity <= 0) { this.opacity = 0; this._exitDone = true; }
         } else {
-            var targetOp = this._status === 'done' ? 80 : 255;
+            var targetOp = this._status === 'done' ? 160 : 255;
             var diff = targetOp - this.opacity;
             if (Math.abs(diff) > 3) {
                 this.opacity += Math.sign(diff) * Math.max(6, Math.abs(diff) * 0.18);
@@ -133,10 +133,20 @@
         }
         ctx.restore();
 
+        // done 상태: 어두운 반투명 오버레이
+        if (this._status === 'done') {
+            ctx.save();
+            applyClipPath(ctx, size, shape);
+            ctx.clip();
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.fillRect(0, 0, size, size);
+            ctx.restore();
+        }
+
         var bc, bw;
         switch (this._status) {
             case 'active': bc = '#ffdd44';                bw = 3;   break;
-            case 'done':   bc = 'rgba(200,200,200,0.25)'; bw = 1.5; break;
+            case 'done':   bc = 'rgba(150,150,150,0.5)';  bw = 1.5; break;
             case 'next':   bc = 'rgba(120,180,255,0.5)';  bw = 1.5; break;
             default:       bc = 'rgba(255,255,255,0.65)'; bw = 2;
         }

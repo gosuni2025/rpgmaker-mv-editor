@@ -12,6 +12,7 @@
 
         if (Config.showTentacle) this._drawTentacles(ctx);
         if (Config.showCurves)   this._drawActionCurves(ctx);
+        if (Config.showCurves)   this._drawEnemyTargetPreview(ctx);
 
         bmp._setDirty();
     };
@@ -90,7 +91,7 @@
         var half      = Math.round(Config.iconSize / 2);
 
         targets.forEach(function (target) {
-            var tEntry = this._findEntry(target, 'cur') || this._findEntry(target, 'next');
+            var tEntry = this._findEntry(target, 'cur');
             if (!tEntry || tEntry.ic._exiting) return;
 
             var sx = subEntry.ic.x, sy = subEntry.ic.y;
@@ -185,6 +186,47 @@
                 ctx.restore();
             }
         }
+    };
+
+    Sprite_TurnOrderBar.prototype._drawEnemyTargetPreview = function (ctx) {
+        if (BattleManager._phase !== 'input' || !_enemyTargetPreview) return;
+        var self = this;
+        var isH  = Config.direction === 'horizontal';
+        var half = Math.round(Config.iconSize / 2);
+
+        $gameTroop.aliveMembers().forEach(function (enemy) {
+            var info = _enemyTargetPreview[enemy.index()];
+            if (!info || !info.targets.length) return;
+            var eEntry = self._findEntry(enemy, 'cur');
+            if (!eEntry || eEntry.ic._exiting) return;
+
+            var color     = withAlpha(self._curveColor(info.action), 0.6);
+            var iconIndex = info.action.item() ? info.action.item().iconIndex : -1;
+
+            info.targets.forEach(function (target) {
+                var tEntry = self._findEntry(target, 'cur');
+                if (!tEntry || tEntry.ic._exiting) return;
+
+                var sx = eEntry.ic.x, sy = eEntry.ic.y;
+                var tx = tEntry.ic.x, ty = tEntry.ic.y;
+
+                if (isH) {
+                    var p1y = sy + half + 4, p2y = ty + half + 4;
+                    var drop = Math.max(20, Math.abs(tx - sx) * 0.35);
+                    self._strokeBezier(ctx, sx, p1y,
+                        sx + (tx-sx)*0.25, p1y + drop,
+                        sx + (tx-sx)*0.75, p2y + drop,
+                        tx, p2y, color, iconIndex);
+                } else {
+                    var p1x = sx + half + 4, p2x = tx + half + 4;
+                    var drift = Math.max(20, Math.abs(ty - sy) * 0.35);
+                    self._strokeBezier(ctx, p1x, sy,
+                        p1x + drift, sy + (ty-sy)*0.25,
+                        p2x + drift, sy + (ty-sy)*0.75,
+                        p2x, ty, color, iconIndex);
+                }
+            });
+        });
     };
 
     Sprite_TurnOrderBar.prototype._curveColor = function (action) {
