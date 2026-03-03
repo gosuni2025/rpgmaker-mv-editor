@@ -203,15 +203,15 @@
                             this._pendingUseWidget  = widget;
                             var aw = this._widgetMap['id_action'];
                             if (aw) {
-                                aw.displayObject().visible = true;
+                                aw.show();
                                 if (this._navManager) this._navManager.focusWidget('id_action');
                             }
                         } else {
                             showDimOverlay(this);
                             var pp = this._widgetMap['id_popup'];
                             var pc = this._widgetMap['id_popup_ctrl'];
-                            if (pp) pp.displayObject().visible = true;
-                            if (pc) pc.displayObject().visible = true;
+                            if (pp) pp.show();
+                            if (pc) pc.show();
                             var img = this._widgetMap['id_popup_img'];
                             if (img && img.refresh) img.refresh();
                             var txt = this._widgetMap['id_popup_text'];
