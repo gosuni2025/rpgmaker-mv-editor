@@ -20,7 +20,11 @@
         };
     }
 
-    TouchInput._onTouchStart = function(event) {
+    // touchstart 처리 함수
+    // document.addEventListener로 직접 등록하여, rpg_core._setupEventHandlers의
+    // bind() 캡처 문제를 우회 (플러그인이 비동기 로드되므로 bind 시점에는
+    // 원본 _onTouchStart가 캡처되어 이 오버라이드가 호출되지 않을 수 있음)
+    function handleTouchStart(event) {
         // 항상 preventDefault: touchcancel·pan·zoom 원천 차단
         event.preventDefault();
 
@@ -37,12 +41,12 @@
                 Graphics.pageToCanvasX(t.pageX),
                 Graphics.pageToCanvasY(t.pageY)
             );
-            this._screenPressed = true;
-            this._pressedTime = 0;
+            TouchInput._screenPressed = true;
+            TouchInput._pressedTime = 0;
             if (event.touches.length >= 2) {
-                this._onCancel(p.x, p.y);
+                TouchInput._onCancel(p.x, p.y);
             } else {
-                this._onTrigger(p.x, p.y);
+                TouchInput._onTrigger(p.x, p.y);
             }
         }
 
@@ -69,15 +73,23 @@
             _pinchState.active   = true;
             _pinchState.lastDist = getTouchDist(event.touches);
         }
-    };
+    }
+
+    // 원본 _onTouchStart도 오버라이드 (bind 전에 로드되면 유효)
+    TouchInput._onTouchStart = handleTouchStart;
 
     // =========================================================================
-    // touchmove / touchend / touchcancel — document.addEventListener 직접 등록
+    // touchstart / touchmove / touchend / touchcancel
+    // — document.addEventListener 직접 등록
     //
-    // TouchInput._onTouchMove = function(...) 교체 방식과 동일한 이유로
-    // bind 시점 이후 교체가 반영되지 않을 수 있으므로 직접 등록.
+    // PluginManager.setup()이 플러그인을 비동기 로드하므로,
+    // rpg_core._setupEventHandlers()의 bind() 시점에는 원본 함수가 캡처됨.
+    // 따라서 모든 터치 핸들러를 document.addEventListener로 직접 등록해야
+    // 플러그인 오버라이드가 확실히 동작함.
     // passive: false 필수 (event.preventDefault() 호출을 위해)
     // =========================================================================
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
 
     document.addEventListener('touchmove', function(event) {
         event.preventDefault(); // pan/scroll 원천 차단
@@ -164,7 +176,21 @@
 
     document.addEventListener('touchend', function(event) {
         if (event.touches.length < 2) _pinchState.active = false;
-        if (event.touches.length === 0) _dragState.active = false;
+        if (event.touches.length === 0) {
+            _dragState.active = false;
+            // 원본 _onTouchEnd(bind 캡처)가 isInsideCanvas 없이 _onRelease를 호출하지만,
+            // Graphics.pageToCanvasX/Y가 모바일에서 부정확할 수 있으므로
+            // 클램프된 좌표로 덮어써서 정확한 TouchInput.x/y를 보장
+            for (var i = 0; i < event.changedTouches.length; i++) {
+                var t = event.changedTouches[i];
+                var p = canvasClamp(
+                    Graphics.pageToCanvasX(t.pageX),
+                    Graphics.pageToCanvasY(t.pageY)
+                );
+                TouchInput._screenPressed = false;
+                TouchInput._onRelease(p.x, p.y);
+            }
+        }
     });
 
     document.addEventListener('touchcancel', function() {
