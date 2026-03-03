@@ -229,15 +229,19 @@
     'use strict';
 
     //=========================================================================
-    // 이번 턴에 행동 완료한 배틀러 직접 추적
-    // BattleManager 추론(_actionBattlers) 대신 hook으로 정확히 기록
+    // 이번 턴 순서 & 행동 완료 배틀러 직접 추적
+    //   _turnOrder    : startTurn 시 결정된 이번 턴 순서 (고정, 아이콘 위치 기준)
+    //   _doneThisTurn : endAction hook으로 기록한 행동 완료 배틀러
     //=========================================================================
     var _doneThisTurn = [];
+    var _turnOrder    = [];
 
     var _BM_startTurn = BattleManager.startTurn;
     BattleManager.startTurn = function () {
         _doneThisTurn = [];
         _BM_startTurn.call(this);
+        // makeActionOrders 호출 후 → _actionBattlers에 이번 턴 AGI 순서 설정됨
+        _turnOrder = (this._actionBattlers || []).slice();
     };
 
     var _BM_endAction = BattleManager.endAction;
@@ -624,9 +628,9 @@
     // 반환: { curOrder, curSubject, curPending, next }
     //
     // curOrder 규칙:
-    //   turn/action/turnEnd: done(반투명) + subject(active) + pending — 모두 유지
-    //     done 판별: _doneThisTurn 배열 (BattleManager.endAction hook으로 기록)
-    //   input/기타: AGI 기반 예측 순서 표시 (모두 pending, done 없음)
+    //   turn/action/turnEnd: _turnOrder 고정 순서 (아이콘 위치 변경 없음)
+    //     status만 변경: done(반투명) / active(강조) / pending(기본)
+    //   input/기타: AGI 기반 예측 순서 (모두 pending)
     //=========================================================================
     Sprite_TurnOrderBar.prototype._calcTurnOrder = function () {
         var phase   = BattleManager._phase;
@@ -641,23 +645,14 @@
         var curOrder, curSubject, curPending;
 
         if (phase === 'turn' || phase === 'action' || phase === 'turnEnd') {
-            // done: 이번 턴에 이미 endAction을 마친 배틀러
-            var done = allAlive.filter(function (b) {
-                return _doneThisTurn.indexOf(b) >= 0;
-            });
-            // pending: done도 아니고 active(subject)도 아닌 배틀러
-            // _actionBattlers 순서를 따르되, 없으면 allAlive 순서
-            var actionBattlers = BattleManager._actionBattlers || [];
-            var pending = allAlive.filter(function (b) {
-                return _doneThisTurn.indexOf(b) < 0 && b !== subject;
-            }).sort(function (a, b) {
-                var ai = actionBattlers.indexOf(a); if (ai < 0) ai = 9999;
-                var bi = actionBattlers.indexOf(b); if (bi < 0) bi = 9999;
-                return ai - bi;
-            });
-            curOrder   = done.concat(subject ? [subject] : []).concat(pending);
+            // _turnOrder(턴 시작 시 고정)를 기준으로 — 죽은 배틀러만 제외
+            var base = _turnOrder.length > 0 ? _turnOrder : allAlive;
+            curOrder = base.filter(function (b) { return b.isAlive ? b.isAlive() : true; });
             curSubject = subject;
-            curPending = pending;
+            // pending: done도 active도 아닌 배틀러
+            curPending = curOrder.filter(function (b) {
+                return _doneThisTurn.indexOf(b) < 0 && b !== subject;
+            });
         } else {
             // input / 기타: AGI 기반 예측 순서 표시 (커맨드 선택 중 참고용)
             curOrder   = allAlive.slice().sort(function (a, b) { return b.agi - a.agi; });
