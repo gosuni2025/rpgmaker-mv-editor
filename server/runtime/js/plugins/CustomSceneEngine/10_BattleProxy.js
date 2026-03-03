@@ -119,7 +119,9 @@
         this._partyCommandWindow = new Window_PartyCommand(); this.addWindow(this._partyCommandWindow);
       }
       this._partyCommandWindow.setHandler('fight',  this.commandFight.bind(this));
-      this._partyCommandWindow.setHandler('escape', this.commandEscape.bind(this)); this._partyCommandWindow.deselect();
+      this._partyCommandWindow.setHandler('escape', this.commandEscape.bind(this));
+      this._partyCommandWindow.setHandler('cancel', function() { SoundManager.playBuzzer(); this._partyCommandWindow.activate(); }.bind(this));
+      this._partyCommandWindow.deselect();
     };
     Klass.prototype.createActorCommandWindow = function() {
       var widget = this._widgetMap && this._widgetMap['actorCommand'];
