@@ -58,7 +58,10 @@
       var w = this._widgetMap[id]; if (w._decoSprite && w.displayObject() instanceof Window_Base) this.addChild(w._decoSprite);
     }
     for (var id2 in this._widgetMap) {
-      var w2 = this._widgetMap[id2]; var obj = w2.displayObject(); if (obj && obj instanceof Window_Base && !w2._topLayer) this.addWindow(obj);
+      var w2 = this._widgetMap[id2]; var obj = w2.displayObject(); if (obj && obj instanceof Window_Base && !w2._topLayer) {
+        var _anc = w2._parent, _inTop = false; while (_anc) { if (_anc._topLayer) { _inTop = true; break; } _anc = _anc._parent; }
+        if (!_inTop) this.addWindow(obj);
+      }
     }
     for (var idL in this._widgetMap) if (this._widgetMap[idL]._labelSprite) this.addChild(this._widgetMap[idL]._labelSprite);
     for (var id3 in this._widgetMap) {
