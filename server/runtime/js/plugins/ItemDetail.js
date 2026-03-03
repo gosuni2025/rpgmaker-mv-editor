@@ -136,11 +136,44 @@
     }
 
     //=========================================================================
+    // 상세 팝업 dim overlay 헬퍼
+    //=========================================================================
+    function ensureDimOverlay(scene) {
+        if (!scene._dimOverlay) {
+            var bmp = new Bitmap(Graphics.boxWidth, Graphics.boxHeight);
+            bmp.fillRect(0, 0, bmp.width, bmp.height, 'rgba(0,0,0,0.7)');
+            scene._dimOverlay = new Sprite(bmp);
+            scene._dimOverlay.visible = false;
+            // topLayer 위젯들 바로 앞에 삽입
+            var pp = scene._widgetMap && scene._widgetMap['id_popup'];
+            if (pp) {
+                var ppObj = pp.displayObject();
+                var idx = scene.children.indexOf(ppObj);
+                if (idx >= 0) { scene.addChildAt(scene._dimOverlay, idx); return; }
+            }
+            scene.addChild(scene._dimOverlay);
+        }
+    }
+
+    function showDimOverlay(scene) {
+        ensureDimOverlay(scene);
+        scene._dimOverlay.visible = true;
+    }
+
+    function hideDimOverlay(scene) {
+        if (scene._dimOverlay) scene._dimOverlay.visible = false;
+    }
+
+    //=========================================================================
     // Scene_CustomUI (CustomSceneEngine) — item 씬 연동
     // 팝업 위젯들은 data/UIScenes/item.json에 정의됨.
     // 플러그인은 useItem 인터셉트 + _execPendingUse 헬퍼 주입만 담당.
     //=========================================================================
     if (window.Scene_CustomUI) {
+        // JSON script에서 호출 가능한 dim 헬퍼 주입
+        Scene_CustomUI.prototype._showDimOverlay = function() { showDimOverlay(this); };
+        Scene_CustomUI.prototype._hideDimOverlay = function() { hideDimOverlay(this); };
+
         var _exec_orig = Scene_CustomUI.prototype._executeWidgetHandler;
 
         if (_exec_orig) {
@@ -174,6 +207,7 @@
                                 if (this._navManager) this._navManager.focusWidget('id_action');
                             }
                         } else {
+                            showDimOverlay(this);
                             var pp = this._widgetMap['id_popup'];
                             var pc = this._widgetMap['id_popup_ctrl'];
                             if (pp) pp.displayObject().visible = true;
