@@ -1,19 +1,16 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
-import type { MapInfo } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
 import SampleMapDialog from '../SampleMapDialog';
 import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
-import { highlightMatch } from '../../utils/highlightMatch';
-import { fuzzyMatch } from '../../utils/fuzzySearch';
 import FuzzySearchInput from '../common/FuzzySearchInput';
+import { buildTree, filterTree, flattenTree } from './mapTreeUtils';
+import { applyDrop, applyMultiDrop } from './mapTreeDndUtils';
+import { TreeNode } from './MapTreeNode';
+import type { DragOverInfo } from './MapTreeNode';
 import './Sidebar.css';
 import './MapTree.css';
-
-interface TreeNodeData extends MapInfo {
-  children: TreeNodeData[];
-}
 
 interface ContextMenuState {
   x: number;
@@ -21,340 +18,6 @@ interface ContextMenuState {
   mapId: number;
   isFolder: boolean;
 }
-
-interface DragOverInfo {
-  id: number;
-  position: 'before' | 'after' | 'into';
-}
-
-// ── Tree helpers ──────────────────────────────────────────────────────────────
-
-function buildTree(maps: (MapInfo | null)[]): TreeNodeData[] {
-  if (!maps || maps.length === 0) return [];
-
-  const byId: Record<number, TreeNodeData> = {};
-  const roots: TreeNodeData[] = [];
-
-  maps.forEach((m) => {
-    if (!m) return;
-    byId[m.id] = { ...m, children: [] };
-  });
-
-  maps.forEach((m) => {
-    if (!m) return;
-    const node = byId[m.id];
-    if (m.parentId && byId[m.parentId]) {
-      byId[m.parentId].children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  const sortByOrder = (nodes: TreeNodeData[]) => {
-    nodes.sort((a, b) => a.order - b.order);
-    nodes.forEach(n => sortByOrder(n.children));
-  };
-  sortByOrder(roots);
-
-  return roots;
-}
-
-function filterTree(nodes: TreeNodeData[], query: string): TreeNodeData[] {
-  if (!query) return nodes;
-  const result: TreeNodeData[] = [];
-  for (const node of nodes) {
-    const filteredChildren = filterTree(node.children, query);
-    const idStr = String(node.id).padStart(3, '0');
-    const selfMatch = (node.isFolder
-      ? fuzzyMatch(node.name, query)
-      : (fuzzyMatch(node.name || `Map ${node.id}`, query)
-        || fuzzyMatch(idStr, query)
-        || (!!node.displayName && fuzzyMatch(node.displayName, query))));
-    if (selfMatch || filteredChildren.length > 0) {
-      result.push({ ...node, children: filteredChildren });
-    }
-  }
-  return result;
-}
-
-function flattenTree(nodes: TreeNodeData[], collapsed: Record<number, boolean>): number[] {
-  const result: number[] = [];
-  const visit = (node: TreeNodeData) => {
-    result.push(node.id);
-    if (!collapsed[node.id] && node.children.length > 0) {
-      node.children.forEach(visit);
-    }
-  };
-  nodes.forEach(visit);
-  return result;
-}
-
-// ── Drag-drop helpers ─────────────────────────────────────────────────────────
-
-function isDescendant(maps: (MapInfo | null)[], nodeId: number, potentialAncestorId: number): boolean {
-  let current = maps.find(m => m?.id === nodeId);
-  while (current && current.parentId !== 0) {
-    if (current.parentId === potentialAncestorId) return true;
-    current = maps.find(m => m?.id === current!.parentId);
-  }
-  return false;
-}
-
-function recompactSiblings(maps: (MapInfo | null)[], parentId: number, excludeId: number) {
-  const siblings = maps
-    .filter(m => m && m.parentId === parentId && m.id !== excludeId)
-    .sort((a, b) => a!.order - b!.order);
-  siblings.forEach((m, idx) => { if (m) m.order = idx; });
-}
-
-function applyDrop(
-  maps: (MapInfo | null)[],
-  draggingId: number,
-  targetId: number,
-  position: 'before' | 'after' | 'into'
-): (MapInfo | null)[] {
-  if (draggingId === targetId) return maps;
-
-  const newMaps = maps.map(m => m ? { ...m } : null);
-  const dragging = newMaps.find(m => m?.id === draggingId);
-  const target = newMaps.find(m => m?.id === targetId);
-  if (!dragging || !target) return maps;
-
-  const newParentId = position === 'into' ? targetId : target.parentId;
-  if (isDescendant(newMaps, newParentId, draggingId) || newParentId === draggingId) return maps;
-
-  const oldParentId = dragging.parentId;
-
-  if (position === 'into') {
-    const existingChildren = newMaps.filter(m => m && m.parentId === targetId && m.id !== draggingId);
-    const maxOrder = existingChildren.length > 0 ? Math.max(...existingChildren.map(m => m!.order)) : -1;
-    dragging.parentId = targetId;
-    dragging.order = maxOrder + 1;
-    recompactSiblings(newMaps, oldParentId, draggingId);
-  } else {
-    const newSiblings = newMaps
-      .filter(m => m && m.parentId === newParentId && m.id !== draggingId)
-      .sort((a, b) => a!.order - b!.order);
-
-    const targetIdx = newSiblings.findIndex(m => m!.id === targetId);
-    if (targetIdx === -1) return maps;
-
-    dragging.parentId = newParentId;
-    newSiblings.splice(position === 'before' ? targetIdx : targetIdx + 1, 0, dragging);
-    newSiblings.forEach((m, idx) => { if (m) m.order = idx; });
-
-    if (oldParentId !== newParentId) {
-      recompactSiblings(newMaps, oldParentId, draggingId);
-    }
-  }
-
-  return newMaps;
-}
-
-function applyMultiDrop(
-  maps: (MapInfo | null)[],
-  draggingIds: number[],
-  targetId: number,
-  position: 'before' | 'after' | 'into',
-  flatOrder: number[]
-): (MapInfo | null)[] {
-  const validIds = draggingIds.filter(id => {
-    if (id === targetId) return false;
-    if (isDescendant(maps, targetId, id)) return false;
-    return true;
-  });
-  if (validIds.length === 0) return maps;
-  if (validIds.length === 1) return applyDrop(maps, validIds[0], targetId, position);
-
-  const sorted = [...validIds].sort((a, b) => flatOrder.indexOf(a) - flatOrder.indexOf(b));
-
-  let current = maps;
-  if (position === 'before') {
-    for (const id of sorted) current = applyDrop(current, id, targetId, 'before');
-  } else if (position === 'after') {
-    for (const id of [...sorted].reverse()) current = applyDrop(current, id, targetId, 'after');
-  } else {
-    for (const id of sorted) current = applyDrop(current, id, targetId, 'into');
-  }
-
-  return current;
-}
-
-// ── TreeNode ──────────────────────────────────────────────────────────────────
-
-interface TreeNodeProps {
-  node: TreeNodeData;
-  depth: number;
-  selectedId: number | null;
-  selectedDisplayName?: string;
-  filterQuery?: string;
-  onSelect: (id: number, e: React.MouseEvent) => void;
-  onDoubleClick: (id: number) => void;
-  onFolderToggle: (id: number) => void;
-  collapsed: Record<number, boolean>;
-  onToggle: (id: number) => void;
-  onContextMenu: (e: React.MouseEvent, mapId: number, isFolder: boolean) => void;
-  startPositions: Record<number, string[]>;
-  multiSelectedIds: Set<number>;
-  draggingIds: Set<number>;
-  dragOverInfo: DragOverInfo | null;
-  onDragStart: (id: number) => void;
-  onDragOver: (e: React.DragEvent, id: number) => void;
-  onDragEnd: () => void;
-  onDrop: (e: React.DragEvent, targetId: number, position: 'before' | 'after' | 'into') => void;
-  editingFolderId: number | null;
-  editingFolderName: string;
-  onEditChange: (name: string) => void;
-  onEditCommit: () => void;
-  onEditCancel: () => void;
-}
-
-function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, onSelect, onDoubleClick, onFolderToggle, collapsed, onToggle, onContextMenu, startPositions, multiSelectedIds, draggingIds, dragOverInfo, onDragStart, onDragOver, onDragEnd, onDrop, editingFolderId, editingFolderName, onEditChange, onEditCommit, onEditCancel }: TreeNodeProps) {
-  const isCollapsed = collapsed[node.id];
-  const hasChildren = node.children && node.children.length > 0;
-  const badges = !node.isFolder ? startPositions[node.id] : undefined;
-  const idStr = String(node.id).padStart(3, '0');
-  const isSelected = !node.isFolder && node.id === selectedId;
-  const isMultiSelected = multiSelectedIds.has(node.id);
-  const isDraggingThis = draggingIds.has(node.id);
-  const isOver = dragOverInfo?.id === node.id;
-  const overPos = isOver ? dragOverInfo!.position : null;
-  const isEditingThis = node.isFolder && editingFolderId === node.id;
-
-  const q = filterQuery || '';
-
-  const editInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (isEditingThis) editInputRef.current?.select();
-  }, [isEditingThis]);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDragOver(e, node.id);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (dragOverInfo && dragOverInfo.id === node.id) {
-      onDrop(e, node.id, dragOverInfo.position);
-    }
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (node.isFolder) {
-      if (!e.ctrlKey && !e.metaKey && !e.shiftKey) onFolderToggle(node.id);
-      onSelect(node.id, e);
-    } else {
-      onSelect(node.id, e);
-    }
-  };
-
-  // label for folder
-  const folderLabel = node.isFolder ? (
-    <span className="map-tree-folder-name">
-      {isEditingThis ? (
-        <input
-          ref={editInputRef}
-          className="map-tree-folder-edit"
-          value={editingFolderName}
-          onChange={e => onEditChange(e.target.value)}
-          onBlur={onEditCommit}
-          onKeyDown={e => {
-            e.stopPropagation();
-            if (e.key === 'Enter') onEditCommit();
-            if (e.key === 'Escape') onEditCancel();
-          }}
-          onClick={e => e.stopPropagation()}
-        />
-      ) : (
-        highlightMatch(node.name, q)
-      )}
-    </span>
-  ) : null;
-
-  // label for map
-  const dn = isSelected ? (selectedDisplayName || node.displayName || '') : (node.displayName || '');
-  const mapLabel = !node.isFolder ? (
-    <>
-      <span style={{ color: '#888' }}>{highlightMatch(`[${idStr}]`, q)}</span>{' '}
-      {dn
-        ? <>{highlightMatch(node.name || `Map ${node.id}`, q)}<span style={{ color: '#999' }}>({highlightMatch(dn, q)})</span></>
-        : highlightMatch(node.name || `Map ${node.id}`, q)
-      }
-    </>
-  ) : null;
-
-  return (
-    <>
-      <div
-        className={`map-tree-node${isSelected ? ' selected' : ''}${isMultiSelected && !isSelected ? ' multi-selected' : ''}${isDraggingThis ? ' map-tree-dragging' : ''}${node.isFolder ? ' map-tree-folder-node' : ''}`}
-        data-drag-over={overPos ?? undefined}
-        style={{ paddingLeft: 8 + depth * 16 }}
-        draggable
-        onClick={handleClick}
-        onDoubleClick={() => !isEditingThis && onDoubleClick(node.id)}
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node.id, node.isFolder ?? false); }}
-        onDragStart={(e) => { e.stopPropagation(); onDragStart(node.id); }}
-        onDragOver={handleDragOver}
-        onDragEnd={onDragEnd}
-        onDrop={handleDrop}
-      >
-        <span
-          className="map-tree-toggle"
-          onClick={(e) => { e.stopPropagation(); if (hasChildren || node.isFolder) onToggle(node.id); }}
-        >
-          {node.isFolder
-            ? (isCollapsed ? '▶' : '▼')
-            : (hasChildren ? (isCollapsed ? '▶' : '▼') : '')}
-        </span>
-        {node.isFolder && (
-          <span className="map-tree-folder-icon">{isCollapsed ? '📁' : '📂'}</span>
-        )}
-        <span className="map-tree-label">
-          {node.isFolder ? folderLabel : mapLabel}
-        </span>
-        {badges && badges.map((badge) => (
-          <span key={badge} className="map-tree-badge" title={badge}>{badge}</span>
-        ))}
-      </div>
-      {!isCollapsed &&
-        node.children.map((child) => (
-          <TreeNode
-            key={child.id}
-            node={child}
-            depth={depth + 1}
-            selectedId={selectedId}
-            selectedDisplayName={selectedDisplayName}
-            filterQuery={filterQuery}
-            onSelect={onSelect}
-            onDoubleClick={onDoubleClick}
-            onFolderToggle={onFolderToggle}
-            collapsed={collapsed}
-            onToggle={onToggle}
-            onContextMenu={onContextMenu}
-            startPositions={startPositions}
-            multiSelectedIds={multiSelectedIds}
-            draggingIds={draggingIds}
-            dragOverInfo={dragOverInfo}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDragEnd={onDragEnd}
-            onDrop={onDrop}
-            editingFolderId={editingFolderId}
-            editingFolderName={editingFolderName}
-            onEditChange={onEditChange}
-            onEditCommit={onEditCommit}
-            onEditCancel={onEditCancel}
-          />
-        ))
-      }
-    </>
-  );
-}
-
-// ── MapTree ───────────────────────────────────────────────────────────────────
 
 export default function MapTree() {
   const { t } = useTranslation();
@@ -367,6 +30,9 @@ export default function MapTree() {
   const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
   const renameMap = useEditorStore((s) => s.renameMap);
   const systemData = useEditorStore((s) => s.systemData);
+  const loadMaps = useEditorStore((s) => s.loadMaps);
+  const projectName = useEditorStore((s) => s.projectName);
+
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
@@ -374,7 +40,7 @@ export default function MapTree() {
   const [newMapParentId, setNewMapParentId] = useState<number | null>(null);
   const [filterQuery, setFilterQuery] = useState('');
   const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
-  const loadMaps = useEditorStore((s) => s.loadMaps);
+  const [rootCollapsed, setRootCollapsed] = useState(false);
 
   // Folder inline edit state
   const [editingFolderId, setEditingFolderId] = useState<number | null>(null);
@@ -412,9 +78,6 @@ export default function MapTree() {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  const handleFolderToggle = handleToggle;
-
-  // 선택 처리
   const handleSelect = useCallback((id: number, e: React.MouseEvent) => {
     const mapInfo = maps.find(m => m?.id === id);
     const isFolder = mapInfo?.isFolder ?? false;
@@ -635,9 +298,6 @@ export default function MapTree() {
     }
   }, [maps, updateMapInfos, flatOrder]);
 
-  const projectName = useEditorStore((s) => s.projectName);
-  const [rootCollapsed, setRootCollapsed] = useState(false);
-
   if (!maps || maps.length === 0) {
     return (
       <div
@@ -714,7 +374,7 @@ export default function MapTree() {
               filterQuery={filterQuery}
               onSelect={handleSelect}
               onDoubleClick={handleDoubleClick}
-              onFolderToggle={handleFolderToggle}
+              onFolderToggle={handleToggle}
               collapsed={filterQuery ? {} : collapsed}
               onToggle={handleToggle}
               onContextMenu={handleContextMenu}
@@ -759,7 +419,6 @@ export default function MapTree() {
 
       {contextMenu && (
         <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
-          {/* 새 폴더 / 새 맵은 항상 표시 */}
           <div className="context-menu-item" onClick={handleNewFolder}>
             {t('mapTree.newFolder', '새 폴더')}
           </div>
