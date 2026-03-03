@@ -2,18 +2,17 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import useEscClose from '../../hooks/useEscClose';
-import type { RPGEvent, EventPage, MinimapMarkerData, MinimapMarkerShape } from '../../types/rpgMakerMV';
-import IconPicker from '../common/IconPicker';
+import type { RPGEvent, EventPage, MinimapMarkerData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
-import type { WaypointSession, WaypointPos } from '../../utils/astar';
-import { findNearestReachableTile } from '../../utils/astar';
-import { emitWaypointSessionChange, pushWaypointHistory } from '../MapEditor/useWaypointMode';
-import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ExtBadge from '../common/ExtBadge';
 import HelpButton from '../common/HelpButton';
 import { useEventEditor } from './useEventEditor';
+import { useDialogDrag } from './useDialogDrag';
+import EventMinimapMarkerPanel from './EventMinimapMarkerPanel';
+import EventConditionsPanel from './EventConditionsPanel';
+import { useWaypointSession } from './useWaypointSession';
 import './EventEditor.css';
 
 interface EventDetailProps {
@@ -61,23 +60,17 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
   const TRIGGER_TYPES = useMemo(() => [0, 1, 2, 3, 4].map(i => t(`eventDetail.triggerTypes.${i}`)), [t]);
 
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [dialogPos, setDialogPos] = useState<{ x: number; y: number } | null>(null);
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const { dialogPos, handleTitleMouseDown } = useDialogDrag(dialogRef);
 
-  const handleTitleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    const el = dialogRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: rect.left, origY: rect.top };
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      setDialogPos({ x: dragRef.current.origX + ev.clientX - dragRef.current.startX, y: dragRef.current.origY + ev.clientY - dragRef.current.startY });
-    };
-    const handleMouseUp = () => { dragRef.current = null; document.removeEventListener('mousemove', handleMouseMove); document.removeEventListener('mouseup', handleMouseUp); };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, []);
+  const { handleWaypointMode } = useWaypointSession({
+    event: event!,
+    activePage,
+    resolvedEventId,
+    page,
+    updatePage,
+    setShowMoveRoute,
+    handleOk,
+  });
 
   if (!editEvent) {
     return (
@@ -123,46 +116,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
               <ExtBadge inline />
             </label>
           </label>
-          <div className="event-editor-name-label event-editor-minimap-label">
-            미니맵:
-            <label className="event-editor-npc-show-check">
-              <input type="checkbox" checked={minimapMarker?.enabled ?? false} onChange={e => {
-                setMinimapMarker(prev => e.target.checked
-                  ? { enabled: true, color: prev?.color ?? '#ffcc00', shape: prev?.shape ?? 'circle', iconIndex: prev?.iconIndex }
-                  : prev ? { ...prev, enabled: false } : null);
-              }} />
-              표시
-              <ExtBadge inline />
-            </label>
-            {minimapMarker?.enabled && (<>
-              <input type="color" value={minimapMarker.color} title="마커 색상"
-                style={{ width: 28, height: 20, padding: 1, cursor: 'pointer', border: '1px solid #555' }}
-                onChange={e => setMinimapMarker(prev => prev ? { ...prev, color: e.target.value } : null)} />
-              <select value={minimapMarker.iconIndex !== undefined ? '__icon__' : (minimapMarker.shape ?? 'circle')}
-                className="event-editor-input" style={{ width: 90 }}
-                onChange={e => {
-                  const v = e.target.value;
-                  if (v === '__icon__') {
-                    setMinimapMarker(prev => prev ? { ...prev, iconIndex: prev.iconIndex ?? 0 } : null);
-                  } else {
-                    setMinimapMarker(prev => prev ? { ...prev, shape: v as MinimapMarkerShape, iconIndex: undefined } : null);
-                  }
-                }}>
-                <option value="circle">원형</option>
-                <option value="square">사각형</option>
-                <option value="diamond">다이아몬드</option>
-                <option value="star">별</option>
-                <option value="triangle">삼각형</option>
-                <option value="cross">십자</option>
-                <option value="heart">하트</option>
-                <option value="__icon__">아이콘</option>
-              </select>
-              {minimapMarker.iconIndex !== undefined && (
-                <IconPicker value={minimapMarker.iconIndex}
-                  onChange={idx => setMinimapMarker(prev => prev ? { ...prev, iconIndex: idx } : null)} />
-              )}
-            </>)}
-          </div>
+          <EventMinimapMarkerPanel minimapMarker={minimapMarker} setMinimapMarker={setMinimapMarker} />
         </div>
 
         <div className="event-editor-pagebar">
@@ -184,37 +138,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
         {page && (
           <div className="event-editor-body">
             <div className="event-editor-left">
-              <fieldset className="event-editor-fieldset">
-                <legend>{t('fields.conditions')}</legend>
-                <div className="event-editor-condition-row">
-                  <label className="event-editor-cond-label"><input type="checkbox" checked={page.conditions.switch1Valid} onChange={e => updateConditions({ switch1Valid: e.target.checked })} />{t('eventDetail.conditionSwitch1')}</label>
-                  <VariableSwitchPicker type="switch" value={page.conditions.switch1Id} onChange={id => updateConditions({ switch1Id: id })} disabled={!page.conditions.switch1Valid} style={{ flex: 1 }} />
-                </div>
-                <div className="event-editor-condition-row">
-                  <label className="event-editor-cond-label"><input type="checkbox" checked={page.conditions.switch2Valid} onChange={e => updateConditions({ switch2Valid: e.target.checked })} />{t('eventDetail.conditionSwitch2')}</label>
-                  <VariableSwitchPicker type="switch" value={page.conditions.switch2Id} onChange={id => updateConditions({ switch2Id: id })} disabled={!page.conditions.switch2Valid} style={{ flex: 1 }} />
-                </div>
-                <div className="event-editor-condition-row">
-                  <label className="event-editor-cond-label"><input type="checkbox" checked={page.conditions.variableValid} onChange={e => updateConditions({ variableValid: e.target.checked })} />{t('eventDetail.conditionVariable')}</label>
-                  <VariableSwitchPicker type="variable" value={page.conditions.variableId} onChange={id => updateConditions({ variableId: id })} disabled={!page.conditions.variableValid} style={{ flex: 1 }} />
-                  <span className="event-editor-cond-op">&ge;</span>
-                  <input type="number" value={page.conditions.variableValue} onChange={e => updateConditions({ variableValue: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" disabled={!page.conditions.variableValid} />
-                </div>
-                <div className="event-editor-condition-row">
-                  <label className="event-editor-cond-label"><input type="checkbox" checked={page.conditions.selfSwitchValid} onChange={e => updateConditions({ selfSwitchValid: e.target.checked })} />{t('eventDetail.conditionSelfSwitch')}</label>
-                  <select value={page.conditions.selfSwitchCh} onChange={e => updateConditions({ selfSwitchCh: e.target.value })} className="event-editor-select" disabled={!page.conditions.selfSwitchValid}>
-                    {['A', 'B', 'C', 'D'].map(ch => <option key={ch} value={ch}>{ch}</option>)}
-                  </select>
-                </div>
-                <div className="event-editor-condition-row">
-                  <label className="event-editor-cond-label"><input type="checkbox" checked={page.conditions.itemValid} onChange={e => updateConditions({ itemValid: e.target.checked })} />{t('eventDetail.conditionItem')}</label>
-                  <input type="number" value={page.conditions.itemId} onChange={e => updateConditions({ itemId: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" disabled={!page.conditions.itemValid} />
-                </div>
-                <div className="event-editor-condition-row">
-                  <label className="event-editor-cond-label"><input type="checkbox" checked={page.conditions.actorValid} onChange={e => updateConditions({ actorValid: e.target.checked })} />{t('eventDetail.conditionActor')}</label>
-                  <input type="number" value={page.conditions.actorId} onChange={e => updateConditions({ actorId: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" disabled={!page.conditions.actorValid} />
-                </div>
-              </fieldset>
+              <EventConditionsPanel conditions={page.conditions} updateConditions={updateConditions} />
 
               <div className="event-editor-hrow">
                 <fieldset className="event-editor-fieldset event-editor-fieldset-half">
@@ -357,64 +281,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
           <MoveRouteDialog moveRoute={page.moveRoute}
             onOk={route => { updatePage(activePage, { moveRoute: route }); setShowMoveRoute(false); }}
             onCancel={() => setShowMoveRoute(false)}
-            onWaypointMode={(charId) => {
-              // 이벤트 주변 가장 가까운 빈 공간을 초기 목적지로 자동 설정
-              const mapState = useEditorStore.getState();
-              const mapData = mapState.currentMap;
-              const tf = mapState.tilesetInfo;
-              const initialWaypoints: WaypointPos[] = [];
-              if (mapData && tf) {
-                const nearby = findNearestReachableTile(
-                  event.x, event.y,
-                  mapData.data, mapData.width, mapData.height, tf.flags,
-                );
-                if (nearby) {
-                  initialWaypoints.push({ id: crypto.randomUUID(), x: nearby.x, y: nearby.y });
-                }
-              }
-              const session: WaypointSession = {
-                eventId: event.id,
-                routeKey: `auto_p${activePage}`,
-                type: 'autonomous',
-                pageIndex: activePage,
-                characterId: charId,
-                startX: event.x,
-                startY: event.y,
-                waypoints: initialWaypoints,
-                allowDiagonal: false,
-                avoidEvents: false,
-                ignorePassability: false,
-                onConfirm: (commands) => {
-                  const route = {
-                    list: [...commands, { code: 0 }],
-                    repeat: page.moveRoute?.repeat ?? false,
-                    skippable: page.moveRoute?.skippable ?? false,
-                    wait: page.moveRoute?.wait ?? true,
-                  };
-                  // 컴포넌트가 이미 언마운트된 상태이므로 스토어를 직접 업데이트
-                  const st = useEditorStore.getState();
-                  if (!st.currentMap) return;
-                  const evs = [...(st.currentMap.events || [])];
-                  const evIdx = evs.findIndex(e => e && e.id === resolvedEventId);
-                  if (evIdx >= 0 && evs[evIdx]) {
-                    const evCopy = { ...evs[evIdx]! };
-                    const pagesCopy = [...evCopy.pages];
-                    pagesCopy[activePage] = { ...pagesCopy[activePage], moveRoute: route };
-                    evCopy.pages = pagesCopy;
-                    evs[evIdx] = evCopy;
-                    useEditorStore.setState({
-                      currentMap: { ...st.currentMap, events: evs } as any,
-                    });
-                  }
-                },
-              };
-              (window as any)._editorWaypointSession = session;
-              pushWaypointHistory(session); // 초기 상태 스냅샷 (undo로 빈 상태로 복원 가능)
-              emitWaypointSessionChange();
-              setShowMoveRoute(false);
-              // 이벤트 에디터 저장 후 닫기
-              handleOk();
-            }}
+            onWaypointMode={handleWaypointMode}
           />
         )}
       </div>

@@ -10,52 +10,12 @@ import {
   DirectPositionInputs, VariablePositionInputs, PresetPositionInputs,
 } from './pictureEditorCommon';
 import { selectStyle } from './messageEditors';
+import type { FromState } from './movePictureTypes';
+import { MovePictureFromPanel } from './MovePictureFromPanel';
 import './ShowChoicesEditor.css';
 
 // MovePicture(232) parameters:
 // [번호, (unused), 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법, 지속시간, 완료까지대기, 프리셋데이터?, 이동모드?, 셰이더트랜지션?]
-
-interface FromState {
-  origin: number;
-  positionType: number;
-  posX: number;
-  posY: number;
-  presetX: number;
-  presetY: number;
-  presetOffsetX: number;
-  presetOffsetY: number;
-  scaleWidth: number;
-  scaleHeight: number;
-  opacity: number;
-}
-
-function HelpPopup({ pos, onClose }: { pos: { top: number; left: number }; onClose: () => void }) {
-  return (
-    <div style={{
-      position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999,
-      background: '#1a2535', border: '1px solid #4a7aaa', borderRadius: 8,
-      padding: '12px 16px', fontSize: 12, color: '#ccc', lineHeight: 1.7,
-      maxWidth: 320, boxShadow: '0 6px 24px rgba(0,0,0,0.6)',
-    }}>
-      <div style={{ fontWeight: 'bold', color: '#9cf', marginBottom: 8, fontSize: 13 }}>이동 시작 위치란?</div>
-      <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <li>현재 이벤트에서 같은 그림 번호의 <b>[그림 표시]</b> / <b>[그림 이동]</b> 커맨드 목록입니다.</li>
-        <li>위치·배율·투명도 값이 동일한 커맨드는 하나로 묶어 표시하며, 가장 최근 커맨드가 자동으로 선택됩니다.</li>
-        <li>선택하면 해당 커맨드의 설정값이 시작 위치에 자동으로 입력됩니다.</li>
-      </ul>
-      <div style={{ marginTop: 10, padding: '8px 10px', background: '#2a1a1a', border: '1px solid #7a4a3a', borderRadius: 4, color: '#fa9', fontSize: 11, lineHeight: 1.6 }}>
-        ⚠ 프리뷰의 반투명 이미지는 참고용 예시일 뿐입니다.<br />
-        실제 게임에서 그림이 반드시 이 위치에서 시작하는 것은 아닙니다.
-      </div>
-      <div style={{ textAlign: 'right', marginTop: 10 }}>
-        <button onClick={onClose}
-          style={{ fontSize: 11, padding: '2px 14px', background: '#2a3a5a', border: '1px solid #4a6a9a', borderRadius: 3, color: '#9cf', cursor: 'pointer' }}>
-          닫기
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export function MovePictureEditorDialog({ p, commandIndex, pageIndex, onOk, onCancel }: {
   p: unknown[]; commandIndex?: number; pageIndex?: number; onOk: (params: unknown[]) => void; onCancel: () => void;
@@ -173,7 +133,6 @@ export function MovePictureEditorDialog({ p, commandIndex, pageIndex, onOk, onCa
 
   // 시작 위치 도움말 팝업
   const [showFromHelp, setShowFromHelp] = useState(false);
-  const helpBtnRef = useRef<HTMLButtonElement>(null);
   const [helpPos, setHelpPos] = useState({ top: 0, left: 0 });
 
   // 프리뷰 분리선 드래그
@@ -429,113 +388,22 @@ export function MovePictureEditorDialog({ p, commandIndex, pageIndex, onOk, onCa
 
             {/* 이동 시작 위치 */}
             <div style={{ marginTop: 8, overflow: 'auto' }}>
-              <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-                <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>
-                  이동 시작 위치
-                  <button
-                    ref={helpBtnRef}
-                    onClick={() => {
-                      const r = helpBtnRef.current?.getBoundingClientRect();
-                      if (r) setHelpPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 340) });
-                      setShowFromHelp(h => !h);
-                    }}
-                    style={{ marginLeft: 6, fontSize: 11, width: 18, height: 18, borderRadius: '50%', border: '1px solid #556', background: '#2a3a4a', color: '#8ab', cursor: 'pointer', verticalAlign: 'middle', lineHeight: '16px', padding: 0 }}
-                    title="이 기능 설명 보기"
-                  >?</button>
-                </legend>
-                {pictureCommands.length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <span style={labelStyle}>커맨드:</span>
-                    <select value={selectedCmdIdx} onChange={e => applyCommandAsFrom(Number(e.target.value))}
-                      style={{ ...selectStyle, flex: 1, fontSize: 11 }}>
-                      <option value={-1}>직접 입력</option>
-                      {pictureCommands.map((cmd, i) => (
-                        <option key={i} value={i}>
-                          {cmd.code === 231 ? '[그림 표시]' : '[그림 이동]'} pg{cmd.pageIndex + 1} #{cmd.cmdIndex + 1}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {/* 위치 */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={labelStyle}>원점:</span>
-                      <label style={radioStyle}>
-                        <input type="radio" name="from-pic-origin" checked={from.origin === 0} onChange={() => setFromManual({ origin: 0 })} />
-                        왼쪽 위
-                      </label>
-                      <label style={radioStyle}>
-                        <input type="radio" name="from-pic-origin" checked={from.origin === 1} onChange={() => setFromManual({ origin: 1 })} />
-                        중앙
-                      </label>
-                    </div>
-                    <label style={radioStyle}>
-                      <input type="radio" name="from-pic-pos-type" checked={from.positionType === 0} onChange={() => setFromManual({ positionType: 0 })} />
-                      직접 지정
-                    </label>
-                    {from.positionType === 0 && (
-                      <DirectPositionInputs posX={from.posX} posY={from.posY}
-                        onPosXChange={x => setFromManual({ posX: x })}
-                        onPosYChange={y => setFromManual({ posY: y })} />
-                    )}
-                    <label style={radioStyle}>
-                      <input type="radio" name="from-pic-pos-type" checked={from.positionType === 1} onChange={() => setFromManual({ positionType: 1 })} />
-                      변수로 지정
-                    </label>
-                    {from.positionType === 1 && (
-                      <VariablePositionInputs posX={from.posX} posY={from.posY}
-                        onPosXChange={x => setFromManual({ posX: x })}
-                        onPosYChange={y => setFromManual({ posY: y })} />
-                    )}
-                    <label style={radioStyle}>
-                      <input type="radio" name="from-pic-pos-type" checked={from.positionType === 2} onChange={() => setFromManual({ positionType: 2 })} />
-                      프리셋 지정
-                    </label>
-                    {from.positionType === 2 && (
-                      <PresetPositionInputs
-                        presetX={from.presetX} presetY={from.presetY}
-                        offsetX={from.presetOffsetX} offsetY={from.presetOffsetY}
-                        onPresetXChange={v => setFromManual({ presetX: v })}
-                        onPresetYChange={v => setFromManual({ presetY: v })}
-                        onOffsetXChange={v => setFromManual({ presetOffsetX: v })}
-                        onOffsetYChange={v => setFromManual({ presetOffsetY: v })} />
-                    )}
-                  </div>
-                  {/* 배율 + 투명도 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <ScaleFields
-                      width={from.scaleWidth} height={from.scaleHeight}
-                      onWidthChange={w => setFromManual({ scaleWidth: w })}
-                      onHeightChange={h => setFromManual({ scaleHeight: h })} />
-                    <Fieldset legend="투명도">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={labelStyle}>불투명도:</span>
-                        <input type="number" min={0} max={255} value={from.opacity}
-                          onChange={e => setFromManual({ opacity: Math.max(0, Math.min(255, Number(e.target.value))) })}
-                          style={{ ...selectStyle, width: 60 }} />
-                      </div>
-                    </Fieldset>
-                  </div>
-                </div>
-
-                {/* 고스트 불투명도 슬라이더 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid #444' }}>
-                  <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>고스트 불투명도</span>
-                  <input type="range" min={0} max={1} step={0.05} value={ghostOpacity}
-                    onChange={e => handleGhostOpacity(parseFloat(e.target.value))}
-                    style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: '#aaa', width: 34, textAlign: 'right' }}>
-                    {Math.round(ghostOpacity * 100)}%
-                  </span>
-                </div>
-              </fieldset>
+              <MovePictureFromPanel
+                from={from}
+                setFromManual={setFromManual}
+                pictureCommands={pictureCommands}
+                selectedCmdIdx={selectedCmdIdx}
+                applyCommandAsFrom={applyCommandAsFrom}
+                ghostOpacity={ghostOpacity}
+                handleGhostOpacity={handleGhostOpacity}
+                showFromHelp={showFromHelp}
+                setShowFromHelp={setShowFromHelp}
+                helpPos={helpPos}
+                setHelpPos={setHelpPos}
+              />
             </div>
           </div>
         </div>
-
-        {showFromHelp && <HelpPopup pos={helpPos} onClose={() => setShowFromHelp(false)} />}
 
         <div className="image-picker-footer">
           <button className="db-btn" onClick={handleOk}>OK</button>

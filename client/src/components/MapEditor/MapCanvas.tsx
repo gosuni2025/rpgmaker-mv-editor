@@ -21,6 +21,8 @@ import { useMapScrollPersistence } from './useMapScrollPersistence';
 import TileInfoTooltip from './TileInfoTooltip';
 import Camera3DGizmo from './Camera3DGizmo';
 import RendererStats from './RendererStats';
+import CameraZoneOverlays from './CameraZoneOverlays';
+import MapResizePreview from './MapResizePreview';
 import './MapCanvas.css';
 
 
@@ -315,102 +317,22 @@ export default function MapCanvas() {
           }}
         />
         {/* Camera Zone HTML overlays (2D 모드에서만 표시 — 3D 모드는 Three.js 메쉬로 처리) */}
-        {!mode3d && editMode === 'cameraZone' && currentMap?.cameraZones && currentMap.cameraZones.map((zone) => {
-          const isSelected = selectedCameraZoneIds.includes(zone.id);
-          const isDragged = isSelected && cameraZoneMultiDragDelta;
-          const zx = (zone.x + (isDragged ? cameraZoneMultiDragDelta.dx : 0)) * TILE_SIZE_PX;
-          const zy = (zone.y + (isDragged ? cameraZoneMultiDragDelta.dy : 0)) * TILE_SIZE_PX;
-          const zw = zone.width * TILE_SIZE_PX;
-          const zh = zone.height * TILE_SIZE_PX;
-          return (
-            <React.Fragment key={zone.id}>
-              <div style={{
-                position: 'absolute', left: zx, top: zy, width: zw, height: zh,
-                background: isSelected ? 'rgba(255,136,0,0.25)' : 'rgba(34,136,255,0.15)',
-                border: `2px dashed ${isSelected ? '#ffaa44' : '#44aaff'}`,
-                boxSizing: 'border-box',
-                pointerEvents: 'none',
-                zIndex: 2,
-              }} />
-              {zone.name && (
-                <div style={{
-                  position: 'absolute',
-                  left: zx + 4,
-                  top: zy + 4,
-                  background: 'rgba(0,0,0,0.6)',
-                  color: isSelected ? '#ffaa44' : '#88ccff',
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                  padding: '2px 6px',
-                  pointerEvents: 'none',
-                  zIndex: 2,
-                  whiteSpace: 'nowrap',
-                }}>
-                  {zone.name}
-                </div>
-              )}
-            </React.Fragment>
-          );
-        })}
-        {/* Camera Zone drag/creation preview (2D 모드에서만 표시) */}
-        {!mode3d && editMode === 'cameraZone' && cameraZoneDragPreview && (
-          <div style={{
-            position: 'absolute',
-            left: cameraZoneDragPreview.x * TILE_SIZE_PX,
-            top: cameraZoneDragPreview.y * TILE_SIZE_PX,
-            width: cameraZoneDragPreview.width * TILE_SIZE_PX,
-            height: cameraZoneDragPreview.height * TILE_SIZE_PX,
-            background: 'rgba(68,255,136,0.2)',
-            border: '2px dashed #44ff88',
-            boxSizing: 'border-box',
-            pointerEvents: 'none',
-            zIndex: 2,
-          }} />
+        {!mode3d && editMode === 'cameraZone' && currentMap?.cameraZones && (
+          <CameraZoneOverlays
+            cameraZones={currentMap.cameraZones}
+            selectedCameraZoneIds={selectedCameraZoneIds}
+            cameraZoneMultiDragDelta={cameraZoneMultiDragDelta}
+            cameraZoneDragPreview={cameraZoneDragPreview}
+          />
         )}
         {/* Resize preview overlay */}
-        {resizePreview && currentMap && (() => {
-          const { dLeft, dTop, dRight, dBottom } = resizePreview;
-          const origW = resizeOrigSize.current.w;
-          const origH = resizeOrigSize.current.h;
-          const newW = origW + dRight - dLeft;
-          const newH = origH + dBottom - dTop;
-          const previewLeft = dLeft * TILE_SIZE_PX;
-          const previewTop = dTop * TILE_SIZE_PX;
-          const previewW = newW * TILE_SIZE_PX;
-          const previewH = newH * TILE_SIZE_PX;
-          return (
-            <>
-              <div style={{
-                position: 'absolute',
-                left: previewLeft,
-                top: previewTop,
-                width: previewW,
-                height: previewH,
-                border: '2px dashed #4af',
-                pointerEvents: 'none',
-                zIndex: 3,
-                boxSizing: 'border-box',
-              }} />
-              <div style={{
-                position: 'absolute',
-                left: previewLeft + previewW / 2,
-                top: previewTop - 20,
-                transform: 'translateX(-50%)',
-                background: 'rgba(0,0,0,0.7)',
-                color: '#4af',
-                padding: '2px 8px',
-                borderRadius: 3,
-                fontSize: 12,
-                fontWeight: 'bold',
-                pointerEvents: 'none',
-                zIndex: 4,
-                whiteSpace: 'nowrap',
-              }}>
-                {origW}x{origH} → {newW}x{newH}
-              </div>
-            </>
-          );
-        })()}
+        {resizePreview && currentMap && (
+          <MapResizePreview
+            resizePreview={resizePreview}
+            origW={resizeOrigSize.current.w}
+            origH={resizeOrigSize.current.h}
+          />
+        )}
       </div>
 
       {eventCtxMenu && (
