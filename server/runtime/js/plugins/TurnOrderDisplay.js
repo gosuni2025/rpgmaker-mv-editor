@@ -604,7 +604,8 @@
     //
     // curOrder 규칙:
     //   turn/action: done(반투명) + subject(active) + pending — 모두 유지
-    //   turnEnd/input/기타: [] — 모든 cur 아이콘 일괄 퇴장 트리거
+    //   turnEnd: allAlive를 done(반투명)으로 유지 (아이콘 퇴장 없음)
+    //   input/기타: AGI 기반 예측 순서 표시 (모두 pending)
     //
     // next: AGI 기반 다음 턴 예측 (항상 계산)
     // SPD UP 등으로 AGI 변경 시 next 순서 자동 반영
@@ -632,8 +633,9 @@
             curSubject = subject;
             curPending = pending;
         } else if (phase === 'turnEnd') {
-            // 턴 종료: curOrder 비움 → 모든 cur 아이콘 일괄 퇴장
-            curOrder   = [];
+            // 턴 종료: 모든 생존 배틀러를 done(반투명)으로 유지
+            // curOrder=[]로 비우면 isBusy() 중 여러 프레임 동안 done 아이콘이 퇴장됨 → 버그
+            curOrder   = allAlive.slice();
             curSubject = null;
             curPending = [];
         } else {
