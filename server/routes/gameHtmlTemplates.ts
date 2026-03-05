@@ -134,6 +134,20 @@ export function buildGameHtml(req: Request, res: Response, resolvedRuntimePath: 
   const useWebp = detectWebp();
   const cacheBustScript = `<script>window.__CACHE_BUST__={webp:${useWebp}};</script>`;
 
+  // 브라우저 autoplay 정책 우회 — 최초 사용자 interaction 시 WebAudio._context resume
+  const autoplayScript = `<script>
+        (function() {
+            function resumeAudio() {
+                if (typeof WebAudio !== 'undefined' && WebAudio._context && WebAudio._context.state === 'suspended') {
+                    WebAudio._context.resume().catch(function() {});
+                }
+            }
+            ['pointerdown', 'keydown'].forEach(function(e) {
+                document.addEventListener(e, resumeAudio, { once: true, capture: true });
+            });
+        })();
+        </script>`;
+
   res.type('html').send(`<!DOCTYPE html>
 <html>
     <head>
@@ -241,6 +255,7 @@ export function buildGameHtml(req: Request, res: Response, resolvedRuntimePath: 
         <script defer src="js/ExtendedText.js${cacheBust}"></script>
         <script defer src="js/ScriptFileRef.js${cacheBust}"></script>
         <script defer src="js/plugins.js"></script>${devScript}${startMapScript}${sessionScript}
+        ${autoplayScript}
         ${swScript}
     </body>
 </html>`);
@@ -302,6 +317,18 @@ export function buildPixiGameHtml(req: Request, res: Response): void {
         <script type="text/javascript" src="pixi_js/rpg_windows.js${cacheBust}"></script>
         <script type="text/javascript" src="pixi_js/plugins.js${cacheBust}"></script>
         ${startMapScript}
+        <script>
+        (function() {
+            function resumeAudio() {
+                if (typeof WebAudio !== 'undefined' && WebAudio._context && WebAudio._context.state === 'suspended') {
+                    WebAudio._context.resume().catch(function() {});
+                }
+            }
+            ['pointerdown', 'keydown'].forEach(function(e) {
+                document.addEventListener(e, resumeAudio, { once: true, capture: true });
+            });
+        })();
+        </script>
         <script type="text/javascript" src="pixi_js/main.js${cacheBust}"></script>
     </body>
 </html>`);

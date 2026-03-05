@@ -50,13 +50,13 @@ export function openInVSCode(projectPath: string | null, filePath?: string) {
   execFile('code', args);
 }
 
-/** Chrome을 --remote-debugging-port=9222 로 실행하여 VSCode attach 가능 상태로 만듦 */
+/** Chrome을 --remote-debugging-port=9876 로 실행하여 VSCode attach 가능 상태로 만듦 */
 export function openChromeWithDebugPort(url: string): string | null {
   const userDataDir =
     process.platform === 'win32'
       ? '%TEMP%\\chrome-rpgmaker-debug'
       : '/tmp/chrome-rpgmaker-debug';
-  const args = ['--remote-debugging-port=9222', `--user-data-dir=${userDataDir}`, url];
+  const args = ['--remote-debugging-port=9876', `--user-data-dir=${userDataDir}`, url];
 
   if (process.platform === 'darwin') {
     const candidates = [

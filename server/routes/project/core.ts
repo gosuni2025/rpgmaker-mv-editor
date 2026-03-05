@@ -298,7 +298,7 @@ router.post('/setup-vscode-debug', (req: Request, res: Response) => {
         type: 'chrome',
         request: 'attach',
         name: 'RPG Maker MV 디버깅',
-        port: 9222,
+        port: 9876,
         urlFilter: 'http://localhost:*/game/*',
         pathMapping: {
           '/game/': '${workspaceFolder}/',

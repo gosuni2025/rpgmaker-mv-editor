@@ -222,7 +222,7 @@ export default function MenuBar() {
           })
             .then(r => r.json())
             .then((d) => {
-              if (d.success) showToast('Chrome(포트 9222)으로 게임 실행 — VSCode에서 F5 → "디버그 포트 연결" 선택');
+              if (d.success) showToast('Chrome(포트 9876)으로 게임 실행 — VSCode에서 F5 → "RPG Maker MV 디버깅" 선택');
               else showToast(d.error || '실행 실패', true);
             })
             .catch(() => showToast('Chrome 실행 실패', true));
