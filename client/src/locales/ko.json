@@ -82,7 +82,7 @@
     "copyPath": "프로젝트 경로 복사",
     "openVscode": "VSCode로 열기",
     "setupVscodeDebug": "VSCode 디버그 설정 생성...",
-    "debugPlaytest": "디버그 모드로 플레이테스트 (Chrome 9222)",
+    "debugPlaytest": "디버그 모드로 플레이테스트",
     "recentProjects": "최근 프로젝트",
     "noRecentProjects": "최근 프로젝트 없음",
     "projectNotFound": "프로젝트를 찾을 수 없습니다. 목록에서 제거합니다.",

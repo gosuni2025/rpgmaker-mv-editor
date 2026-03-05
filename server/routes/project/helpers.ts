@@ -77,6 +77,7 @@ export function openChromeWithDebugPort(url: string): string | null {
     process.platform === 'win32'
       ? path.join(require('os').tmpdir(), 'chrome-rpgmaker-debug')
       : '/tmp/chrome-rpgmaker-debug';
+
   const args = [
     `--remote-debugging-port=${CHROME_DEBUG_PORT}`,
     `--user-data-dir=${userDataDir}`,
@@ -85,33 +86,41 @@ export function openChromeWithDebugPort(url: string): string | null {
     url,
   ];
 
+  let chromePath: string | undefined;
   if (process.platform === 'darwin') {
     const candidates = [
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       '/Applications/Chromium.app/Contents/MacOS/Chromium',
       '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
     ];
-    const chromePath = candidates.find(p => fs.existsSync(p));
+    chromePath = candidates.find(p => fs.existsSync(p));
     if (!chromePath) return 'Chrome을 찾을 수 없습니다. Google Chrome을 설치해 주세요.';
-    spawn(chromePath, args, { detached: true, stdio: 'ignore' }).unref();
-    return null;
   } else if (process.platform === 'win32') {
-    // Windows: chrome.exe 경로 탐색
     const winCandidates = [
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
     ];
-    const chromePath = winCandidates.find(p => fs.existsSync(p));
-    if (chromePath) {
-      spawn(chromePath, args, { detached: true, stdio: 'ignore' }).unref();
-    } else {
-      exec(`start chrome ${args.join(' ')}`);
-    }
-    return null;
-  } else {
-    spawn('google-chrome', args, { detached: true, stdio: 'ignore' }).unref();
-    return null;
+    chromePath = winCandidates.find(p => fs.existsSync(p));
   }
+
+  // 같은 user-data-dir로 실행 중인 기존 Chrome을 먼저 종료한 뒤 새로 실행
+  // (기존 인스턴스가 살아있으면 --remote-debugging-port 플래그가 무시됨)
+  const killCmd = process.platform === 'win32'
+    ? `taskkill /F /FI "IMAGENAME eq chrome.exe" 2>nul`
+    : `pkill -f "chrome-rpgmaker-debug" 2>/dev/null`;
+
+  exec(killCmd, () => {
+    setTimeout(() => {
+      if (process.platform === 'win32') {
+        if (chromePath) spawn(chromePath, args, { detached: true, stdio: 'ignore' }).unref();
+        else exec(`start chrome ${args.join(' ')}`);
+      } else {
+        spawn(chromePath!, args, { detached: true, stdio: 'ignore' }).unref();
+      }
+    }, 800); // kill 후 프로세스가 완전히 종료될 시간 대기
+  });
+
+  return null;
 }
 
 export function openInTerminal(targetPath: string) {
