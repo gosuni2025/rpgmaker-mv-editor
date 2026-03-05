@@ -134,12 +134,11 @@ router.post('/open-vscode', (req: Request, res: Response) => {
     }
 
     const openPath = target.path;
-    const cmd = process.platform === 'darwin'
-      ? `open -a "Visual Studio Code" "${openPath}"`
-      : `code "${openPath}"`;
-    exec(cmd, (err) => {
-      if (err) exec(`code "${openPath}"`);
-    });
+    const projectPath = projectManager.currentPath;
+    const codeArgs = projectPath
+      ? `"${projectPath}" "${openPath}"`
+      : `"${openPath}"`;
+    exec(`code ${codeArgs}`);
     res.json({ success: true, path: openPath, type: target.type });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
