@@ -89,7 +89,9 @@
     "homepage": "ホームページ",
     "reportIssue": "問題を報告...",
     "twitter": "開発者 Twitter (X)",
-    "youtube": "開発者 YouTube"
+    "youtube": "開発者 YouTube",
+    "convertToWebp": "画像をWebPに変換...",
+    "convertToPng": "画像をPNGに復元..."
   },
   "update": {
     "title": "アップデートを確認",
@@ -1463,7 +1465,8 @@
       "done": "デプロイ完了！",
       "failed": "デプロイ失敗",
       "gameUrl": "itch.io ゲームURL",
-      "openGame": "ゲームページを開く"
+      "openGame": "ゲームページを開く",
+      "authFailed": "認証失敗 — APIキーを確認してください"
     },
     "platform": "プラットフォーム",
     "platformDesc": {
@@ -1520,6 +1523,59 @@
       "guide4": "「Netlifyへ自動デプロイ」ボタンを押すとサイトが自動作成されてデプロイされます（以降は同じサイトに更新されます）",
       "guide5": "手動アップロードの場合: 「ZIP作成」→「ドラッグ＆ドロップページ」でZIPをアップロード",
       "openSite": "マイサイトを開く"
+    },
+    "cacheBust": {
+      "title": "キャッシュバスティング",
+      "helpTitle": "キャッシュバスティングとは？",
+      "helpDesc": "デプロイしたファイルのURLにバージョン番号（?v=xxx）を付加し、ブラウザが古いキャッシュではなく常に最新ファイルをダウンロードするようにします。",
+      "helpDisabled": "無効にするとロードが速くなる場合がありますが、古いファイルがキャッシュに残り、古いデータが表示されるリスクがあります。",
+      "scripts": "スクリプト",
+      "images": "画像",
+      "audio": "オーディオ",
+      "video": "動画",
+      "data": "データ",
+      "filterUnused": "未使用アセットを除外",
+      "filterUnusedHelp": "未使用アセットを除外とは？",
+      "filterUnusedDesc1": "data/*.jsonを解析して参照されたファイル名を収集します",
+      "filterUnusedDesc2": "js/plugins/*.jsの文字列リテラルも追加でスキャンします",
+      "filterUnusedDesc3": "audio/se、audio/bgm、img/animations、img/charactersなどのアセットフォルダの未参照ファイルを除外します。img/system、js、fonts、dataフォルダは常に含まれます",
+      "filterUnusedWarn": "プラグインで変数からファイル名を組み立てている場合は検出できないことがあります。除外後にゲームが正常に動作するか必ず確認してください",
+      "filterUnusedItchio": "itch.ioはファイルが1,000個を超えるとWebプレイヤーで実行できません。ファイル数が多い場合はこのオプションを有効にしてください",
+      "convertWebp": "PNG → WebP変換",
+      "convertWebpHelp": "PNG → WebP変換とは？",
+      "convertWebpDesc1": "デプロイ時にimg/フォルダのPNGファイルをWebPロスレス形式に変換します",
+      "convertWebpDesc2": "透過を完全に保持しながらPNGと比較して約25〜35%の容量を節約します",
+      "convertWebpDesc3": "同じフォルダに同じ名前のWebPファイルがすでにある場合は変換をスキップします",
+      "convertWebpNote": "デプロイ容量とネットワークトラフィックを削減し、ロード速度を改善します。元のプロジェクトファイルは変更されません"
+    },
+    "tabGhPages": "GitHub Pages",
+    "ghPages": {
+      "howItWorks": "デプロイの動作方法",
+      "howStep1": "リモートのgh-pagesブランチをfetchし、先行するコミットがある場合はデプロイを中断します。未コミットの変更は自動的にstashされます。",
+      "howStep2": "プロジェクトリポジトリをgh-pagesブランチに切り替え（checkout -B）、index_3d.html → index.htmlを置き換えてキャッシュバスティングを適用します。",
+      "howStep3": "変更をコミットし、選択したremoteのgh-pagesブランチにpushします。その後、元のブランチに戻りstashを復元します。",
+      "indexNote": "プロジェクト元のindex.html（PIXI/RPG Maker MVネイティブ用）は変更されません。Three.jsバージョンのindex.htmlはgh-pagesブランチにのみ適用されます。",
+      "remote": "プッシュ先のgit remote",
+      "prerequisites": "前提条件",
+      "checkGhCli": "gh CLIがインストール済み",
+      "checkGitRepo": "プロジェクトがgitリポジトリ",
+      "checkRemote": "remote '{{remote}}' が存在する",
+      "ghCliMissing": "GitHub CLI（gh）がインストールされていません。https://cli.github.com からインストールしてください。",
+      "notGitRepo": "現在のプロジェクトフォルダはgitリポジトリではありません。",
+      "remoteMissing": "remote '{{remote}}' が存在しません。プロジェクトフォルダで git remote add {{remote}} <URL> を実行してください。",
+      "deploy": "GitHub Pagesにデプロイ",
+      "checking": "前提条件を確認中...",
+      "copying": "リモートの確認とブランチ切り替えの準備中",
+      "pagesSetup": "GitHub Pagesのソースブランチを設定中...",
+      "pagesSetupSkipped": "GitHub Pages自動設定をスキップ（手動設定が必要）",
+      "patching": "index.htmlを処理中（index_3d.html → index.html）...",
+      "committing": "コミット中...",
+      "pushing": "プッシュ中...",
+      "done": "デプロイ完了！",
+      "pageUrl": "GitHub Pages URL",
+      "openPage": "ページを開く ↗",
+      "commit": "コミット",
+      "settingsSaved": "保存済み"
     }
   },
   "troops": {
@@ -1782,6 +1838,33 @@
     "pp_crtNoise_jitter": "水平ジッター",
     "pp_crtNoise_noise": "ノイズ",
     "pp_crtCorner": "CRT コーナーマスク",
-    "pp_crtCorner_radius": "角丸半径"
+    "pp_crtCorner_radius": "角丸半径",
+    "fogOfWar_FogColor": "霧の色",
+    "fogOfWar_TentacleSharpness": "触手の鋭さ",
+    "fogOfWar_TentacleLength": "触手の長さ",
+    "fogOfWar_TentacleSpeed": "触手の速度"
+  },
+  "pngConvert": {
+    "title": "画像をPNGに復元",
+    "confirmDesc": "プロジェクトのimg/フォルダにあるWebPファイルと同じ名前のPNGファイルを生成します。",
+    "point1": "WebPファイルは削除されず、PNGファイルが追加で生成されます",
+    "point2": "RPG Maker MVエディターはPNGを、Webデプロイ版はWebPを引き続き使用できます",
+    "rpgmakerNote": "通常のRPG Maker MVエディターで開くにはPNGファイルが必要です。",
+    "startButton": "PNG復元を開始",
+    "done": "復元完了 ({{count}}件)"
+  },
+  "webpConvert": {
+    "title": "画像をWebPに変換",
+    "confirmDesc": "プロジェクトのimg/フォルダにあるすべてのPNGファイルをWebP（ロスレス）形式に変換します。",
+    "point1": "デプロイ容量とネットワークトラフィックが約25〜35%削減されます",
+    "point2": "透過が完全に保持されます（ロスレス圧縮）",
+    "point3": "変換後はエディターとデプロイ版の両方でWebPが使用されます",
+    "irreversible": "PNGファイルが削除されます。復元するには「画像をPNGに復元」機能を使用してください。",
+    "gitBackup": "変換前にgitでバックアップ",
+    "gitBackupDesc": "img/フォルダのPNGファイルをすべてgit addしてコミットします。後でgitで復元できます。",
+    "deletePng": "変換後にPNGファイルを削除",
+    "deletePngDesc": "WebP生成後に元のPNGを削除します。チェックしない場合、PNGとWebPが両方残ります。",
+    "startButton": "変換を開始",
+    "done": "変換完了 ({{count}}件)"
   }
 }
