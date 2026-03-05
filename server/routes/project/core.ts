@@ -251,6 +251,64 @@ router.post('/open-vscode', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// POST /api/project/open-vscode-file — 프로젝트 내 상대경로 파일을 VSCode로 열기
+router.post('/open-vscode-file', (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    return res.status(404).json({ error: 'No project open' });
+  }
+  const { relativePath } = req.body || {};
+  if (!relativePath || typeof relativePath !== 'string') {
+    return res.status(400).json({ error: 'relativePath required' });
+  }
+  const projectPath = projectManager.currentPath!;
+  const resolved = path.resolve(projectPath, relativePath);
+  // path traversal guard
+  if (!resolved.startsWith(projectPath + path.sep) && resolved !== projectPath) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  openInVSCode(projectPath, resolved);
+  res.json({ success: true });
+});
+
+// POST /api/project/setup-vscode-debug — 프로젝트에 .vscode/launch.json 생성 후 VSCode로 열기
+router.post('/setup-vscode-debug', (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    return res.status(404).json({ error: 'No project open' });
+  }
+  const projectPath = projectManager.currentPath!;
+  const vscodeDir = path.join(projectPath, '.vscode');
+  const launchPath = path.join(vscodeDir, 'launch.json');
+
+  const launchConfig = {
+    version: '0.2.0',
+    configurations: [
+      {
+        type: 'chrome',
+        request: 'launch',
+        name: 'RPG Maker MV — 게임 디버깅 (타이틀)',
+        url: 'http://localhost:5173/game/index.html?dev=true',
+        pathMapping: {
+          '/game/': '${workspaceFolder}/',
+        },
+      },
+      {
+        type: 'chrome',
+        request: 'launch',
+        name: 'RPG Maker MV — 게임 디버깅 (PIXI)',
+        url: 'http://localhost:5173/game/index_pixi.html',
+        pathMapping: {
+          '/game/': '${workspaceFolder}/',
+        },
+      },
+    ],
+  };
+
+  fs.mkdirSync(vscodeDir, { recursive: true });
+  fs.writeFileSync(launchPath, JSON.stringify(launchConfig, null, 2), 'utf8');
+  openInVSCode(projectPath, launchPath);
+  res.json({ success: true, launchPath });
+});
+
 router.get('/check-path', (req: Request, res: Response) => {
   const p = req.query.path as string;
   if (!p) return res.status(400).json({ error: 'path is required' });

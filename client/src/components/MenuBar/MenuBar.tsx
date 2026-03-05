@@ -205,6 +205,12 @@ export default function MenuBar() {
       case 'openEditorFolderTerminal': fetch('/api/project/open-editor-folder-terminal', { method: 'POST' }); break;
       case 'copyPath': if (projectPath) navigator.clipboard.writeText(projectPath); break;
       case 'openVscode': fetch('/api/project/open-vscode', { method: 'POST' }); break;
+      case 'setupVscodeDebug':
+        fetch('/api/project/setup-vscode-debug', { method: 'POST' })
+          .then(r => r.json())
+          .then((d) => showToast(d.success ? '.vscode/launch.json 생성 완료 — VSCode에서 F5로 디버깅 시작' : d.error || '실패', !d.success))
+          .catch(() => showToast('VSCode 디버그 설정 실패', true));
+        break;
       case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
       case 'deselect': window.dispatchEvent(new CustomEvent('editor-deselect')); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;

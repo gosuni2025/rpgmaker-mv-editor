@@ -79,6 +79,7 @@
     "localization": "Localization...",
     "copyPath": "Copy Project Path",
     "openVscode": "Open in VSCode",
+    "setupVscodeDebug": "Setup VSCode Debugger...",
     "recentProjects": "Recent Projects",
     "noRecentProjects": "No recent projects",
     "projectNotFound": "Project not found. Removing from list.",

@@ -200,6 +200,25 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel, initialSampleT
     };
   }, [activeTab, fileContent, fileLoading]);
 
+  // ─── debugger; 삽입 ───
+  const handleInsertDebugger = useCallback(() => {
+    const view = inlineViewRef.current;
+    if (!view) return;
+    const sel = view.state.selection.main;
+    view.dispatch({ changes: { from: sel.from, to: sel.to, insert: 'debugger;' }, selection: { anchor: sel.from + 9 } });
+    view.focus();
+  }, []);
+
+  // ─── VSCode로 파일 열기 ───
+  const handleOpenFileInVSCode = useCallback(() => {
+    if (!selectedFile) return;
+    fetch('/api/project/open-vscode-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relativePath: selectedFile }),
+    }).catch(() => {/* ignore */});
+  }, [selectedFile]);
+
   // ─── 포맷 ───
   const handleFormat = useCallback(() => {
     const view = inlineViewRef.current;
@@ -284,6 +303,14 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel, initialSampleT
             샘플 삽입
           </button>
           <button
+            className="db-btn"
+            onClick={handleInsertDebugger}
+            disabled={activeTab !== 'inline'}
+            title="커서 위치에 debugger; 삽입 (브레이크포인트)"
+          >
+            debugger;
+          </button>
+          <button
             className={`script-toolbar-tab${activeTab === 'file' ? ' active' : ''}`}
             onClick={() => setActiveTab(activeTab === 'file' ? 'inline' : 'file')}
             title="JS 파일을 참조하여 실행"
@@ -328,6 +355,14 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel, initialSampleT
                   title={selectedFile ? `${selectedFile}의 폴더 열기` : 'js 폴더 열기'}
                 >
                   폴더 열기
+                </button>
+                <button
+                  className="db-btn"
+                  onClick={handleOpenFileInVSCode}
+                  disabled={!selectedFile}
+                  title={selectedFile ? `${selectedFile}을 VSCode에서 열기` : '파일을 먼저 선택하세요'}
+                >
+                  VSCode 열기
                 </button>
               </div>
 
