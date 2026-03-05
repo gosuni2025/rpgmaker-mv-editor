@@ -215,6 +215,7 @@ export default function MenuBar() {
         const startY = testPos ? testPos.y : centerY;
         saveCurrentMap().then(() => {
           const url = `http://localhost:5173/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`;
+          showToast('Chrome 디버그 모드로 게임 시작 중...');
           fetch('/api/project/debug-playtest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -222,7 +223,7 @@ export default function MenuBar() {
           })
             .then(r => r.json())
             .then((d) => {
-              if (d.success) showToast(`Chrome(포트 ${d.port})으로 게임 실행 — VSCode에서 F5 → "RPG Maker MV 디버깅" 선택`);
+              if (d.success) showToast(`준비 완료 (포트 ${d.port}) — VSCode에서 F5 → "RPG Maker MV 디버깅" 선택`);
               else showToast(d.error || '실행 실패', true);
             })
             .catch(() => showToast('Chrome 실행 실패', true));

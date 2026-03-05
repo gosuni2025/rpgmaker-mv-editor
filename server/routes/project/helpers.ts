@@ -1,8 +1,8 @@
 import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
-import { execFile } from 'child_process';
-import { exec } from 'child_process';
+import http from 'http';
+import { execFile, exec, spawn } from 'child_process';
 
 /** Collect all files under a directory recursively, returning relative paths (always with forward slashes) */
 export function collectFiles(dir: string, base: string = dir): string[] {
@@ -52,13 +52,38 @@ export function openInVSCode(projectPath: string | null, filePath?: string) {
 
 export const CHROME_DEBUG_PORT = 9876;
 
+/** 9876 포트가 Chrome remote debugging으로 응답할 때까지 최대 timeout ms 대기 */
+export function waitForDebugPort(port: number, timeout = 10000): Promise<boolean> {
+  return new Promise(resolve => {
+    const deadline = Date.now() + timeout;
+    function tryOnce() {
+      const req = http.get({ hostname: '127.0.0.1', port, path: '/json/version', timeout: 800 }, res => {
+        res.resume();
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => {
+        if (Date.now() < deadline) setTimeout(tryOnce, 400);
+        else resolve(false);
+      });
+      req.on('timeout', () => { req.destroy(); });
+    }
+    tryOnce();
+  });
+}
+
 /** Chrome을 --remote-debugging-port=${CHROME_DEBUG_PORT} 로 실행하여 VSCode attach 가능 상태로 만듦 */
 export function openChromeWithDebugPort(url: string): string | null {
   const userDataDir =
     process.platform === 'win32'
-      ? '%TEMP%\\chrome-rpgmaker-debug'
+      ? path.join(require('os').tmpdir(), 'chrome-rpgmaker-debug')
       : '/tmp/chrome-rpgmaker-debug';
-  const args = [`--remote-debugging-port=${CHROME_DEBUG_PORT}`, `--user-data-dir=${userDataDir}`, url];
+  const args = [
+    `--remote-debugging-port=${CHROME_DEBUG_PORT}`,
+    `--user-data-dir=${userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    url,
+  ];
 
   if (process.platform === 'darwin') {
     const candidates = [
@@ -68,14 +93,22 @@ export function openChromeWithDebugPort(url: string): string | null {
     ];
     const chromePath = candidates.find(p => fs.existsSync(p));
     if (!chromePath) return 'Chrome을 찾을 수 없습니다. Google Chrome을 설치해 주세요.';
-    const { spawn } = require('child_process') as typeof import('child_process');
     spawn(chromePath, args, { detached: true, stdio: 'ignore' }).unref();
     return null;
   } else if (process.platform === 'win32') {
-    exec(`start chrome ${args.join(' ')}`);
+    // Windows: chrome.exe 경로 탐색
+    const winCandidates = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    ];
+    const chromePath = winCandidates.find(p => fs.existsSync(p));
+    if (chromePath) {
+      spawn(chromePath, args, { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      exec(`start chrome ${args.join(' ')}`);
+    }
     return null;
   } else {
-    const { spawn } = require('child_process') as typeof import('child_process');
     spawn('google-chrome', args, { detached: true, stdio: 'ignore' }).unref();
     return null;
   }

@@ -5,7 +5,7 @@ import { exec, execSync } from 'child_process';
 import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 import fileWatcher from '../../services/fileWatcher';
-import { openInExplorer, openInTerminal, openInVSCode, openChromeWithDebugPort, CHROME_DEBUG_PORT } from './helpers';
+import { openInExplorer, openInTerminal, openInVSCode, openChromeWithDebugPort, waitForDebugPort, CHROME_DEBUG_PORT } from './helpers';
 import { setupSSE, sseWrite } from './deploy';
 
 /** img/ 폴더에 .webp 파일이 하나라도 있으면 true */
@@ -251,8 +251,8 @@ router.post('/open-vscode', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-// POST /api/project/debug-playtest — Chrome을 remote-debugging-port=9222로 열어 VSCode attach 가능 상태로 게임 실행
-router.post('/debug-playtest', (req: Request, res: Response) => {
+// POST /api/project/debug-playtest — Chrome을 remote-debugging-port=CHROME_DEBUG_PORT로 열어 VSCode attach 가능 상태로 게임 실행
+router.post('/debug-playtest', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     return res.status(404).json({ error: 'No project open' });
   }
@@ -260,6 +260,14 @@ router.post('/debug-playtest', (req: Request, res: Response) => {
   const gameUrl = (url as string) || 'http://localhost:5173/game/index.html?dev=true';
   const err = openChromeWithDebugPort(gameUrl);
   if (err) return res.status(500).json({ error: err });
+
+  // Chrome이 실제로 debug port를 열 때까지 대기 (최대 10초)
+  const ready = await waitForDebugPort(CHROME_DEBUG_PORT);
+  if (!ready) {
+    return res.status(500).json({
+      error: `Chrome이 포트 ${CHROME_DEBUG_PORT}를 열지 못했습니다. Chrome이 설치되어 있는지 확인해 주세요.`,
+    });
+  }
   res.json({ success: true, port: CHROME_DEBUG_PORT });
 });
 
