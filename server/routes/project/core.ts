@@ -297,27 +297,9 @@ router.post('/setup-vscode-debug', (req: Request, res: Response) => {
       {
         type: 'chrome',
         request: 'attach',
-        name: 'RPG Maker MV — 디버그 포트 연결 (9222)',
+        name: 'RPG Maker MV 디버깅',
         port: 9222,
         urlFilter: 'http://localhost:*/game/*',
-        pathMapping: {
-          '/game/': '${workspaceFolder}/',
-        },
-      },
-      {
-        type: 'chrome',
-        request: 'launch',
-        name: 'RPG Maker MV — 게임 직접 실행 (타이틀)',
-        url: 'http://localhost:5173/game/index.html?dev=true',
-        pathMapping: {
-          '/game/': '${workspaceFolder}/',
-        },
-      },
-      {
-        type: 'chrome',
-        request: 'launch',
-        name: 'RPG Maker MV — 게임 직접 실행 (PIXI)',
-        url: 'http://localhost:5173/game/index_pixi.html',
         pathMapping: {
           '/game/': '${workspaceFolder}/',
         },
