@@ -50,7 +50,11 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
   const handleOpenInVSCode = useCallback(() => {
     if (!editEvent.__ref || !projectPath) return;
     const filePath = `${projectPath}/data/${editEvent.__ref}`;
-    window.open(`vscode://file${filePath}`);
+    fetch('/api/project/open-vscode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath }),
+    });
   }, [editEvent.__ref, projectPath]);
 
   const MOVE_TYPES = useMemo(() => [0, 1, 2, 3].map(i => t(`eventDetail.moveTypes.${i}`)), [t]);

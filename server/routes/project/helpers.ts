@@ -45,6 +45,11 @@ export function openInExplorer(targetPath: string) {
   }
 }
 
+export function openInVSCode(projectPath: string | null, filePath?: string) {
+  const args = [projectPath, filePath].filter(Boolean) as string[];
+  execFile('code', args);
+}
+
 export function openInTerminal(targetPath: string) {
   const resolved = path.resolve(targetPath);
   if (process.platform === 'darwin') {

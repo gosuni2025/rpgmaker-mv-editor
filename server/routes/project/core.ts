@@ -5,7 +5,7 @@ import { exec, execSync } from 'child_process';
 import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 import fileWatcher from '../../services/fileWatcher';
-import { openInExplorer, openInTerminal } from './helpers';
+import { openInExplorer, openInTerminal, openInVSCode } from './helpers';
 import { setupSSE, sseWrite } from './deploy';
 
 /** img/ 폴더에 .webp 파일이 하나라도 있으면 true */
@@ -236,7 +236,18 @@ router.post('/open-vscode', (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     return res.status(404).json({ error: 'No project open' });
   }
-  exec(`code "${projectManager.currentPath}"`);
+  const { filePath } = req.body || {};
+  // path traversal guard
+  if (filePath) {
+    const resolved = path.resolve(filePath as string);
+    const projectResolved = path.resolve(projectManager.currentPath!);
+    if (!resolved.startsWith(projectResolved + path.sep) && resolved !== projectResolved) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    openInVSCode(projectManager.currentPath!, resolved);
+  } else {
+    openInVSCode(projectManager.currentPath!);
+  }
   res.json({ success: true });
 });
 

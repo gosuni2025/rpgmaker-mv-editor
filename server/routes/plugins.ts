@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { exec } from 'child_process';
 import projectManager from '../services/projectManager';
+import { openInVSCode } from './project/helpers';
 import { parsePluginMetadata, type PluginMetadata } from './pluginMetadataParser';
 import {
   isDirectoryPlugin,
@@ -134,11 +135,7 @@ router.post('/open-vscode', (req: Request, res: Response) => {
     }
 
     const openPath = target.path;
-    const projectPath = projectManager.currentPath;
-    const codeArgs = projectPath
-      ? `"${projectPath}" "${openPath}"`
-      : `"${openPath}"`;
-    exec(`code ${codeArgs}`);
+    openInVSCode(projectManager.currentPath, openPath);
     res.json({ success: true, path: openPath, type: target.type });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
