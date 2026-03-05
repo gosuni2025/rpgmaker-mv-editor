@@ -150,6 +150,7 @@ export function useMenuBarMenus(state: MenuBarState): Menu[] {
         { label: t('menu.openProjectFolder'), action: 'openFolder', disabled: () => !state.hasProject || state.demoMode },
         { label: t('menu.openProjectFolderTerminal'), action: 'openProjectFolderTerminal', disabled: () => !state.hasProject || state.demoMode },
         { type: 'separator' },
+        { label: t('menu.debugPlaytest'), action: 'debugPlaytest', shortcut: 'Ctrl+D', disabled: () => !state.hasProject || state.demoMode },
         { label: t('menu.setupVscodeDebug'), action: 'setupVscodeDebug', disabled: () => !state.hasProject || state.demoMode },
         { label: t('menu.copyPath'), action: 'copyPath', disabled: () => !state.hasProject },
       ],

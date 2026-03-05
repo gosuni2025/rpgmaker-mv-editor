@@ -205,6 +205,30 @@ export default function MenuBar() {
       case 'openEditorFolderTerminal': fetch('/api/project/open-editor-folder-terminal', { method: 'POST' }); break;
       case 'copyPath': if (projectPath) navigator.clipboard.writeText(projectPath); break;
       case 'openVscode': fetch('/api/project/open-vscode', { method: 'POST' }); break;
+      case 'debugPlaytest': {
+        const state = useEditorStore.getState();
+        const mapId = state.currentMapId || 1;
+        const testPos = state.currentMap?.testStartPosition;
+        const centerX = Math.floor((state.currentMap?.width || 1) / 2);
+        const centerY = Math.floor((state.currentMap?.height || 1) / 2);
+        const startX = testPos ? testPos.x : centerX;
+        const startY = testPos ? testPos.y : centerY;
+        saveCurrentMap().then(() => {
+          const url = `http://localhost:5173/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`;
+          fetch('/api/project/debug-playtest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          })
+            .then(r => r.json())
+            .then((d) => {
+              if (d.success) showToast('Chrome(포트 9222)으로 게임 실행 — VSCode에서 F5 → "디버그 포트 연결" 선택');
+              else showToast(d.error || '실행 실패', true);
+            })
+            .catch(() => showToast('Chrome 실행 실패', true));
+        });
+        break;
+      }
       case 'setupVscodeDebug':
         fetch('/api/project/setup-vscode-debug', { method: 'POST' })
           .then(r => r.json())

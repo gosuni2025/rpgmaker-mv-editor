@@ -5,7 +5,7 @@ import { exec, execSync } from 'child_process';
 import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 import fileWatcher from '../../services/fileWatcher';
-import { openInExplorer, openInTerminal, openInVSCode } from './helpers';
+import { openInExplorer, openInTerminal, openInVSCode, openChromeWithDebugPort } from './helpers';
 import { setupSSE, sseWrite } from './deploy';
 
 /** img/ 폴더에 .webp 파일이 하나라도 있으면 true */
@@ -251,6 +251,18 @@ router.post('/open-vscode', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// POST /api/project/debug-playtest — Chrome을 remote-debugging-port=9222로 열어 VSCode attach 가능 상태로 게임 실행
+router.post('/debug-playtest', (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    return res.status(404).json({ error: 'No project open' });
+  }
+  const { url } = req.body || {};
+  const gameUrl = (url as string) || 'http://localhost:5173/game/index.html?dev=true';
+  const err = openChromeWithDebugPort(gameUrl);
+  if (err) return res.status(500).json({ error: err });
+  res.json({ success: true, port: 9222 });
+});
+
 // POST /api/project/open-vscode-file — 프로젝트 내 상대경로 파일을 VSCode로 열기
 router.post('/open-vscode-file', (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
@@ -284,8 +296,18 @@ router.post('/setup-vscode-debug', (req: Request, res: Response) => {
     configurations: [
       {
         type: 'chrome',
+        request: 'attach',
+        name: 'RPG Maker MV — 디버그 포트 연결 (9222)',
+        port: 9222,
+        urlFilter: 'http://localhost:*/game/*',
+        pathMapping: {
+          '/game/': '${workspaceFolder}/',
+        },
+      },
+      {
+        type: 'chrome',
         request: 'launch',
-        name: 'RPG Maker MV — 게임 디버깅 (타이틀)',
+        name: 'RPG Maker MV — 게임 직접 실행 (타이틀)',
         url: 'http://localhost:5173/game/index.html?dev=true',
         pathMapping: {
           '/game/': '${workspaceFolder}/',
@@ -294,7 +316,7 @@ router.post('/setup-vscode-debug', (req: Request, res: Response) => {
       {
         type: 'chrome',
         request: 'launch',
-        name: 'RPG Maker MV — 게임 디버깅 (PIXI)',
+        name: 'RPG Maker MV — 게임 직접 실행 (PIXI)',
         url: 'http://localhost:5173/game/index_pixi.html',
         pathMapping: {
           '/game/': '${workspaceFolder}/',

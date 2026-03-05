@@ -50,6 +50,35 @@ export function openInVSCode(projectPath: string | null, filePath?: string) {
   execFile('code', args);
 }
 
+/** Chrome을 --remote-debugging-port=9222 로 실행하여 VSCode attach 가능 상태로 만듦 */
+export function openChromeWithDebugPort(url: string): string | null {
+  const userDataDir =
+    process.platform === 'win32'
+      ? '%TEMP%\\chrome-rpgmaker-debug'
+      : '/tmp/chrome-rpgmaker-debug';
+  const args = ['--remote-debugging-port=9222', `--user-data-dir=${userDataDir}`, url];
+
+  if (process.platform === 'darwin') {
+    const candidates = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+    ];
+    const chromePath = candidates.find(p => fs.existsSync(p));
+    if (!chromePath) return 'Chrome을 찾을 수 없습니다. Google Chrome을 설치해 주세요.';
+    const { spawn } = require('child_process') as typeof import('child_process');
+    spawn(chromePath, args, { detached: true, stdio: 'ignore' }).unref();
+    return null;
+  } else if (process.platform === 'win32') {
+    exec(`start chrome ${args.join(' ')}`);
+    return null;
+  } else {
+    const { spawn } = require('child_process') as typeof import('child_process');
+    spawn('google-chrome', args, { detached: true, stdio: 'ignore' }).unref();
+    return null;
+  }
+}
+
 export function openInTerminal(targetPath: string) {
   const resolved = path.resolve(targetPath);
   if (process.platform === 'darwin') {
