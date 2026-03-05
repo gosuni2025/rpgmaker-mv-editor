@@ -22,13 +22,13 @@ router.get('/info', (req, res) => {
   if (hasGit) {
     // git clone 설치: 최신 커밋 날짜와 해시 반환
     try {
-      const out = execSync('git log -1 --format=%cI|||%H', {
+      const out = execSync('git log -1 --format=%cI%n%H', {
         cwd: editorRoot,
         timeout: 5000,
       })
         .toString()
         .trim();
-      const [commitDate, commitHash] = out.split('|||');
+      const [commitDate, commitHash] = out.split('\n');
       res.json({ type: 'git', version: pkgVersion, commitDate, commitHash: commitHash?.slice(0, 7) });
     } catch {
       res.json({ type: 'git', version: pkgVersion, commitDate: null, commitHash: null });
