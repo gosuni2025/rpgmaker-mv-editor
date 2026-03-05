@@ -5,7 +5,7 @@ import { exec, execSync } from 'child_process';
 import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 import fileWatcher from '../../services/fileWatcher';
-import { openInExplorer, openInTerminal, openInVSCode, openChromeWithDebugPort } from './helpers';
+import { openInExplorer, openInTerminal, openInVSCode, openChromeWithDebugPort, CHROME_DEBUG_PORT } from './helpers';
 import { setupSSE, sseWrite } from './deploy';
 
 /** img/ 폴더에 .webp 파일이 하나라도 있으면 true */
@@ -260,7 +260,7 @@ router.post('/debug-playtest', (req: Request, res: Response) => {
   const gameUrl = (url as string) || 'http://localhost:5173/game/index.html?dev=true';
   const err = openChromeWithDebugPort(gameUrl);
   if (err) return res.status(500).json({ error: err });
-  res.json({ success: true, port: 9222 });
+  res.json({ success: true, port: CHROME_DEBUG_PORT });
 });
 
 // POST /api/project/open-vscode-file — 프로젝트 내 상대경로 파일을 VSCode로 열기
@@ -298,7 +298,7 @@ router.post('/setup-vscode-debug', (req: Request, res: Response) => {
         type: 'chrome',
         request: 'attach',
         name: 'RPG Maker MV 디버깅',
-        port: 9876,
+        port: CHROME_DEBUG_PORT,
         urlFilter: 'http://localhost:*/game/*',
         pathMapping: {
           '/game/': '${workspaceFolder}/',
