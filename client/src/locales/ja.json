@@ -81,6 +81,7 @@
     "openVscode": "VSCodeで開く",
     "setupVscodeDebug": "VSCodeデバッガー設定を生成...",
     "debugPlaytest": "デバッグモードでプレイテスト",
+    "debugPlaytestWait": "デバッグ待機モードでプレイテスト",
     "recentProjects": "最近のプロジェクト",
     "noRecentProjects": "最近のプロジェクトなし",
     "projectNotFound": "プロジェクトが見つかりません。リストから削除します。",

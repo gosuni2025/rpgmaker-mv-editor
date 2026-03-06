@@ -81,6 +81,7 @@
     "openVscode": "Open in VSCode",
     "setupVscodeDebug": "Setup VSCode Debugger...",
     "debugPlaytest": "Debug Playtest",
+    "debugPlaytestWait": "Debug Playtest (Wait for Debugger)",
     "recentProjects": "Recent Projects",
     "noRecentProjects": "No recent projects",
     "projectNotFound": "Project not found. Removing from list.",

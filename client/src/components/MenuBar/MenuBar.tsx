@@ -205,7 +205,9 @@ export default function MenuBar() {
       case 'openEditorFolderTerminal': fetch('/api/project/open-editor-folder-terminal', { method: 'POST' }); break;
       case 'copyPath': if (projectPath) navigator.clipboard.writeText(projectPath); break;
       case 'openVscode': fetch('/api/project/open-vscode', { method: 'POST' }); break;
-      case 'debugPlaytest': {
+      case 'debugPlaytest':
+      case 'debugPlaytestWait': {
+        const waitMode = action === 'debugPlaytestWait';
         const state = useEditorStore.getState();
         const mapId = state.currentMapId || 1;
         const testPos = state.currentMap?.testStartPosition;
@@ -214,7 +216,8 @@ export default function MenuBar() {
         const startX = testPos ? testPos.x : centerX;
         const startY = testPos ? testPos.y : centerY;
         saveCurrentMap().then(() => {
-          const url = `http://localhost:5173/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`;
+          let url = `http://localhost:5173/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`;
+          if (waitMode) url += '&waitDebugger=true';
           showToast('Chrome 디버그 모드로 게임 시작 중...');
           fetch('/api/project/debug-playtest', {
             method: 'POST',
@@ -223,8 +226,10 @@ export default function MenuBar() {
           })
             .then(r => r.json())
             .then((d) => {
-              if (d.success) showToast(`준비 완료 (포트 ${d.port}) — VSCode에서 F5 → "RPG Maker MV 디버깅" 선택`);
-              else showToast(d.error || '실행 실패', true);
+              if (d.success) {
+                if (waitMode) showToast(`준비 완료 — VSCode에서 F5로 연결 후, Chrome의 확인 버튼을 누르세요`);
+                else showToast(`준비 완료 (포트 ${d.port}) — VSCode에서 F5 → "RPG Maker MV 디버깅" 선택`);
+              } else showToast(d.error || '실행 실패', true);
             })
             .catch(() => showToast('Chrome 실행 실패', true));
         });

@@ -28,6 +28,7 @@ export function buildGameHtml(req: Request, res: Response, resolvedRuntimePath: 
   const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
   const sessionToken = req.query.session as string | undefined;
   const testSW = req.query.testsw === '1';
+  const waitDebugger = req.query.waitDebugger === 'true';
   const cacheBust = `?v=${Date.now()}`;
 
   const devScript = isDev ? '\n        <script defer src="js/ThreeDevOverlay.js"></script>\n        <script defer src="js/CameraZoneDevOverlay.js"></script>\n        <script defer src="js/FogOfWarDevPanel.js"></script>\n        <script defer src="js/MemoryDevPanel.js"></script>\n        <script defer src="js/TileIdDevOverlay.js"></script>\n        <script defer src="js/DepthDebugPanel.js"></script>\n        <script defer src="js/RenderModeDevPanel.js"></script>' : '';
@@ -161,7 +162,8 @@ export function buildGameHtml(req: Request, res: Response, resolvedRuntimePath: 
         <title>${title} - Playtest</title>
         ${cacheBustScript}
     </head>
-    <body style="background-color: black">
+    <body style="background-color: black">${waitDebugger ? `
+        <script>alert('VSCode에서 F5를 눌러 디버거를 연결한 후, 확인을 눌러 게임을 시작하세요.');</script>` : ''}
         <script src="js/libs/three.global.min.js"></script>
         <script defer src="js/libs/fpsmeter.js"></script>
         <script defer src="js/libs/lz-string.js"></script>
