@@ -8,7 +8,7 @@ const RELEASES_PAGE = `https://github.com/${REPO}/releases`;
 const GH_RELEASES_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 const GH_COMMITS_API = `https://api.github.com/repos/${REPO}/commits?sha=main&per_page=1`;
 
-type InstallType = 'release' | 'git';
+type InstallType = 'release' | 'git' | 'demo';
 
 interface VersionInfo {
   type: InstallType;
@@ -73,7 +73,14 @@ export default function UpdateCheckDialog({ onClose }: Props) {
         if (cancelled) return;
         setVersionInfo(info);
 
-        if (info.type === 'release') {
+        if (info.type === 'demo') {
+          // 데모 버전: 업데이트 비교 없이 버전만 표시
+          setResult({
+            upToDate: true,
+            current: info.version ? `${info.version} (데모)` : '데모',
+            latest: '-',
+          });
+        } else if (info.type === 'release') {
           // GitHub 최신 릴리즈 조회
           const ghRes = await fetch(GH_RELEASES_API, {
             headers: { Accept: 'application/vnd.github+json' },

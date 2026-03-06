@@ -10,6 +10,13 @@ const editorRoot = path.join(__dirname, '..', '..');
 
 /** 현재 설치 타입과 버전 정보 반환 */
 router.get('/info', (req, res) => {
+  // 데모 모드: 업데이트 비교 없이 버전만 표시
+  if (process.env.DEMO_MODE === 'true') {
+    const version = process.env.APP_VERSION ?? '0.0.0';
+    res.json({ type: 'demo', version });
+    return;
+  }
+
   const hasGit = fs.existsSync(path.join(editorRoot, '.git'));
 
   // package.json 버전 (git/release 공통으로 포함)

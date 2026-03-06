@@ -13,6 +13,7 @@ export function useAutoUpdateCheck(onUpdateFound: () => void) {
     const timer = setTimeout(async () => {
       try {
         const info = await apiClient.get<{ type: string; version?: string; commitDate?: string }>('/version/info');
+        if (info.type === 'demo') return; // 데모 버전은 업데이트 체크 안 함
         let hasUpdate = false;
 
         if (info.type === 'release' && info.version) {
