@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Generator: 에디터 전용 캐릭터 생성기 에셋, 웹 배포에 불필요
-export const EXCLUDE_DIRS_LOWER = new Set(['save', '.git', 'node_modules', 'generator']);
+export const EXCLUDE_DIRS_LOWER = new Set(['save', '.git', 'node_modules', 'generator', 'deploy']);
 export const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'Game.rpgproject']);
 
 // ─── 미사용 에셋 필터링 ───────────────────────────────────────────────────────
