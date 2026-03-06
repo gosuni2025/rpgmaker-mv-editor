@@ -12,7 +12,7 @@
     "dev:client:wait": "wait-on -t 30000 tcp:3001 && npm run dev:client",
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npx tsc",
-    "build:electron": "npx esbuild electron/main.ts --bundle --platform=node --target=node18 --outfile=dist-electron/main.js --external:electron",
+    "build:electron": "npx esbuild electron/main.ts --bundle --platform=node --target=node18 --outfile=dist-electron/main.js --external:electron --external:sharp",
     "build": "npm run build:client && npm run build:server && npm run build:electron",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "archiver": "^7.0.1",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "sharp": "^0.34.5"
   }
 }

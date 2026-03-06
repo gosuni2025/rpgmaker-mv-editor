@@ -9,11 +9,15 @@ files:
   - dist-electron/**/*
   - server/runtime/**/*
   - client/dist/**/*
+  - node_modules/sharp/**/*
+  - node_modules/@img/**/*
   - "!**/node_modules/.cache"
 
 asar: true
 asarUnpack:
   - server/runtime/**/*
+  - node_modules/sharp/**/*
+  - node_modules/@img/**/*
 
 mac:
   category: public.app-category.developer-tools
