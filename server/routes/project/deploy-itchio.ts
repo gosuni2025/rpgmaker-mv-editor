@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import fs from 'fs';
 import https from 'https';
 import { promisify } from 'util';
 import { exec, spawn } from 'child_process';
@@ -135,6 +136,19 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     );
     const zipMs = Date.now() - tZip;
 
+    // ── itch.io 파일 크기 한도 체크 ─────────────────────────────────────────
+    const ITCHIO_LIMIT_BYTES = 1_073_741_824; // 1 GB
+    const zipSizeBytes = fs.statSync(zipPath).size;
+    const zipSizeMB = (zipSizeBytes / 1048576).toFixed(1);
+    if (zipSizeBytes > ITCHIO_LIMIT_BYTES) {
+      const overMB = ((zipSizeBytes - ITCHIO_LIMIT_BYTES) / 1048576).toFixed(0);
+      sseLog(`⚠ 경고: ZIP 크기 ${zipSizeMB} MB — itch.io 한도(1024 MB)를 ${overMB} MB 초과합니다`);
+      sseLog(`  → 미사용 에셋 제거, 오디오 압축, 이미지 WebP 변환 등을 권장합니다`);
+    } else {
+      const limitPct = ((zipSizeBytes / ITCHIO_LIMIT_BYTES) * 100).toFixed(0);
+      sseLog(`✓ ZIP 크기: ${zipSizeMB} MB / 한도 1024 MB (${limitPct}% 사용)`);
+    }
+
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');
     sseLog(`── butler push → ${project}:${resolvedChannel} ──`);
@@ -214,8 +228,11 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     const fmtMs = (ms: number) => ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 
     const itchUrl = deriveItchUrl(project.trim());
-    sseLog(`\n✓ 배포 완료! (${itchUrl})`);
-    sseLog(`── 소요 시간 (업로드 포함) ──\n  ZIP 생성: ${fmtMs(zipMs)}\n  butler 업로드: ${fmtMs(uploadMs)}\n  합계: ${fmtMs(totalMs)}`);
+    sseLog(`✓ 배포 완료! (${itchUrl})`);
+    sseLog(`── 소요 시간 (업로드 포함) ──`);
+    sseLog(`  ZIP 생성: ${fmtMs(zipMs)}`);
+    sseLog(`  butler 업로드: ${fmtMs(uploadMs)}`);
+    sseLog(`  합계: ${fmtMs(totalMs)}`);
     const currentGameId = settingsManager.get().itchio.gameId;
     sseWrite(res, { type: 'done', pageUrl: itchUrl, gameId: currentGameId || undefined });
 

@@ -30,7 +30,8 @@ export default function useDeployProgress() {
       const uploadStart = weights.copy + weights.zip;
 
       if (ev.type === 'log') {
-        setLogs(prev => [...prev, ev.message]);
+        const lines = ev.message.split('\n');
+        setLogs(prev => [...prev, ...lines]);
         return true;
       }
 

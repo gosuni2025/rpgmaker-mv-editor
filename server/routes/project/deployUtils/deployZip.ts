@@ -274,14 +274,19 @@ export async function buildDeployZipWithProgress(
     endPhase('ZIP 압축');
     onEvent({ type: 'log', message: '✓ ZIP 완료' });
 
+    // ── ZIP 크기 표시 ──
+    const zipSizeBytes = fs.statSync(zipPath).size;
+    const zipSizeMB = (zipSizeBytes / 1048576).toFixed(1);
+    const zipSizeGB = (zipSizeBytes / 1073741824).toFixed(2);
+    onEvent({ type: 'log', message: `✓ ZIP 크기: ${zipSizeMB} MB (${zipSizeGB} GB)` });
+
     // ── 단계별 소요 시간 요약 ──
     const totalMs = Date.now() - t0;
-    const lines = ['── 소요 시간 ──'];
+    onEvent({ type: 'log', message: '── 단계별 소요 시간 ──' });
     for (const p of phases) {
-      lines.push(`  ${p.name}: ${fmtMs(p.ms)}`);
+      onEvent({ type: 'log', message: `  ${p.name}: ${fmtMs(p.ms)}` });
     }
-    lines.push(`  합계: ${fmtMs(totalMs)}`);
-    onEvent({ type: 'log', message: lines.join('\n') });
+    onEvent({ type: 'log', message: `  합계: ${fmtMs(totalMs)}` });
 
     return zipPath;
   } finally {
