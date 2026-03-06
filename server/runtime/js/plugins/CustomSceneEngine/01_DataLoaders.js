@@ -1,5 +1,10 @@
   function loadJSON(url, fallback) {
     if (fallback === undefined) fallback = {};
+    var key = url.split('?')[0];
+    if (window.__RPGDATA__ && window.__RPGDATA__[key] !== undefined) {
+      var v = window.__RPGDATA__[key];
+      return v !== null ? v : fallback;
+    }
     try {
       var xhr = new XMLHttpRequest(); xhr.open('GET', url + '?_=' + Date.now(), false);
       xhr.send(); if (xhr.status === 200 || xhr.status === 0) return JSON.parse(xhr.responseText);

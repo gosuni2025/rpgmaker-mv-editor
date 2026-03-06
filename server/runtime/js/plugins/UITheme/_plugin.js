@@ -19,8 +19,10 @@
 (function () {
   'use strict';
 
-  // 동기 XHR (NW.js + 브라우저 양쪽 호환)
+  // 배포 embed 우선, 없으면 동기 XHR (NW.js + 브라우저 양쪽 호환)
   function loadJson(url) {
+    var key = url.split('?')[0];
+    if (window.__RPGDATA__ && window.__RPGDATA__[key] !== undefined) return window.__RPGDATA__[key] || {};
     try {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url + '?_=' + Date.now(), false);

@@ -7,6 +7,10 @@
 
   function loadQuestDb() {
     if (_questDb) return _questDb;
+    if (window.__RPGDATA__ && window.__RPGDATA__['data/Quests.json'] !== undefined) {
+      _questDb = window.__RPGDATA__['data/Quests.json'] || { categories: [], quests: [] };
+      return _questDb;
+    }
     try {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', 'data/Quests.json', false);

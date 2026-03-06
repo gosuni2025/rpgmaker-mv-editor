@@ -14,6 +14,53 @@ export interface CacheBustOptions {
   bundle?:       boolean;
 }
 
+// 배포 시 동기 XHR 없이 접근할 수 있도록 embed하는 data/ 파일 목록
+const EMBED_DATA_FILES = [
+  'data/UIEditorConfig.json',
+  'data/UIEditorSkins.json',
+  'data/UIEditorFonts.json',
+  'data/Quests.json',
+];
+
+/** staging의 data/ 파일들을 읽어 window.__RPGDATA__ 초기화 스크립트 생성 */
+function buildRPGDataScript(stagingDir: string): string {
+  const entries: string[] = [];
+
+  for (const rel of EMBED_DATA_FILES) {
+    const filePath = path.join(stagingDir, rel);
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8').trim();
+      JSON.parse(content); // validate
+      entries.push(`"${rel}":${content}`);
+    } catch {}
+  }
+
+  // UIScenes: _index.json + 각 씬 파일
+  const indexPath = path.join(stagingDir, 'data/UIScenes/_index.json');
+  if (fs.existsSync(indexPath)) {
+    try {
+      const indexContent = fs.readFileSync(indexPath, 'utf-8').trim();
+      const index = JSON.parse(indexContent);
+      entries.push(`"data/UIScenes/_index.json":${indexContent}`);
+      if (Array.isArray(index)) {
+        for (const id of index) {
+          const scenePath = path.join(stagingDir, `data/UIScenes/${id}.json`);
+          if (!fs.existsSync(scenePath)) continue;
+          try {
+            const sc = fs.readFileSync(scenePath, 'utf-8').trim();
+            JSON.parse(sc);
+            entries.push(`"data/UIScenes/${id}.json":${sc}`);
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+
+  if (entries.length === 0) return '';
+  return `window.__RPGDATA__={${entries.join(',')}};`;
+}
+
 /** HTML 파일에 캐시 버스팅 쿼리 및 window.__CACHE_BUST__ 주입 */
 export function applyCacheBusting(stagingDir: string, buildId: string, opts: CacheBustOptions = {}) {
   const doScripts = opts.scripts !== false;
@@ -27,6 +74,8 @@ export function applyCacheBusting(stagingDir: string, buildId: string, opts: Cac
     webp:    opts.convertWebp === true,
   });
 
+  const rpgDataScript = buildRPGDataScript(stagingDir);
+
   const htmlFiles = fs.readdirSync(stagingDir).filter((f: string) => f.endsWith('.html'));
   for (const htmlFile of htmlFiles) {
     const htmlPath = path.join(stagingDir, htmlFile);
@@ -39,9 +88,13 @@ export function applyCacheBusting(stagingDir: string, buildId: string, opts: Cac
       );
     }
 
+    const inlineScript = rpgDataScript
+      ? `window.__BUILD_ID__='${buildId}';window.__CACHE_BUST__=${cb};${rpgDataScript}`
+      : `window.__BUILD_ID__='${buildId}';window.__CACHE_BUST__=${cb};`;
+
     html = html.replace(
       '<head>',
-      `<head>\n    <script>window.__BUILD_ID__='${buildId}';window.__CACHE_BUST__=${cb};</script>`,
+      `<head>\n    <script>${inlineScript}</script>`,
     );
 
     fs.writeFileSync(htmlPath, html, 'utf-8');
