@@ -26,6 +26,32 @@ export function getGameTitle(): string {
   }
 }
 
+/** staging의 data/Map*.json에서 __ref 마커를 외부 파일로 인라인 병합 */
+function inlineEventRefs(stagingDir: string): void {
+  const dataDir = path.join(stagingDir, 'data');
+  if (!fs.existsSync(dataDir)) return;
+  for (const file of fs.readdirSync(dataDir)) {
+    if (!/^Map\d+\.json$/i.test(file)) continue;
+    const filePath = path.join(dataDir, file);
+    let data: Record<string, unknown>;
+    try { data = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch { continue; }
+    if (!Array.isArray(data.events)) continue;
+    let modified = false;
+    data.events = (data.events as Record<string, unknown>[]).map((ev) => {
+      if (!ev || !ev.__ref) return ev;
+      const refPath = path.join(dataDir, String(ev.__ref));
+      const { __ref: _r, ...rest } = ev;
+      modified = true;
+      if (!fs.existsSync(refPath)) return rest;
+      try {
+        const ext = JSON.parse(fs.readFileSync(refPath, 'utf-8'));
+        return { ...rest, note: ext.note ?? rest.note, pages: ext.pages ?? [] };
+      } catch { return rest; }
+    });
+    if (modified) fs.writeFileSync(filePath, JSON.stringify(data), 'utf-8');
+  }
+}
+
 function fmtMs(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const s = (ms / 1000).toFixed(1);
@@ -161,6 +187,9 @@ export async function buildDeployZipWithProgress(
 
     syncRuntimeFiles(stagingDir);
     endPhase('런타임 동기화');
+
+    inlineEventRefs(stagingDir);
+    endPhase('이벤트 외부파일 인라인');
 
     // WebP 여부는 원본 img/ 디렉터리에서 확인
     const srcImgDir = path.join(srcPath, 'img');
