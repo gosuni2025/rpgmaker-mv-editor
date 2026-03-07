@@ -453,6 +453,14 @@
     if (btnDef.windowed !== false && def.bgAlpha !== undefined) win.opacity = Math.round(def.bgAlpha * 255);
     this._window = win; this._displayObject = win; this._createDecoSprite(def, this._width, this._height || 52);
     this._createButtonLabel(def); this._createTransitionSprite(def);
+    // UI 터치 히트 테스터 등록 — 버튼 위 터치 시 플레이어 이동 차단
+    var self = this;
+    this._uiHitFn = function(cx, cy) {
+      var w = self._window;
+      if (!w || !w.visible || self._transitionDisabled) return false;
+      return cx >= w.x && cx < w.x + w.width && cy >= w.y && cy < w.y + w.height;
+    };
+    if (window.TouchCameraControl) window.TouchCameraControl.registerUIHit(this._uiHitFn);
   }; Widget_Button.prototype.collectFocusable = function(out) { if (this._focusable) out.push(this); };
   Widget_Button.prototype.activate = function() { if (this._window) { this._window.activate(); this._window.select(0); } };
   Widget_Button.prototype.deactivate = function() { if (this._window) { this._window.deactivate(); this._window.deselect(); } };

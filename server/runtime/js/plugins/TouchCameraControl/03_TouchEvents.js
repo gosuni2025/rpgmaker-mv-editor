@@ -62,9 +62,18 @@
             _dragState.moved  = false;
             _suppressNextDestination = false;
             _pinchState.active = false;
-            var scene = SceneManager._scene;
-            _mapTouchTriggered = !!(scene && scene.isActive && scene.isActive() &&
-                                    $gamePlayer && $gamePlayer.canMove());
+            var canvasX = Graphics.pageToCanvasX(touch.pageX);
+            var canvasY = Graphics.pageToCanvasY(touch.pageY);
+            var hitUI = window.TouchCameraControl && window.TouchCameraControl.isUIHit(canvasX, canvasY);
+            if (hitUI) {
+                // UI 버튼 위 터치 — 플레이어 이동 차단
+                _mapTouchTriggered = false;
+                TouchInput._triggered = false;  // 2D 모드: processMapTouch 방지
+            } else {
+                var scene = SceneManager._scene;
+                _mapTouchTriggered = !!(scene && scene.isActive && scene.isActive() &&
+                                        $gamePlayer && $gamePlayer.canMove());
+            }
         } else if (event.touches.length >= 2) {
             _dragState.active = false;
             _dragState.moved  = true;   // 핀치 → 이동 억제

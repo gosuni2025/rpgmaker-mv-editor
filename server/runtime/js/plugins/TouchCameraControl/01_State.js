@@ -76,3 +76,27 @@
         Mode3D._zoomScale = newZoom;
         Mode3D._currentZoom = newZoom;
     }
+
+    //=========================================================================
+    // 외부 UI 히트 테스트 API
+    // Widget_Button 등 UI 요소가 registerUIHit으로 자신의 히트 테스터를 등록.
+    // handleTouchStart에서 이를 체크하여 UI 위 터치는 플레이어 이동으로
+    // 전달되지 않도록 차단.
+    //=========================================================================
+
+    window.TouchCameraControl = {
+        _hitTesters: [],
+        registerUIHit: function(fn) {
+            if (this._hitTesters.indexOf(fn) < 0) this._hitTesters.push(fn);
+        },
+        isUIHit: function(cx, cy) {
+            for (var i = 0; i < this._hitTesters.length; i++) {
+                if (this._hitTesters[i](cx, cy)) return true;
+            }
+            return false;
+        },
+        consumeMapTouch: function() {
+            _mapTouchTriggered = false;
+        }
+    };
+
