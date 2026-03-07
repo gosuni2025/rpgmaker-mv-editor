@@ -1,5 +1,7 @@
 # RPG Maker MV Editor
 
+[English](README.en.md) | [日本語](README.ja.md)
+
 | **[에디터 데모 페이지](https://rpgmakerdemo.gosuni.com/)** (저장 안됨) | **[데모 프로젝트](https://rpgmaker-mv-claudetest.pages.dev/)** |
 |---|---|
 | [![에디터 데모](docs/screenshot-editor.png)](https://rpgmakerdemo.gosuni.com/) | [![데모 프로젝트](docs/screenshot-game.png)](https://rpgmaker-mv-claudetest.pages.dev/) |
