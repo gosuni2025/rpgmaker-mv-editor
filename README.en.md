@@ -24,18 +24,18 @@ A desktop editor for editing RPG Maker MV projects in a web browser.
 
 ## Documentation
 
-- [Editor Overview & UI Layout](docs/01-overview.md)
-- [Map Editor](docs/02-map-editor.md) — Tile editing, lighting, objects, fog
-- [3D Mode](docs/03-3d-mode.md) — Camera controls, rendering, skybox
-- [UI Editor](docs/04-ui-editor.md) — Skin system, custom scenes
-- [Plugin List](docs/05-plugins.md) — Documentation for 14 bundled plugins
-- [Event Editor](docs/06-event-editor.md) — Command editing, scripts, move routes, conditional branches
+- [Editor Overview & UI Layout](docs/en/01-overview.md)
+- [Map Editor](docs/en/02-map-editor.md) — Tile editing, lighting, objects, fog
+- [3D Mode](docs/en/03-3d-mode.md) — Camera controls, rendering, skybox
+- [UI Editor](docs/en/04-ui-editor.md) — Skin system, custom scenes
+- [Plugin List](docs/en/05-plugins.md) — Documentation for 14 bundled plugins
+- [Event Editor](docs/en/06-event-editor.md) — Command editing, scripts, move routes, conditional branches
 
 ## AI Integration (MCP)
 
 The editor has a built-in MCP (Model Context Protocol) server that allows Claude to directly operate the editor. You can request map creation, event writing, database editing, and more in natural language.
 
-**Setup guide**: [docs/mcp-setup.md](docs/mcp-setup.md)
+**Setup guide**: [docs/en/mcp-setup.md](docs/en/mcp-setup.md)
 
 ## Development
 
