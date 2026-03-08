@@ -27,7 +27,7 @@ export function getGameTitle(): string {
 }
 
 /** staging의 data/Map*.json에서 __ref 마커를 외부 파일로 인라인 병합 */
-function inlineEventRefs(stagingDir: string): void {
+export function inlineEventRefs(stagingDir: string): void {
   const dataDir = path.join(stagingDir, 'data');
   if (!fs.existsSync(dataDir)) return;
   for (const file of fs.readdirSync(dataDir)) {

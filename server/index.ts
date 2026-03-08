@@ -24,6 +24,7 @@ import projectSettingsRoutes from './routes/projectSettings';
 import versionRoutes from './routes/version';
 import uiEditorRoutes from './routes/uiEditor';
 import { createPlaytestSession, createGameRouter } from './routes/game';
+import { localPreviewState } from './routes/project/deployUtils';
 
 export interface AppOptions {
   runtimePath?: string;
@@ -42,6 +43,24 @@ export function createApp(options: AppOptions = {}) {
 
   // /game/* - 플레이테스트 라우터
   app.use('/game', createGameRouter(resolvedRuntimePath));
+
+  // /local-preview/* - 로컬 미리보기 (배포 번들 임시 서빙)
+  app.use('/local-preview', (req, res, next) => {
+    const { dir, srcPath } = localPreviewState;
+    if (!dir) return res.status(404).send('No local preview. Build one from the Deploy dialog.');
+    res.set('Cache-Control', 'no-store');
+    // img/, audio/는 원본 프로젝트에서 직접 서빙 (staging에 복사하지 않음)
+    const urlPath = req.path;
+    if (srcPath && (urlPath.startsWith('/img/') || urlPath.startsWith('/audio/'))) {
+      const filePath = path.join(srcPath, urlPath.slice(1));
+      return res.sendFile(filePath, (err) => {
+        if (err && !res.headersSent) res.status(404).send('Not found');
+      });
+    }
+    express.static(dir)(req, res, () => {
+      if (!res.headersSent) res.status(404).send('Not found');
+    });
+  });
 
   // /runtime - 에디터 클라이언트용 런타임 JS 서빙 (client/public/runtime/ 심볼릭 링크 대체)
   app.use('/runtime', (req, res, next) => {

@@ -14,6 +14,8 @@ import {
   parseCacheBustQuery,
   syncRuntimeFiles,
   getGameTitle,
+  localPreviewState,
+  buildLocalPreview,
 } from './deployUtils';
 
 // Re-export for use by deploy-ghpages.ts and deploy-itchio.ts
@@ -32,6 +34,7 @@ export {
   applyCacheBusting,
   generateBundleFiles,
   makeBuildId,
+  localPreviewState,
 } from './deployUtils';
 
 const router = express.Router();
@@ -275,6 +278,27 @@ router.put('/netlify-settings', (req: Request, res: Response) => {
   const current = settingsManager.get();
   settingsManager.update({ netlify: { ...current.netlify, apiKey: apiKey || '', siteId: siteId || '' } });
   res.json({ success: true });
+});
+
+// ─── 로컬 미리보기 빌드 (SSE) ─────────────────────────────────────────────────
+router.get('/local-preview-progress', async (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
+    return;
+  }
+  const opts = parseCacheBustQuery(req.query as Record<string, unknown>);
+  setupSSE(res);
+  try {
+    await buildLocalPreview(
+      projectManager.currentPath!,
+      opts,
+      (data) => sseWrite(res, data),
+    );
+    sseWrite(res, { type: 'done', previewUrl: '/local-preview/' });
+  } catch (err) {
+    sseWrite(res, { type: 'error', message: (err as Error).message });
+  }
+  res.end();
 });
 
 export default router;

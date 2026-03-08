@@ -9,6 +9,7 @@ import NetlifyTab from './NetlifyTab';
 import GhPagesTab from './GhPagesTab';
 import ItchioTab from './ItchioTab';
 import LocalTab from './LocalTab';
+import LocalPreviewTab from './LocalPreviewTab';
 import './DeployDialog.css';
 
 export default function DeployDialog() {
@@ -62,14 +63,13 @@ export default function DeployDialog() {
       }
     >
       <div className="deploy-tabs">
-        {(['itchio', 'netlify', 'ghpages', 'local'] as Tab[]).map((id) => (
+        {(['itchio', 'netlify', 'ghpages', 'local', 'localpreview'] as Tab[]).map((id) => (
           <button key={id} className={`deploy-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
-            {t(
-              id === 'netlify' ? 'deploy.tabNetlify' :
-              id === 'ghpages' ? 'deploy.tabGhPages' :
-              id === 'itchio' ? 'deploy.tabItchio' :
-              'deploy.tabLocal'
-            )}
+            {id === 'netlify' ? 'Netlify' :
+             id === 'ghpages' ? 'GitHub Pages' :
+             id === 'itchio' ? 'itch.io' :
+             id === 'local' ? t('deploy.tabLocal') :
+             '로컬 미리보기'}
           </button>
         ))}
       </div>
@@ -86,6 +86,9 @@ export default function DeployDialog() {
         )}
         {tab === 'local' && (
           <LocalTab cbOpts={cbOpts} syncRuntime={syncRuntime} />
+        )}
+        {tab === 'localpreview' && (
+          <LocalPreviewTab cbOpts={cbOpts} syncRuntime={syncRuntime} />
         )}
 
         <div style={{ borderTop: '1px solid #333', paddingTop: 8, marginTop: 4 }}>

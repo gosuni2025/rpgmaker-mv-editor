@@ -2,4 +2,5 @@ export { EXCLUDE_DIRS_LOWER, EXCLUDE_FILES, collectUsedAssetNames, collectFilesF
 export { syncRuntimeFiles, applyIndexHtmlRename } from './runtimeSync';
 export { CacheBustOptions, applyCacheBusting, makeBuildId, setupSSE, sseWrite, parseCacheBustQuery } from './cacheBusting';
 export { generateBundleFiles } from './bundleGen';
-export { DEPLOYS_DIR, getDeploysDir, getGameTitle, buildDeployZipWithProgress } from './deployZip';
+export { DEPLOYS_DIR, getDeploysDir, getGameTitle, buildDeployZipWithProgress, inlineEventRefs } from './deployZip';
+export { localPreviewState, buildLocalPreview } from './localPreview';
