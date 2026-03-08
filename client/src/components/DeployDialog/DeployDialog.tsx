@@ -16,7 +16,7 @@ export default function DeployDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowDeployDialog);
 
-  const [tab, setTab] = useState<Tab>('itchio');
+  const [tab, setTab] = useState<Tab>('localpreview');
   const [cbOpts, setCbOpts] = useState<CacheBustOpts>(DEFAULT_CACHE_BUST_OPTS);
 
   // 설정 초기값
@@ -63,7 +63,7 @@ export default function DeployDialog() {
       }
     >
       <div className="deploy-tabs">
-        {(['itchio', 'netlify', 'ghpages', 'local', 'localpreview'] as Tab[]).map((id) => (
+        {(['localpreview', 'itchio', 'netlify', 'ghpages', 'local'] as Tab[]).map((id) => (
           <button key={id} className={`deploy-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
             {id === 'netlify' ? 'Netlify' :
              id === 'ghpages' ? 'GitHub Pages' :
